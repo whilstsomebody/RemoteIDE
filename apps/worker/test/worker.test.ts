@@ -43,4 +43,3 @@ describe("WorkerService", () => {
     expect(worker.getStatus().processedCount).toBe(1);
   });
 });
-

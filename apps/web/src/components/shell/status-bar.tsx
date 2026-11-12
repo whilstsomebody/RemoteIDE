@@ -52,4 +52,3 @@ export const StatusBar: React.FC<StatusBarProps> = ({
     </footer>
   );
 };
-

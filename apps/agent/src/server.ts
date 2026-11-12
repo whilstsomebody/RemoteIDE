@@ -4,7 +4,11 @@ import { AgentEnvSchema, parseEnv } from "@remote-ide/shared";
 
 async function main(): Promise<void> {
   const env = parseEnv(AgentEnvSchema, process.env);
-  const { app, journal } = await buildAgentApp({
+
+  // Enforce loopback interface for Phase 1
+  const bindHost = "127.0.0.1";
+
+  const { app, journal, watcherService, workspaceService } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
   });
@@ -12,7 +16,9 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "Shutting down host agent cleanly...");
     try {
+      watcherService.stopAll();
       await app.close();
+      workspaceService.close();
       journal.close();
       app.log.info("Host agent stopped cleanly.");
       process.exit(0);
@@ -26,10 +32,13 @@ async function main(): Promise<void> {
   process.on("SIGINT", () => void shutdown("SIGINT"));
 
   try {
-    await app.listen({ port: env.PORT, host: env.HOST });
-    app.log.info(`RemoteIDE Host Agent running on http://${env.HOST}:${env.PORT}`);
-    app.log.info(`Agent Health: http://${env.HOST}:${env.PORT}/api/v1/health`);
-    app.log.info(`Agent Capabilities: http://${env.HOST}:${env.PORT}/api/v1/capabilities`);
+    await app.listen({ port: env.PORT, host: bindHost });
+    app.log.info(
+      `RemoteIDE Host Agent running strictly on http://${bindHost}:${env.PORT} (loopback only)`
+    );
+    app.log.info(`Agent Health: http://${bindHost}:${env.PORT}/api/v1/health`);
+    app.log.info(`Agent Ready: http://${bindHost}:${env.PORT}/api/v1/ready`);
+    app.log.info(`Agent Workspaces: http://${bindHost}:${env.PORT}/api/v1/workspaces`);
   } catch (err) {
     app.log.error({ err }, "Failed to start Host Agent server");
     process.exit(1);
@@ -42,4 +51,3 @@ if (process.env.NODE_ENV !== "test") {
     process.exit(1);
   });
 }
-

@@ -56,4 +56,3 @@ export function createDatabaseClient(config?: DatabaseConfig): {
 
   return { db, pool, close, checkHealth };
 }
-

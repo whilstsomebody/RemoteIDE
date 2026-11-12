@@ -7,6 +7,8 @@ export * from "./contracts/websocket.js";
 export * from "./contracts/capabilities.js";
 export * from "./contracts/events.js";
 export * from "./contracts/health.js";
+export * from "./contracts/workspace.js";
+export * from "./contracts/filesystem.js";
 
 // Utils
 export * from "./utils/id.js";
@@ -14,4 +16,3 @@ export * from "./utils/logger.js";
 
 // Config
 export * from "./config/env.js";
-

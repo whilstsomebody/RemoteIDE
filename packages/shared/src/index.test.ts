@@ -15,6 +15,9 @@ import {
   formatStructuredLog,
   GatewayEnvSchema,
   parseEnv,
+  WorkspaceSchema,
+  FileNodeSchema,
+  WriteFileDtoSchema,
 } from "./index.js";
 
 describe("@remote-ide/shared", () => {
@@ -74,6 +77,46 @@ describe("@remote-ide/shared", () => {
     });
   });
 
+  describe("Workspace and Filesystem Schemas", () => {
+    it("validates Workspace schema", () => {
+      const ws = WorkspaceSchema.parse({
+        id: "ws-1",
+        name: "Test Project",
+        folders: [{ id: "f-1", name: "root", path: "/test" }],
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        isActive: true,
+      });
+      expect(ws.name).toBe("Test Project");
+    });
+
+    it("validates recursive FileNode schema", () => {
+      const node = FileNodeSchema.parse({
+        name: "src",
+        path: "src",
+        type: "directory",
+        children: [
+          {
+            name: "index.ts",
+            path: "src/index.ts",
+            type: "file",
+            size: 100,
+          },
+        ],
+      });
+      expect(node.children?.length).toBe(1);
+    });
+
+    it("validates WriteFileDto schema with defaults", () => {
+      const dto = WriteFileDtoSchema.parse({
+        path: "readme.md",
+        content: "# Hello",
+      });
+      expect(dto.encoding).toBe("utf-8");
+      expect(dto.createParents).toBe(true);
+    });
+  });
+
   describe("Config validation", () => {
     it("parses valid env with defaults", () => {
       const parsed = parseEnv(GatewayEnvSchema, {
@@ -85,4 +128,3 @@ describe("@remote-ide/shared", () => {
     });
   });
 });
-

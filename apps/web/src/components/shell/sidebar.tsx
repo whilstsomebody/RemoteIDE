@@ -2,29 +2,56 @@
 
 import React from "react";
 import { ActivityTab } from "./activity-bar";
-import { FolderGit2, HardDrive, ShieldCheck, Cpu } from "lucide-react";
+import { HardDrive, ShieldCheck, Cpu } from "lucide-react";
 import { Badge } from "@remote-ide/ui";
+import { Workspace, FileNode } from "@remote-ide/shared";
+import { WorkspaceManager } from "../workspace/workspace-manager";
+import { FileTree } from "../workspace/file-tree";
 
 export interface SidebarProps {
   activeTab: ActivityTab | null;
   onClose?: () => void;
   hostStatus?: string;
-  allowedRoot?: string;
+  hostId?: string;
+  hostName?: string;
+  platform?: string;
+  workspaces: Workspace[];
+  activeWorkspace: Workspace | null;
+  files: FileNode[];
+  selectedPath: string | null;
+  onSelectWorkspace: (id: string) => void;
+  onRegisterWorkspace: (name: string, path: string) => Promise<void>;
+  onRemoveWorkspace: (id: string) => Promise<void>;
+  onSelectFile: (path: string) => void;
+  onRefreshFiles: () => void;
+  onDeleteFile?: (path: string) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
   hostStatus = "ready",
-  allowedRoot = "/workspace",
+  hostId = "local-host-agent",
+  hostName = "Local Host",
+  platform = "macOS",
+  workspaces,
+  activeWorkspace,
+  files,
+  selectedPath,
+  onSelectWorkspace,
+  onRegisterWorkspace,
+  onRemoveWorkspace,
+  onSelectFile,
+  onRefreshFiles,
+  onDeleteFile,
 }) => {
   if (!activeTab) return null;
 
   return (
-    <aside className="w-64 bg-ide-sidebar border-r border-ide-border flex flex-col h-full text-xs select-none shrink-0 transition-all">
+    <aside className="w-72 bg-ide-sidebar border-r border-ide-border flex flex-col h-full text-xs select-none shrink-0 transition-all">
       <div className="h-9 px-3 border-b border-ide-border flex items-center justify-between text-zinc-300 font-semibold uppercase tracking-wider text-[11px]">
         <span>
           {activeTab === "files"
-            ? "Explorer"
+            ? "Explorer & Workspaces"
             : activeTab === "terminal"
               ? "Terminals"
               : activeTab === "agent"
@@ -35,17 +62,29 @@ export const Sidebar: React.FC<SidebarProps> = ({
 
       <div className="flex-1 overflow-y-auto p-3 text-zinc-400">
         {activeTab === "files" && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-zinc-300 font-medium">
-              <FolderGit2 className="w-4 h-4 text-indigo-400" />
-              <span>Project Root</span>
-            </div>
-            <div className="bg-zinc-950/80 p-2 rounded border border-zinc-800 text-[11px] font-mono break-all text-zinc-400">
-              {allowedRoot}
-            </div>
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
-              Filesystem tree and operations will be mounted through the host agent in Phase 1.
-            </p>
+          <div className="flex flex-col gap-4 h-full">
+            <WorkspaceManager
+              workspaces={workspaces}
+              activeWorkspace={activeWorkspace}
+              onSelectWorkspace={onSelectWorkspace}
+              onRegisterWorkspace={onRegisterWorkspace}
+              onRemoveWorkspace={onRemoveWorkspace}
+              hostId={hostId}
+              hostName={hostName}
+              platform={platform}
+            />
+
+            {activeWorkspace && (
+              <div className="flex-1 border-t border-zinc-800/80 pt-2 min-h-[220px]">
+                <FileTree
+                  nodes={files}
+                  selectedPath={selectedPath}
+                  onSelectFile={onSelectFile}
+                  onRefresh={onRefreshFiles}
+                  onDeleteFile={onDeleteFile}
+                />
+              </div>
+            )}
           </div>
         )}
 
@@ -74,16 +113,26 @@ export const Sidebar: React.FC<SidebarProps> = ({
             </div>
             <div className="bg-zinc-950/80 p-2.5 rounded border border-zinc-800 space-y-1.5 text-[11px]">
               <div className="flex justify-between">
-                <span className="text-zinc-500">Authority:</span>
-                <span className="text-zinc-200">Local Host</span>
+                <span className="text-zinc-500">Host ID:</span>
+                <span className="text-zinc-200 font-mono text-[10px] truncate max-w-[140px]">
+                  {hostId}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Platform:</span>
+                <span className="text-zinc-200">{platform}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-zinc-500">Interface:</span>
+                <span className="text-emerald-400">127.0.0.1 (Loopback)</span>
               </div>
               <div className="flex justify-between">
                 <span className="text-zinc-500">Journal:</span>
                 <span className="text-emerald-400">SQLite Active</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Security:</span>
-                <span className="text-zinc-200">Enforced</span>
+                <span className="text-zinc-500">Filesystem:</span>
+                <span className="text-zinc-200">Enforced Jails</span>
               </div>
             </div>
           </div>
@@ -96,8 +145,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               <span>Security & Preferences</span>
             </div>
             <p className="text-[11px] text-zinc-500">
-              RemoteIDE strictly isolates the host machine. All operations require authenticated
-              session tokens.
+              RemoteIDE strictly isolates the host machine. Path traversal and symlink escapes are
+              actively blocked.
             </p>
           </div>
         )}

@@ -16,4 +16,3 @@ describe("@remote-ide/ui", () => {
     expect(className).toBe("p-2");
   });
 });
-

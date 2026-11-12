@@ -98,4 +98,3 @@ pnpm typecheck
 ```
 
 For full setup documentation, see [docs/SETUP.md](file:///Users/aman/Documents/Project/RemoteIDE/docs/SETUP.md) and [docs/architecture/ARCHITECTURE.md](file:///Users/aman/Documents/Project/RemoteIDE/docs/architecture/ARCHITECTURE.md).
-

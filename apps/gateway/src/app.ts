@@ -43,4 +43,3 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
 
   return app;
 }
-

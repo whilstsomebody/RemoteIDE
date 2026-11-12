@@ -45,4 +45,3 @@ export function formatStructuredLog(
   };
   return JSON.stringify(entry);
 }
-

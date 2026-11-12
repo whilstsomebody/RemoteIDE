@@ -1,1 +1,0 @@
-{"root":["./src/index.ts","./src/config/env.ts","./src/contracts/capabilities.ts","./src/contracts/envelope.ts","./src/contracts/events.ts","./src/contracts/health.ts","./src/contracts/websocket.ts","./src/errors/app-error.ts","./src/utils/id.ts","./src/utils/logger.ts"],"version":"5.9.3"}

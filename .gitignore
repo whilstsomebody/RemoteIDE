@@ -12,6 +12,7 @@ lerna-debug.log*
 out/
 build/
 dist/
+*.tsbuildinfo
 
 # Turborepo
 .turbo/

@@ -75,4 +75,3 @@ describe("Gateway HTTP & WebSocket Service", () => {
     expect(body.error.requestId).toBeDefined();
   });
 });
-

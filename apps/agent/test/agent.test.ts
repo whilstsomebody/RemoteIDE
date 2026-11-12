@@ -1,51 +1,42 @@
 import { describe, it, expect, beforeAll, afterAll } from "vitest";
-import { buildAgentApp } from "../src/app.js";
-import { FastifyInstance } from "fastify";
-import { HostLocalJournal } from "../src/journal/sqlite-journal.js";
+import { buildAgentApp, AgentContext } from "../src/app.js";
 
 describe("Agent Service & SQLite Journal", () => {
-  let app: FastifyInstance;
-  let journal: HostLocalJournal;
+  let context: AgentContext;
 
   beforeAll(async () => {
-    const res = await buildAgentApp({ logger: false, journalPath: ":memory:" });
-    app = res.app;
-    journal = res.journal;
-    await app.ready();
+    context = await buildAgentApp({ logger: false, journalPath: ":memory:" });
+    await context.app.ready();
   });
 
   afterAll(async () => {
-    await app.close();
-    journal.close();
+    context.watcherService.stopAll();
+    await context.app.close();
+    context.workspaceService.close();
+    context.journal.close();
   });
 
   describe("HostLocalJournal", () => {
     it("records operations and retrieves recent entries", () => {
-      journal.record({
-        operation: "fs:read",
-        target: "/workspace/package.json",
-        status: "success",
-        metadata: { bytes: 1024 },
-      });
+      context.journal.recordChange("ws-test", "package.json", "update", "v1", { bytes: 1024 });
 
-      const entries = journal.getRecentEntries(5);
+      const entries = context.journal.getWorkspaceEntries("ws-test", 5);
       expect(entries.length).toBeGreaterThanOrEqual(1);
       const latest = entries[0];
-      expect(latest?.operation).toBe("fs:read");
-      expect(latest?.target).toBe("/workspace/package.json");
-      expect(latest?.status).toBe("success");
+      expect(latest?.operationType).toBe("update");
+      expect(latest?.relativePath).toBe("package.json");
       expect(latest?.metadata).toEqual({ bytes: 1024 });
     });
 
     it("reports healthy SQLite status", () => {
-      const health = journal.checkHealth();
+      const health = context.journal.checkHealth();
       expect(health.healthy).toBe(true);
     });
   });
 
   describe("Agent HTTP Endpoints", () => {
     it("GET /health returns healthy status including journal component", async () => {
-      const res = await app.inject({
+      const res = await context.app.inject({
         method: "GET",
         url: "/health",
       });
@@ -59,7 +50,7 @@ describe("Agent Service & SQLite Journal", () => {
     });
 
     it("GET /api/v1/capabilities returns structured host capabilities", async () => {
-      const res = await app.inject({
+      const res = await context.app.inject({
         method: "GET",
         url: "/api/v1/capabilities",
       });
@@ -73,4 +64,3 @@ describe("Agent Service & SQLite Journal", () => {
     });
   });
 });
-

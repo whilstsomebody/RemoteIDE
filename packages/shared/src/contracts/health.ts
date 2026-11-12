@@ -26,4 +26,3 @@ export const HealthCheckResultSchema = z.object({
 export type HealthStatusType = HealthStatus;
 export type ComponentHealth = z.infer<typeof ComponentHealthSchema>;
 export type HealthCheckResult = z.infer<typeof HealthCheckResultSchema>;
-
