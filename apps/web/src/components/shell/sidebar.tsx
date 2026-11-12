@@ -1,20 +1,26 @@
 "use client";
 
-import React from "react";
+import React, { useRef, useEffect } from "react";
 import { ActivityTab } from "./activity-bar";
-import { HardDrive, ShieldCheck, Cpu } from "lucide-react";
+import { ShieldCheck, Cpu } from "lucide-react";
 import { Badge } from "@remote-ide/ui";
 import { Workspace, FileNode } from "@remote-ide/shared";
 import { WorkspaceManager } from "../workspace/workspace-manager";
 import { FileTree } from "../workspace/file-tree";
+import { SearchPanel } from "../workspace/search-panel";
+import { SettingsPanel } from "./settings-panel";
+import { EditorSettings } from "../../lib/storage/settings-storage";
 
 export interface SidebarProps {
   activeTab: ActivityTab | null;
+  width: number;
+  onWidthChange: (newWidth: number) => void;
   onClose?: () => void;
   hostStatus?: string;
   hostId?: string;
   hostName?: string;
   platform?: string;
+  agentUrl?: string;
   workspaces: Workspace[];
   activeWorkspace: Workspace | null;
   files: FileNode[];
@@ -22,17 +28,25 @@ export interface SidebarProps {
   onSelectWorkspace: (id: string) => void;
   onRegisterWorkspace: (name: string, path: string) => Promise<void>;
   onRemoveWorkspace: (id: string) => Promise<void>;
-  onSelectFile: (path: string) => void;
+  onSelectFile: (path: string, line?: number) => void;
+  onOpenToSide?: (path: string) => void;
   onRefreshFiles: () => void;
-  onDeleteFile?: (path: string) => void;
+  onCreateItem?: (parentPath: string, name: string, type: "file" | "directory") => Promise<void>;
+  onRenameItem?: (oldPath: string, newPath: string) => Promise<void>;
+  onDeleteFile?: (path: string) => Promise<void>;
+  editorSettings: EditorSettings;
+  onUpdateEditorSettings: (settings: Partial<EditorSettings>) => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
   activeTab,
+  width,
+  onWidthChange,
   hostStatus = "ready",
   hostId = "local-host-agent",
   hostName = "Local Host",
   platform = "macOS",
+  agentUrl = "http://localhost:4001",
   workspaces,
   activeWorkspace,
   files,
@@ -41,28 +55,76 @@ export const Sidebar: React.FC<SidebarProps> = ({
   onRegisterWorkspace,
   onRemoveWorkspace,
   onSelectFile,
+  onOpenToSide,
   onRefreshFiles,
+  onCreateItem,
+  onRenameItem,
   onDeleteFile,
+  editorSettings,
+  onUpdateEditorSettings,
 }) => {
+  const isDraggingRef = useRef(false);
+  const startXRef = useRef(0);
+  const startWidthRef = useRef(width);
+
+  useEffect(() => {
+    const handleMouseMove = (e: MouseEvent) => {
+      if (!isDraggingRef.current) return;
+      const deltaX = e.clientX - startXRef.current;
+      const newWidth = Math.max(200, Math.min(600, startWidthRef.current + deltaX));
+      onWidthChange(newWidth);
+    };
+
+    const handleMouseUp = () => {
+      isDraggingRef.current = false;
+    };
+
+    window.addEventListener("mousemove", handleMouseMove);
+    window.addEventListener("mouseup", handleMouseUp);
+    return () => {
+      window.removeEventListener("mousemove", handleMouseMove);
+      window.removeEventListener("mouseup", handleMouseUp);
+    };
+  }, [onWidthChange]);
+
   if (!activeTab) return null;
 
+  const handleMouseDown = (e: React.MouseEvent) => {
+    isDraggingRef.current = true;
+    startXRef.current = e.clientX;
+    startWidthRef.current = width;
+  };
+
   return (
-    <aside className="w-72 bg-ide-sidebar border-r border-ide-border flex flex-col h-full text-xs select-none shrink-0 transition-all">
+    <aside
+      style={{ width: `${width}px` }}
+      className="bg-ide-sidebar border-r border-ide-border flex flex-col h-full text-xs select-none shrink-0 relative transition-[width] duration-75"
+    >
+      {/* Resizer Handle */}
+      <div
+        onMouseDown={handleMouseDown}
+        className="w-1 bg-transparent hover:bg-indigo-500/80 cursor-col-resize transition-colors absolute top-0 bottom-0 right-0 z-30"
+      />
+
+      {/* Header */}
       <div className="h-9 px-3 border-b border-ide-border flex items-center justify-between text-zinc-300 font-semibold uppercase tracking-wider text-[11px]">
         <span>
           {activeTab === "files"
-            ? "Explorer & Workspaces"
-            : activeTab === "terminal"
-              ? "Terminals"
-              : activeTab === "agent"
-                ? "Host Agent"
-                : "Settings"}
+            ? "Explorer"
+            : activeTab === "search"
+              ? "Search"
+              : activeTab === "terminal"
+                ? "Terminals"
+                : activeTab === "agent"
+                  ? "Host Agent"
+                  : "Settings"}
         </span>
       </div>
 
-      <div className="flex-1 overflow-y-auto p-3 text-zinc-400">
+      {/* Content */}
+      <div className="flex-1 overflow-y-auto p-2 text-zinc-400">
         {activeTab === "files" && (
-          <div className="flex flex-col gap-4 h-full">
+          <div className="flex flex-col gap-3 h-full">
             <WorkspaceManager
               workspaces={workspaces}
               activeWorkspace={activeWorkspace}
@@ -79,75 +141,72 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 <FileTree
                   nodes={files}
                   selectedPath={selectedPath}
-                  onSelectFile={onSelectFile}
+                  onSelectFile={(path) => onSelectFile(path)}
+                  onOpenToSide={onOpenToSide}
                   onRefresh={onRefreshFiles}
-                  onDeleteFile={onDeleteFile}
+                  onCreateItem={onCreateItem}
+                  onRenameItem={onRenameItem}
+                  onDeleteItem={onDeleteFile}
                 />
               </div>
             )}
           </div>
         )}
 
+        {activeTab === "search" && (
+          <SearchPanel
+            workspaceId={activeWorkspace ? activeWorkspace.id : null}
+            agentUrl={agentUrl}
+            onOpenFile={onSelectFile}
+          />
+        )}
+
+        {activeTab === "settings" && (
+          <SettingsPanel settings={editorSettings} onUpdateSettings={onUpdateEditorSettings} />
+        )}
+
         {activeTab === "terminal" && (
-          <div className="flex flex-col gap-2">
+          <div className="flex flex-col gap-2 p-2">
             <div className="flex items-center gap-2 text-zinc-300 font-medium">
               <Cpu className="w-4 h-4 text-indigo-400" />
               <span>Host Terminal Session</span>
             </div>
-            <p className="text-[11px] text-zinc-500 leading-relaxed">
-              Interactive terminal sessions and PTY multiplexing will attach in Phase 2.
+            <p className="text-[11px] text-zinc-500 leading-relaxed font-sans">
+              Interactive terminal sessions and PTY multiplexing will attach in Phase 3.
             </p>
           </div>
         )}
 
         {activeTab === "agent" && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center justify-between text-zinc-300 font-medium">
-              <div className="flex items-center gap-2">
-                <HardDrive className="w-4 h-4 text-emerald-400" />
-                <span>Host Agent</span>
-              </div>
-              <Badge variant="outline" className="text-[10px]">
-                {hostStatus}
-              </Badge>
+          <div className="flex flex-col gap-3 p-2 font-mono text-[11px]">
+            <div className="flex items-center gap-2 text-zinc-200 font-sans font-medium text-xs pb-2 border-b border-zinc-800">
+              <ShieldCheck className="w-4 h-4 text-emerald-400" />
+              <span>Host Agent Info</span>
             </div>
-            <div className="bg-zinc-950/80 p-2.5 rounded border border-zinc-800 space-y-1.5 text-[11px]">
+            <div className="space-y-1.5 text-zinc-400">
               <div className="flex justify-between">
-                <span className="text-zinc-500">Host ID:</span>
-                <span className="text-zinc-200 font-mono text-[10px] truncate max-w-[140px]">
-                  {hostId}
-                </span>
+                <span>Agent Status:</span>
+                <Badge variant="default" className="text-[10px] text-emerald-400">
+                  {hostStatus}
+                </Badge>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Platform:</span>
+                <span>Hostname:</span>
+                <span className="text-zinc-200">{hostName}</span>
+              </div>
+              <div className="flex justify-between">
+                <span>Platform:</span>
                 <span className="text-zinc-200">{platform}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Interface:</span>
-                <span className="text-emerald-400">127.0.0.1 (Loopback)</span>
+                <span>Host UUID:</span>
+                <span className="text-zinc-400 truncate max-w-[120px]">{hostId}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-zinc-500">Journal:</span>
-                <span className="text-emerald-400">SQLite Active</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-zinc-500">Filesystem:</span>
-                <span className="text-zinc-200">Enforced Jails</span>
+                <span>Binding:</span>
+                <span className="text-zinc-300">127.0.0.1:4001 (Loopback)</span>
               </div>
             </div>
-          </div>
-        )}
-
-        {activeTab === "settings" && (
-          <div className="flex flex-col gap-3">
-            <div className="flex items-center gap-2 text-zinc-300 font-medium">
-              <ShieldCheck className="w-4 h-4 text-indigo-400" />
-              <span>Security & Preferences</span>
-            </div>
-            <p className="text-[11px] text-zinc-500">
-              RemoteIDE strictly isolates the host machine. Path traversal and symlink escapes are
-              actively blocked.
-            </p>
           </div>
         )}
       </div>

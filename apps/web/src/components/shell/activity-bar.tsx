@@ -1,10 +1,10 @@
 "use client";
 
 import React from "react";
-import { Files, Terminal, Settings, Server } from "lucide-react";
+import { Files, Search, Terminal, Settings, Server } from "lucide-react";
 import { cn } from "@remote-ide/ui";
 
-export type ActivityTab = "files" | "terminal" | "agent" | "settings";
+export type ActivityTab = "files" | "search" | "terminal" | "agent" | "settings";
 
 export interface ActivityBarProps {
   activeTab: ActivityTab | null;
@@ -18,6 +18,7 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({ activeTab, onSelectTab
     icon: React.ComponentType<{ className?: string }>;
   }> = [
     { id: "files", label: "Explorer", icon: Files },
+    { id: "search", label: "Search Workspace", icon: Search },
     { id: "terminal", label: "Terminal", icon: Terminal },
     { id: "agent", label: "Host Agent", icon: Server },
   ];
