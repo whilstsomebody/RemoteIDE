@@ -1,0 +1,1 @@
+{"root":["./src/app.ts","./src/server.ts","./src/plugins/errorhandler.ts","./src/plugins/requestid.ts","./src/routes/api-v1.ts","./src/routes/health.ts","./src/routes/ws.ts"],"version":"5.9.3"}

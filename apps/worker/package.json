@@ -1,0 +1,29 @@
+{
+  "name": "@remote-ide/worker",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "scripts": {
+    "build": "tsc -b",
+    "clean": "rm -rf dist",
+    "start": "node dist/index.js",
+    "dev": "tsx watch src/index.ts",
+    "typecheck": "tsc --noEmit",
+    "test": "vitest run"
+  },
+  "dependencies": {
+    "@remote-ide/db": "workspace:*",
+    "@remote-ide/shared": "workspace:*",
+    "dotenv": "^16.4.7",
+    "ioredis": "^5.4.2",
+    "kafkajs": "^2.2.4",
+    "pino": "^9.6.0"
+  },
+  "devDependencies": {
+    "@remote-ide/config": "workspace:*",
+    "@types/node": "^22.10.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.2",
+    "vitest": "^2.1.8"
+  }
+}

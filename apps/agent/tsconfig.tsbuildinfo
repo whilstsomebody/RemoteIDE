@@ -1,0 +1,1 @@
+{"root":["./src/app.ts","./src/server.ts","./src/capabilities/collector.ts","./src/journal/sqlite-journal.ts","./src/routes/capabilities.ts","./src/routes/health.ts"],"version":"5.9.3"}
