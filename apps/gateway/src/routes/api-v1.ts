@@ -20,3 +20,4 @@ export const apiV1Routes: FastifyPluginAsync = async (fastify) => {
     );
   });
 };
+

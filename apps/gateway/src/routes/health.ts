@@ -32,3 +32,4 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/health", handleHealth);
   fastify.get("/api/v1/health", handleHealth);
 };
+

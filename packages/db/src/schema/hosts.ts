@@ -15,3 +15,4 @@ export const hostAgents = pgTable("host_agents", {
 
 export type HostAgent = typeof hostAgents.$inferSelect;
 export type NewHostAgent = typeof hostAgents.$inferInsert;
+

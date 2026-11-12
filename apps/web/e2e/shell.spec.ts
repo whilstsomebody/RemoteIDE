@@ -16,3 +16,4 @@ test.describe("RemoteIDE Web Shell E2E", () => {
     await expect(page.getByText("WS Gateway")).toBeVisible();
   });
 });
+

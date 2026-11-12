@@ -5,3 +5,4 @@ export default defineConfig({
     exclude: ["e2e/**", "node_modules/**", "dist/**", ".next/**"],
   },
 });
+

@@ -85,3 +85,4 @@ export class AppError extends Error {
     Object.setPrototypeOf(this, new.target.prototype);
   }
 }
+

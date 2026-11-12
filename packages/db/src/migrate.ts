@@ -27,3 +27,4 @@ if (process.argv[1] && process.argv[1].endsWith("migrate.js")) {
     .then(() => process.exit(0))
     .catch(() => process.exit(1));
 }
+
