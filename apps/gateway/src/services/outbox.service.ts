@@ -1,3 +1,4 @@
+import { GatewayStateStore, gatewayStateStore } from "./state-store.js";
 import { pino, Logger } from "pino";
 import { DurableEvent, createDurableEvent, KafkaTopic, REDIS_CHANNELS } from "@remote-ide/shared";
 import { redisService, RedisService } from "./redis.service.js";
@@ -37,7 +38,9 @@ export class OutboxService {
   private isRunning: boolean = false;
   private pollInterval: NodeJS.Timeout | null = null;
 
-  // In-memory persistent tables for tests & resilient database fallbacks
+  private stateStore?: GatewayStateStore;
+  private publishing = new Set<string>();
+  // Runtime indexes; committed together to the durable state store.
   private memoryEvents = new Map<string, WorkspaceEventRecord>(); // id -> event
   private memoryRevisions = new Map<string, number>(); // workspaceId -> currentRevision
   private memoryOutbox = new Map<string, OutboxRecord>(); // id -> outbox
@@ -49,11 +52,31 @@ export class OutboxService {
       redis?: RedisService;
       kafka?: KafkaService;
       pollIntervalMs?: number;
+      stateStore?: GatewayStateStore;
     } = {}
   ) {
     this.logger = opts.logger || pino({ name: "outbox-service" });
     this.redis = opts.redis || redisService;
     this.kafka = opts.kafka || kafkaService;
+    this.stateStore = opts.stateStore;
+    const state = this.stateStore?.read<{
+      events: [string, WorkspaceEventRecord][];
+      revisions: [string, number][];
+      outbox: [string, OutboxRecord][];
+    }>("outbox");
+    if (state) {
+      this.memoryEvents = new Map(state.events);
+      this.memoryRevisions = new Map(state.revisions);
+      this.memoryOutbox = new Map(state.outbox);
+    }
+  }
+
+  private persist(): void {
+    this.stateStore?.write("outbox", {
+      events: [...this.memoryEvents],
+      revisions: [...this.memoryRevisions],
+      outbox: [...this.memoryOutbox],
+    });
   }
 
   public start(pollIntervalMs = 500): void {
@@ -99,6 +122,9 @@ export class OutboxService {
       (typeof crypto !== "undefined" && crypto.randomUUID
         ? crypto.randomUUID()
         : Math.random().toString(36).slice(2));
+
+    const existing = this.memoryOutbox.get(eventId);
+    if (existing) return existing.payload as DurableEvent<T>;
 
     // Atomically increment authoritative revision for this workspace
     const currentRev = (this.memoryRevisions.get(params.workspaceId) || 0) + 1;
@@ -148,10 +174,19 @@ export class OutboxService {
       createdAt: now,
     });
 
-    // 3. Update Redis revision cache
-    await this.redis.cacheWorkspaceRevision(params.workspaceId, currentRev);
-
-    // 4. Immediately attempt to publish to Kafka and notify Redis
+    // Persist event, revision and publication intent in one SQLite transaction
+    // before acknowledging the host journal. Cache failures cannot undo acceptance.
+    try {
+      this.persist();
+    } catch (error) {
+      this.memoryEvents.delete(eventId);
+      this.memoryOutbox.delete(eventId);
+      this.memoryRevisions.set(params.workspaceId, currentRev - 1);
+      throw error;
+    }
+    try {
+      await this.redis.cacheWorkspaceRevision(params.workspaceId, currentRev);
+    } catch {}
     await this.publishOutboxRecord(eventId);
 
     return durableEvent;
@@ -162,15 +197,11 @@ export class OutboxService {
    */
   public async publishOutboxRecord(id: string): Promise<boolean> {
     const record = this.memoryOutbox.get(id);
-    if (!record || record.status === "published") return false;
-
+    if (!record || record.status === "published" || this.publishing.has(id)) return false;
+    this.publishing.add(id);
     try {
       // 1. Forward event to Kafka (partitioned by partitionKey)
       await this.kafka.publishEvent(record.topic, record.payload);
-
-      // 2. Mark as published
-      record.status = "published";
-      record.publishedAt = new Date().toISOString();
 
       // 3. Redis Pub/Sub fan-out to local and remote gateway instances
       if (record.payload.workspaceId) {
@@ -180,16 +211,18 @@ export class OutboxService {
         );
       }
       await this.redis.publish(REDIS_CHANNELS.GATEWAY_BROADCAST, record.payload);
-
+      record.status = "published";
+      record.publishedAt = new Date().toISOString();
+      this.persist();
       return true;
     } catch (err: unknown) {
       record.retryCount++;
       record.lastError = err instanceof Error ? err.message : String(err);
-      if (record.retryCount >= 5) {
-        record.status = "failed"; // Dead-letter status
-        this.logger.error({ id, retries: record.retryCount }, "Outbox event moved to DLQ (failed)");
-      }
+      record.status = "pending";
+      this.persist();
       return false;
+    } finally {
+      this.publishing.delete(id);
     }
   }
 
@@ -218,7 +251,9 @@ export class OutboxService {
    * Deduplication check: returns true if already processed.
    */
   public isEventProcessed(eventId: string, consumerGroup = "default"): boolean {
-    return this.memoryProcessed.has(`${consumerGroup}:${eventId}`);
+    return (
+      this.memoryEvents.has(eventId) || this.memoryProcessed.has(`${consumerGroup}:${eventId}`)
+    );
   }
 
   /**
@@ -270,4 +305,4 @@ export class OutboxService {
   }
 }
 
-export const outboxService = new OutboxService();
+export const outboxService = new OutboxService({ stateStore: gatewayStateStore });

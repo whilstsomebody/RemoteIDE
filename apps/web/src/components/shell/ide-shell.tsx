@@ -1,6 +1,8 @@
 "use client";
 
-import React, { useState, useEffect, useCallback } from "react";
+import { gatewayFetch, GATEWAY_URL, GATEWAY_WS_URL, authenticatedWebSocketUrl } from "../../lib/api/client";
+
+import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "./header";
 import { ActivityBar, ActivityTab } from "./activity-bar";
 import { Sidebar } from "./sidebar";
@@ -25,11 +27,11 @@ import {
   DEFAULT_EDITOR_SETTINGS,
   DEFAULT_UI_LAYOUT,
 } from "../../lib/storage/settings-storage";
+import { applySaveResult } from "../../lib/editor/save-result";
 import { DraftStorage } from "../../lib/storage/draft-storage";
 
-const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_HTTP_URL || "http://localhost:4001";
-const GATEWAY_HTTP_URL = process.env.NEXT_PUBLIC_GATEWAY_HTTP_URL || "http://localhost:4000";
-const GATEWAY_WS_URL = process.env.NEXT_PUBLIC_GATEWAY_WS_URL || "ws://localhost:4000/api/v1/ws";
+const AGENT_BASE_URL = GATEWAY_URL;
+const GATEWAY_HTTP_URL = GATEWAY_URL;
 
 export const IdeShell: React.FC = () => {
   // 1. Layout & Settings state (loaded from LocalStorage)
@@ -47,7 +49,7 @@ export const IdeShell: React.FC = () => {
 
   // Workspaces & Files
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
-  const [activeWorkspace, setActiveWorkspace] = useState<Workspace | null>(null);
+  const [activeWorkspace, setActiveWorkspaceState] = useState<Workspace | null>(null);
   const [files, setFiles] = useState<FileNode[]>([]);
 
   // 2. Multi-Tab & Multi-Pane Buffer State
@@ -57,6 +59,23 @@ export const IdeShell: React.FC = () => {
   const [secondaryTabs, setSecondaryTabs] = useState<string[]>([]);
   const [secondaryActiveTab, setSecondaryActiveTab] = useState<string | null>(null);
   const [loadingPaths, setLoadingPaths] = useState<Set<string>>(new Set());
+
+  const workspaceIdRef = useRef<string | null>(null);
+  const savingPaths = useRef(new Set<string>());
+  const sessionToRestore = useRef<ReturnType<typeof SettingsStorage.getWorkspaceSession> | null>(null);
+  const setActiveWorkspace = useCallback((workspace: Workspace | null) => {
+    if (workspaceIdRef.current !== (workspace?.id ?? null)) {
+      workspaceIdRef.current = workspace?.id ?? null;
+      sessionToRestore.current = workspace ? SettingsStorage.getWorkspaceSession(workspace.id) : null;
+      setBuffers({});
+      setLoadingPaths(new Set());
+      setPrimaryTabs([]);
+      setPrimaryActiveTab(null);
+      setSecondaryTabs([]);
+      setSecondaryActiveTab(null);
+    }
+    setActiveWorkspaceState(workspace);
+  }, []);
 
   // 3. Status Bar & Cursor Position
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, selLen: 0 });
@@ -159,7 +178,7 @@ export const IdeShell: React.FC = () => {
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${GATEWAY_HTTP_URL}/api/v1/auth/me`, {
+      const res = await gatewayFetch(`${GATEWAY_HTTP_URL}/api/v1/auth/me`, {
         headers,
         credentials: "include",
       });
@@ -176,11 +195,9 @@ export const IdeShell: React.FC = () => {
           }
         }
       } else if (res.status === 401) {
-        // If unauthenticated on loopback and owner not bootstrapped, check if status can be loaded
-        const storedRole = localStorage.getItem("remote_ide_role");
-        if (storedRole !== UserRole.VIEWER) {
-          setIsOwnerAuthenticated(false);
-        }
+        setCurrentUserRole(null);
+        setIsOwnerAuthenticated(false);
+        localStorage.removeItem("remote_ide_role");
       }
     } catch {
       // Gateway offline or local dev fallback
@@ -194,7 +211,7 @@ export const IdeShell: React.FC = () => {
   // Check agent health
   const checkAgentHealth = useCallback(async () => {
     try {
-      const res = await fetch(`${AGENT_BASE_URL}/api/v1/health`);
+      const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/health`);
       if (res.ok) {
         const body = await res.json();
         setConnectionStatus("connected");
@@ -215,7 +232,7 @@ export const IdeShell: React.FC = () => {
   // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
     try {
-      const res = await fetch(`${AGENT_BASE_URL}/api/v1/workspaces`);
+      const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/workspaces`);
       if (res.ok) {
         const body = await res.json();
         const wsList: Workspace[] = body.data || [];
@@ -226,7 +243,7 @@ export const IdeShell: React.FC = () => {
     } catch {
       // Offline
     }
-  }, []);
+  }, [setActiveWorkspace]);
 
   // Fetch file tree
   const fetchFiles = useCallback(async () => {
@@ -235,7 +252,7 @@ export const IdeShell: React.FC = () => {
       return;
     }
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files?depth=4`
       );
       if (res.ok) {
@@ -259,12 +276,6 @@ export const IdeShell: React.FC = () => {
       void fetchFiles();
       addLog(`Connected to workspace "${activeWorkspace.name}"`, "success", "Workspace");
 
-      // Restore session tabs for this workspace
-      const session = SettingsStorage.getWorkspaceSession(activeWorkspace.id);
-      if (session.primaryTabs.length > 0) {
-        setPrimaryTabs(session.primaryTabs);
-        setPrimaryActiveTab(session.primaryActiveTab);
-      }
     }
   }, [activeWorkspace, fetchFiles, addLog]);
 
@@ -277,7 +288,7 @@ export const IdeShell: React.FC = () => {
     const connectWs = () => {
       if (isDisposed) return;
       try {
-        ws = new WebSocket(GATEWAY_WS_URL);
+        ws = new WebSocket(authenticatedWebSocketUrl(GATEWAY_WS_URL));
 
         ws.onopen = () => {
           setConnectionStatus("connected");
@@ -345,7 +356,7 @@ export const IdeShell: React.FC = () => {
   // Open file into specified pane (defaults to primary)
   const openFile = useCallback(
     async (path: string, pane: "primary" | "secondary" = "primary", _targetLine?: number) => {
-      if (!activeWorkspace) return;
+      if (!activeWorkspace || workspaceIdRef.current !== activeWorkspace.id) return;
 
       // Ensure tab is added to the specified pane
       if (pane === "primary") {
@@ -366,12 +377,12 @@ export const IdeShell: React.FC = () => {
 
       try {
         const [readRes, statRes] = await Promise.all([
-          fetch(
+          gatewayFetch(
             `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/read?path=${encodeURIComponent(
               path
             )}`
           ),
-          fetch(
+          gatewayFetch(
             `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/stat?path=${encodeURIComponent(
               path
             )}`
@@ -384,6 +395,7 @@ export const IdeShell: React.FC = () => {
 
         const readBody = await readRes.json();
         const statBody = await statRes.json();
+        if (workspaceIdRef.current !== activeWorkspace.id) return;
         const readData = readBody.data;
         const statData = statBody.data;
 
@@ -409,7 +421,8 @@ export const IdeShell: React.FC = () => {
           content,
           savedContent: readData.content,
           isDirty,
-          eTag: statData.eTag,
+          eTag: isDirty && savedDraft ? savedDraft.originalETag : readData.eTag,
+          hasExternalConflict: Boolean(isDirty && savedDraft && savedDraft.originalETag !== readData.eTag),
           mtime: statData.mtime,
           isBinary: readData.isBinary,
           encoding: readData.encoding,
@@ -425,15 +438,32 @@ export const IdeShell: React.FC = () => {
       } catch (err: unknown) {
         addLog(`Error loading ${path}: ${(err as Error).message}`, "error", "File");
       } finally {
-        setLoadingPaths((prev) => {
-          const next = new Set(prev);
-          next.delete(path);
-          return next;
-        });
+        if (workspaceIdRef.current === activeWorkspace.id) {
+          setLoadingPaths((prev) => {
+            const next = new Set(prev);
+            next.delete(path);
+            return next;
+          });
+        }
       }
     },
     [activeWorkspace, buffers, addLog]
   );
+
+  useEffect(() => {
+    const session = sessionToRestore.current;
+    if (!activeWorkspace || !session) return;
+    sessionToRestore.current = null;
+    const workspaceId = activeWorkspace.id;
+    void Promise.all([
+      ...session.primaryTabs.map((path) => openFile(path, "primary")),
+      ...session.secondaryTabs.map((path) => openFile(path, "secondary")),
+    ]).then(() => {
+      if (workspaceIdRef.current !== workspaceId) return;
+      setPrimaryActiveTab(session.primaryActiveTab);
+      setSecondaryActiveTab(session.secondaryActiveTab);
+    });
+  }, [activeWorkspace, openFile]);
 
   // Create a new untitled in-memory text file (VS Code style)
   const handleCreateUntitledFile = useCallback(() => {
@@ -552,10 +582,13 @@ export const IdeShell: React.FC = () => {
     async (path: string, forceOverwrite = false): Promise<void> => {
       if (isReadOnly || !activeWorkspace) return;
       const buffer = buffers[path];
-      if (!buffer) return;
+      if (!buffer || workspaceIdRef.current !== activeWorkspace.id) return;
+      const saveKey = `${activeWorkspace.id}:${path}`;
+      if (savingPaths.current.has(saveKey)) return;
+      savingPaths.current.add(saveKey);
 
       try {
-        const res = await fetch(
+        const res = await gatewayFetch(
           `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/write`,
           {
             method: "PUT",
@@ -568,6 +601,7 @@ export const IdeShell: React.FC = () => {
           }
         );
 
+        if (workspaceIdRef.current !== activeWorkspace.id) return;
         if (!res.ok) {
           const errorBody = await res.json().catch(() => ({}));
           if (res.status === 409 || errorBody.error?.code === "CONCURRENCY_CONFLICT") {
@@ -586,23 +620,20 @@ export const IdeShell: React.FC = () => {
         const updatedETag = body.data.eTag;
         const updatedMtime = body.data.mtime;
 
-        setBuffers((prev) => ({
-          ...prev,
-          [path]: {
-            ...buffer,
-            savedContent: buffer.content,
-            isDirty: false,
-            eTag: updatedETag,
-            mtime: updatedMtime,
-            hasExternalConflict: false,
-            deletedOnDisk: false,
-          },
-        }));
+        setBuffers((prev) => {
+          const current = prev[path];
+          if (!current || workspaceIdRef.current !== activeWorkspace.id) return prev;
+          const updated = applySaveResult(current, buffer, updatedETag, updatedMtime);
+          if (updated.isDirty) DraftStorage.saveDraft(activeWorkspace.id, path, updated.content, updatedETag);
+          else DraftStorage.removeDraft(activeWorkspace.id, path);
+          return { ...prev, [path]: updated };
+        });
 
-        DraftStorage.removeDraft(activeWorkspace.id, path);
         addLog(`Saved ${path} successfully to host`, "success", "Save");
       } catch (err: unknown) {
         addLog(`Error saving ${path}: ${(err as Error).message}`, "error", "Save");
+      } finally {
+        savingPaths.current.delete(saveKey);
       }
     },
     [activeWorkspace, buffers, addLog, isReadOnly]
@@ -626,6 +657,7 @@ export const IdeShell: React.FC = () => {
   useEffect(() => {
     if (!activeWorkspace) return;
 
+    let cancelled = false;
     const interval = setInterval(async () => {
       const openPaths = Array.from(new Set([...primaryTabs, ...secondaryTabs]));
       if (openPaths.length === 0) return;
@@ -635,12 +667,13 @@ export const IdeShell: React.FC = () => {
         if (!buffer) continue;
 
         try {
-          const res = await fetch(
+          const res = await gatewayFetch(
             `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/stat?path=${encodeURIComponent(
               p
             )}`
           );
 
+          if (cancelled || workspaceIdRef.current !== activeWorkspace.id) return;
           if (res.status === 404) {
             if (!buffer.deletedOnDisk) {
               setBuffers((prev) => {
@@ -663,7 +696,7 @@ export const IdeShell: React.FC = () => {
             if (hostETag && hostETag !== buffer.eTag) {
               if (!buffer.isDirty) {
                 // Not modified locally: automatically reload fresh content
-                const readRes = await fetch(
+                const readRes = await gatewayFetch(
                   `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/read?path=${encodeURIComponent(
                     p
                   )}`
@@ -672,14 +705,14 @@ export const IdeShell: React.FC = () => {
                   const readBody = await readRes.json();
                   setBuffers((prev) => {
                     const current = prev[p];
-                    if (!current) return prev;
+                    if (!current || cancelled || current.isDirty || current.eTag !== buffer.eTag || workspaceIdRef.current !== activeWorkspace.id) return prev;
                     return {
                       ...prev,
                       [p]: {
                         ...current,
                         content: readBody.data.content,
                         savedContent: readBody.data.content,
-                        eTag: hostETag,
+                        eTag: readBody.data.eTag,
                         mtime: body.data.mtime,
                         hasExternalConflict: false,
                       },
@@ -709,7 +742,7 @@ export const IdeShell: React.FC = () => {
       }
     }, 5000);
 
-    return () => clearInterval(interval);
+    return () => { cancelled = true; clearInterval(interval); };
   }, [activeWorkspace, primaryTabs, secondaryTabs, buffers, addLog]);
 
   // Autosave delay effect
@@ -743,7 +776,7 @@ export const IdeShell: React.FC = () => {
 
   // Save session state to localStorage on tab change
   useEffect(() => {
-    if (activeWorkspace) {
+    if (activeWorkspace && workspaceIdRef.current === activeWorkspace.id) {
       SettingsStorage.saveWorkspaceSession(activeWorkspace.id, {
         primaryTabs,
         primaryActiveTab,
@@ -803,7 +836,7 @@ export const IdeShell: React.FC = () => {
     if (isReadOnly || !activeWorkspace) return;
     const targetPath = parentPath ? `${parentPath}/${name}` : name;
 
-    const res = await fetch(
+    const res = await gatewayFetch(
       `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/create`,
       {
         method: "POST",
@@ -831,7 +864,7 @@ export const IdeShell: React.FC = () => {
   const handleRenameItem = async (oldPath: string, newPath: string): Promise<void> => {
     if (isReadOnly || !activeWorkspace) return;
 
-    const res = await fetch(
+    const res = await gatewayFetch(
       `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/move`,
       {
         method: "POST",
@@ -874,7 +907,7 @@ export const IdeShell: React.FC = () => {
   const handleDeleteItem = async (path: string): Promise<void> => {
     if (isReadOnly || !activeWorkspace) return;
 
-    const res = await fetch(
+    const res = await gatewayFetch(
       `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files?path=${encodeURIComponent(
         path
       )}&recursive=true`,
@@ -890,7 +923,7 @@ export const IdeShell: React.FC = () => {
   };
 
   const handleRegisterWorkspace = async (name: string, folderPath: string) => {
-    const res = await fetch(`${AGENT_BASE_URL}/api/v1/workspaces/register`, {
+    const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/workspaces/register`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ name, paths: [folderPath] }),
@@ -907,7 +940,7 @@ export const IdeShell: React.FC = () => {
   };
 
   const handleSelectWorkspace = async (id: string) => {
-    const res = await fetch(`${AGENT_BASE_URL}/api/v1/workspaces/${id}/open`, {
+    const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/workspaces/${id}/open`, {
       method: "POST",
     });
     if (res.ok) {
@@ -923,7 +956,7 @@ export const IdeShell: React.FC = () => {
 
   const handleRemoveWorkspace = async (id: string) => {
     if (isReadOnly) return;
-    await fetch(`${AGENT_BASE_URL}/api/v1/workspaces/${id}`, { method: "DELETE" });
+    await gatewayFetch(`${AGENT_BASE_URL}/api/v1/workspaces/${id}`, { method: "DELETE" });
     await fetchWorkspaces();
   };
 
@@ -939,12 +972,12 @@ export const IdeShell: React.FC = () => {
     if (conflictPath && activeWorkspace) {
       DraftStorage.removeDraft(activeWorkspace.id, conflictPath);
       // Re-read file
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/read?path=${encodeURIComponent(
           conflictPath
         )}`
       );
-      const statRes = await fetch(
+      const statRes = await gatewayFetch(
         `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/stat?path=${encodeURIComponent(
           conflictPath
         )}`
@@ -1127,7 +1160,7 @@ export const IdeShell: React.FC = () => {
             onSelectProblem={(prob) => {
               void openFile(prob.filePath, "primary", prob.line);
             }}
-            gatewayUrl={process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000"}
+            gatewayUrl={GATEWAY_URL}
             workspacePath={activeWorkspace?.folders?.[0]?.path}
           />
         </div>

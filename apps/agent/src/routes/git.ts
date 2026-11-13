@@ -155,17 +155,19 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
   });
 
   // Pull
-  fastify.post("/api/v1/git/pull", async (req) => {
+  fastify.post("/api/v1/git/pull", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitPullDtoSchema.safeParse(req.body || {});
+    if (!parse.success) return reply.status(400).send(createErrorResponse(ErrorCode.VALIDATION_ERROR, parse.error.message));
     await service.pull(repoPath, parse.data?.remote || "origin", parse.data?.branch);
     return createSuccessResponse({ success: true });
   });
 
   // Push (Force push requires confirmation)
-  fastify.post("/api/v1/git/push", async (req) => {
+  fastify.post("/api/v1/git/push", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitPushDtoSchema.safeParse(req.body || {});
+    if (!parse.success) return reply.status(400).send(createErrorResponse(ErrorCode.VALIDATION_ERROR, parse.error.message));
     await service.push(
       repoPath,
       parse.data?.remote || "origin",

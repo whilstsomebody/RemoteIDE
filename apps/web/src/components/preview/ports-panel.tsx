@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Globe,
@@ -36,8 +38,8 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
     setIsLoading(true);
     try {
       const [fRes, dRes] = await Promise.all([
-        fetch(`${gatewayUrl}/api/v1/ports`, { credentials: "include" }),
-        fetch(`${gatewayUrl}/api/v1/ports/detected`, { credentials: "include" }),
+        gatewayFetch(`${gatewayUrl}/api/v1/ports`, { credentials: "include" }),
+        gatewayFetch(`${gatewayUrl}/api/v1/ports/detected`, { credentials: "include" }),
       ]);
 
       if (fRes.ok) {
@@ -63,7 +65,7 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
 
   const handleForward = async (port: number, label?: string) => {
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/ports/forward`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/ports/forward`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -83,7 +85,7 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
 
   const handleToggle = async (port: number, enabled: boolean) => {
     try {
-      await fetch(`${gatewayUrl}/api/v1/ports/${port}/toggle`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/ports/${port}/toggle`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -97,7 +99,7 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
 
   const handleUnforward = async (port: number) => {
     try {
-      await fetch(`${gatewayUrl}/api/v1/ports/${port}`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/ports/${port}`, {
         method: "DELETE",
         credentials: "include",
       });
@@ -120,7 +122,7 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
     if (isNaN(p) || p < 1024 || p > 65535) return;
 
     try {
-      await fetch(`${gatewayUrl}/api/v1/ports/forward`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/ports/forward`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

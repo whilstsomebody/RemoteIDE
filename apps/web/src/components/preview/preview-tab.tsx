@@ -148,7 +148,7 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
             src={fullPreviewUrl}
             title={`Preview on port ${port}`}
             className="w-full h-full border-0 bg-white"
-            sandbox="allow-same-origin allow-scripts allow-forms allow-popups"
+            sandbox="allow-scripts allow-forms allow-popups"
           />
         </div>
       </div>

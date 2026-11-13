@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect } from "react";
 import {
   Share2,
@@ -30,7 +32,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
   onClose,
   workspaces,
   currentWorkspaceId,
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
 }) => {
   const [name, setName] = useState("Temporary Collaboration Access");
   const [role, setRole] = useState<UserRole>(UserRole.VIEWER);
@@ -72,7 +74,7 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${gatewayUrl}/api/v1/share-links`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/share-links`, {
         method: "POST",
         headers,
         credentials: "include",

@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
+
 import React, { useState, useCallback, useMemo } from "react";
 import { Search, FileText, CaseSensitive, Regex, Loader2 } from "lucide-react";
 import { Input, Button } from "@remote-ide/ui";
@@ -40,7 +42,7 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
         maxResults: "100",
       });
 
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${agentUrl}/api/v1/workspaces/${workspaceId}/files/search?${params}`
       );
       if (!res.ok) {

@@ -136,3 +136,17 @@ describe("Editor Safety & UI Persistence", () => {
     });
   });
 });
+
+import { applySaveResult } from "../src/lib/editor/save-result";
+import type { FileBuffer } from "../src/components/editor/editor-pane";
+
+it("retains edits typed while a save is in flight", () => {
+  const submitted: FileBuffer = { path: "a.ts", content: "sent", savedContent: "old", isDirty: true, eTag: "old-tag", mtime: 0, isBinary: false, encoding: "utf-8", size: 4 };
+  const current = { ...submitted, content: "newer typing" };
+  const result = applySaveResult(current, submitted, "new-tag", 1);
+  expect(result.content).toBe("newer typing");
+  expect(result.savedContent).toBe("sent");
+  expect(result.isDirty).toBe(true);
+  expect(result.eTag).toBe("new-tag");
+  expect(applySaveResult(submitted, submitted, "new-tag", 1).isDirty).toBe(false);
+});

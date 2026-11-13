@@ -19,6 +19,7 @@ export class KafkaService {
   private logger: Logger;
   private isConnected: boolean = false;
   private enableFallback: boolean;
+  private connecting: Promise<void> | null = null;
 
   // In-memory fallback event bus for resilience during broker outages and unit tests
   private localConsumers = new Map<string, Set<EventHandler<any>>>();
@@ -68,6 +69,17 @@ export class KafkaService {
   }
 
   public async connect(): Promise<void> {
+    if (this.isConnected) return;
+    if (this.connecting) return this.connecting;
+    this.connecting = this.connectProducer();
+    try {
+      await this.connecting;
+    } finally {
+      this.connecting = null;
+    }
+  }
+
+  private async connectProducer(): Promise<void> {
     if (!this.producer) return;
 
     try {
@@ -127,6 +139,7 @@ export class KafkaService {
     // Determine partition key: workspaceId for workspace-scoped events, otherwise hostId/sessionId/id
     const partitionKey = event.workspaceId || event.sessionId || event.hostId || event.id;
 
+    if (!this.isConnected && !this.enableFallback) await this.connect();
     if (this.isConnected && this.producer) {
       try {
         await this.producer.send({
@@ -146,6 +159,7 @@ export class KafkaService {
         this.metrics.publishedCount++;
         return;
       } catch (err) {
+        this.isConnected = false;
         this.logger.warn(
           { err, topic, eventId: event.id },
           "Failed to publish to Kafka, falling back to local bus"
@@ -153,6 +167,8 @@ export class KafkaService {
       }
     }
 
+    if (!this.enableFallback)
+      throw new Error("Kafka publication unavailable; retain event in outbox");
     if (this.enableFallback) {
       this.metrics.publishedCount++;
       this.publishedEventsBuffer.push({ topic, event });
@@ -262,4 +278,4 @@ export class KafkaService {
   }
 }
 
-export const kafkaService = new KafkaService();
+export const kafkaService = new KafkaService({ enableFallback: process.env.NODE_ENV === "test" });

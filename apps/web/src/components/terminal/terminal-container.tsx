@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Terminal as TerminalIcon,
@@ -20,7 +22,7 @@ export interface TerminalContainerProps {
 }
 
 export const TerminalContainer: React.FC<TerminalContainerProps> = ({
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
   className = "",
 }) => {
   const [sessions, setSessions] = useState<TerminalSession[]>([]);
@@ -42,8 +44,8 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const [sessRes, shellRes] = await Promise.all([
-        fetch(`${gatewayUrl}/api/v1/terminals`, { headers }).catch(() => null),
-        fetch(`${gatewayUrl}/api/v1/terminals/shells`, { headers }).catch(() => null),
+        gatewayFetch(`${gatewayUrl}/api/v1/terminals`, { headers }).catch(() => null),
+        gatewayFetch(`${gatewayUrl}/api/v1/terminals/shells`, { headers }).catch(() => null),
       ]);
 
       if (sessRes && sessRes.ok) {
@@ -83,7 +85,7 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${gatewayUrl}/api/v1/terminals`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/terminals`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -114,7 +116,7 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      await fetch(`${gatewayUrl}/api/v1/terminals/${sessionId}`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/terminals/${sessionId}`, {
         method: "DELETE",
         headers,
       });

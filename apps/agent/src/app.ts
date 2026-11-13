@@ -84,7 +84,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
 
   const identity = new HostIdentityService(dataDir, opts.hostId);
   const journal = new LocalJournalService(journalPath);
-  const workspaceService = new WorkspaceService(journalPath);
+  const workspaceService = new WorkspaceService(journalPath, opts.allowedPaths);
   const watcherService = new WatcherService(journal);
   const fsService = new FilesystemService(workspaceService, journal, { watcherService });
   const syncClient = new SyncClientService({
@@ -156,6 +156,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
       gatewayWsUrl,
       hostId: identity.getHostId(),
       app,
+      token: process.env.AGENT_AUTH_TOKEN,
     });
   }
 

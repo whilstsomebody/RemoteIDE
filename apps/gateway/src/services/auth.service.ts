@@ -1,3 +1,4 @@
+import { GatewayStateStore, gatewayStateStore } from "./state-store.js";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -56,8 +57,28 @@ export class AuthService {
   private localSetupToken: string;
   private onSessionRevoked?: (sessionId: string) => void;
 
-  constructor() {
+  constructor(private stateStore?: GatewayStateStore) {
     this.localSetupToken = this.initializeLocalSetupToken();
+    const state = stateStore?.read<{
+      users: [string, StoredUser][];
+      sessions: [string, StoredSession][];
+    }>("auth");
+    if (state) {
+      this.users = new Map(state.users);
+      this.sessions = new Map(state.sessions);
+      for (const session of this.sessions.values())
+        this.tokenHashToSessionId.set(session.tokenHash, session.id);
+    }
+  }
+
+  private persist(): void {
+    this.stateStore?.write("auth", { users: [...this.users], sessions: [...this.sessions] });
+  }
+
+  public countSessionsForShareLink(linkId: string): number {
+    return [...this.sessions.values()].filter(
+      (s) => s.shareLinkId === linkId && !s.isRevoked && Date.parse(s.expiresAt) > Date.now()
+    ).length;
   }
 
   public setRevocationHandler(handler: (sessionId: string) => void): void {
@@ -146,6 +167,11 @@ export class AuthService {
 
     // 4. Create owner
     const passwordHash = await hashPassword(params.password);
+    if (this.isOwnerBootstrapped()) {
+      throw new AppError(ErrorCode.CONFLICT, "Owner account is already initialized", {
+        statusCode: 409,
+      });
+    }
     const userId = createId("user");
     const ownerUser: StoredUser = {
       id: userId,
@@ -301,6 +327,7 @@ export class AuthService {
 
     this.sessions.set(sessionId, stored);
     this.tokenHashToSessionId.set(tokenHash, sessionId);
+    this.persist();
 
     return { session: this.toRemoteSession(stored), sessionToken: rawToken };
   }
@@ -330,7 +357,7 @@ export class AuthService {
 
   public getSessionById(sessionId: string): RemoteSession | null {
     const stored = this.sessions.get(sessionId);
-    if (!stored || stored.isRevoked) return null;
+    if (!stored || stored.isRevoked || Date.parse(stored.expiresAt) <= Date.now()) return null;
     return this.toRemoteSession(stored);
   }
 
@@ -351,6 +378,7 @@ export class AuthService {
 
     stored.isRevoked = true;
     stored.revokedAt = new Date().toISOString();
+    this.persist();
 
     auditService.record(AuditEventType.SESSION_REVOKED, actorId, {
       targetId: sessionId,
@@ -393,7 +421,7 @@ export class AuthService {
   }
 }
 
-export const authService = new AuthService();
+export const authService = new AuthService(gatewayStateStore);
 authService.setRevocationHandler((sessionId) => {
   tunnelRelayService.terminateSessionSockets(sessionId);
 });

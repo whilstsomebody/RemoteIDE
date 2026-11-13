@@ -1,11 +1,12 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import { Shield, Lock, Laptop, CheckCircle2, AlertCircle, ArrowRight, Loader2 } from "lucide-react";
 import { Button, Input } from "@remote-ide/ui";
 
-const GATEWAY_URL = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000";
 
 function ShareRedeemContent() {
   const router = useRouter();
@@ -53,7 +54,7 @@ function ShareRedeemContent() {
     setError(null);
 
     try {
-      const res = await fetch(`${GATEWAY_URL}/api/v1/share-links/redeem`, {
+      const res = await gatewayFetch(`${GATEWAY_URL}/api/v1/share-links/redeem`, {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
@@ -76,15 +77,8 @@ function ShareRedeemContent() {
 
       const session = data.data.session;
 
-      // Set cookie for proxy/websocket authentication
-      const maxAge = Math.max(
-        60,
-        Math.floor((new Date(session.expiresAt).getTime() - Date.now()) / 1000)
-      );
-      document.cookie = `remote_ide_token=${session.token}; path=/; max-age=${maxAge}; SameSite=Lax`;
-
       // Also persist in localStorage for client-side API calls
-      localStorage.setItem("remote_ide_token", session.token);
+      localStorage.setItem("remote_ide_token", data.data.sessionToken);
       localStorage.setItem("remote_ide_role", session.role);
       localStorage.setItem("remote_ide_session_id", session.id);
 
@@ -219,7 +213,7 @@ function ShareRedeemContent() {
 
         <div className="mt-6 pt-4 border-t border-zinc-800/80 text-center">
           <p className="text-[10px] text-zinc-500">
-            End-to-end encrypted remote IDE access via reverse tunnel. Zero open inbound ports
+            Remote IDE access via the host’s outbound tunnel. Zero open inbound ports
             required.
           </p>
         </div>

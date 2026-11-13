@@ -16,6 +16,8 @@ import {
 const execFileAsync = promisify(execFile);
 
 interface ProcessRecord {
+  env: NodeJS.ProcessEnv;
+  stopping?: Promise<void>;
   process: ManagedProcess;
   child?: ChildProcess;
   logs: Array<{ timestamp: string; stream: "stdout" | "stderr"; text: string }>;
@@ -129,6 +131,7 @@ export class ProcessManagerService {
 
     const record: ProcessRecord = {
       process: managed,
+      env: rawEnv,
       logs: [],
       logListeners: new Set(),
     };
@@ -180,6 +183,7 @@ export class ProcessManagerService {
       child.stderr?.on("data", (data) => appendLog("stderr", data));
 
       child.on("error", (err) => {
+        if (record.child !== child) return;
         logger.error({ err, procId: proc.id }, "Managed process error");
         proc.status = "crashed";
         proc.stoppedAt = new Date().toISOString();
@@ -187,6 +191,7 @@ export class ProcessManagerService {
       });
 
       child.on("close", (code, signal) => {
+        if (record.child !== child) return;
         proc.exitCode = code;
         proc.signal = signal;
         proc.stoppedAt = new Date().toISOString();
@@ -219,26 +224,21 @@ export class ProcessManagerService {
       throw new AppError(ErrorCode.NOT_FOUND, `Managed process not found: ${id}`);
     }
 
-    if (record.child && record.process.status === "running") {
+    if (record.stopping) {
+      await record.stopping;
+    } else if (record.child) {
       const child = record.child;
-      record.process.status = "stopped";
-      record.process.stoppedAt = new Date().toISOString();
-      child.kill("SIGTERM");
-
-      // Give 3 seconds grace period before SIGKILL
-      setTimeout(() => {
-        if (record.child) {
-          try {
-            record.child.kill("SIGKILL");
-          } catch {
-            // Process may already be dead
-          }
-        }
-      }, 3000);
-    } else {
-      record.process.status = "stopped";
-      record.process.stoppedAt = new Date().toISOString();
+      record.stopping = new Promise<void>((resolve) => {
+        const timer = setTimeout(() => {
+          if (child.exitCode === null && child.signalCode === null) child.kill("SIGKILL");
+        }, 3000);
+        child.once("close", () => { clearTimeout(timer); resolve(); });
+        child.kill("SIGTERM");
+      });
+      try { await record.stopping; } finally { record.stopping = undefined; }
     }
+    record.process.status = "stopped";
+    record.process.stoppedAt = new Date().toISOString();
 
     return { ...record.process };
   }
@@ -252,17 +252,13 @@ export class ProcessManagerService {
       throw new AppError(ErrorCode.NOT_FOUND, `Managed process not found: ${id}`);
     }
 
-    if (record.child && record.process.status === "running") {
-      await this.stopProcess(id);
-      // Wait a moment for termination
-      await new Promise((r) => setTimeout(r, 500));
-    }
+    if (record.child || record.stopping) await this.stopProcess(id);
 
     record.process.restartCount += 1;
     record.process.startedAt = new Date().toISOString();
     record.process.status = "starting";
 
-    this.spawnChild(record, { ...process.env });
+    this.spawnChild(record, record.env);
 
     return { ...record.process };
   }

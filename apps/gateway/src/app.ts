@@ -50,17 +50,30 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
         "http://127.0.0.1:4000",
         process.env.CORS_ORIGIN,
       ].filter(Boolean);
-      if (
-        allowed.includes(origin) ||
-        origin.startsWith("http://localhost:") ||
-        origin.startsWith("http://127.0.0.1:")
-      ) {
+      let localOrigin = false;
+      try {
+        const url = new URL(origin);
+        localOrigin = url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+      } catch {}
+      if (allowed.includes(origin) || localOrigin) {
         return cb(null, true);
       }
       return cb(null, false);
     },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
+  });
+  // CORS only controls response visibility; reject untrusted browser origins
+  // before side effects and WebSocket upgrades can occur.
+  app.addHook("onRequest", async (req, reply) => {
+    const origin = req.headers.origin;
+    if (!origin) return;
+    let allowed = origin === process.env.CORS_ORIGIN;
+    try {
+      const url = new URL(origin);
+      allowed ||= url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
+    } catch {}
+    if (!allowed) return reply.code(403).send({ success: false, error: { code: "FORBIDDEN", message: "Browser origin is not allowed" } });
   });
   await app.register(websocket);
   await app.register(requestIdPlugin);
@@ -78,6 +91,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
 
   // Background Outbox Worker & Distributed Fan-Out
   outboxService.start(500);
+
+  void redisService.connect();
 
   // Subscribe to Redis Broadcast Channel for multi-gateway WebSocket fan-out
   void redisService.subscribe(REDIS_CHANNELS.GATEWAY_BROADCAST, (messageStr) => {

@@ -49,4 +49,17 @@ describe("WorkerService", () => {
     expect(handler).toHaveBeenCalledTimes(1);
     expect(worker.getStatus().processedCount).toBe(1);
   });
+  it("retries failed handlers and serializes concurrent duplicate deliveries", async () => {
+    const worker = new WorkerService(env);
+    const handler = vi.fn().mockRejectedValueOnce(new Error("temporary failure")).mockResolvedValue(undefined);
+    worker.registerHandler(WorkspaceEventType.FILE_UPDATED, handler);
+    const event = createDurableEvent({ id: "retry", type: WorkspaceEventType.FILE_UPDATED, hostId: "host", actorId: "actor", payload: {} });
+    await expect(worker.processEvent(event)).rejects.toThrow("temporary failure");
+    expect(worker.getStatus().processedCount).toBe(0);
+    const results = await Promise.all([worker.processEvent(event), worker.processEvent(event)]);
+    expect(results).toEqual([true, false]);
+    expect(handler).toHaveBeenCalledTimes(2);
+    await worker.stop();
+  });
+
 });

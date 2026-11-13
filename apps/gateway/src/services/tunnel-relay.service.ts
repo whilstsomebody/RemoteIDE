@@ -19,6 +19,7 @@ export interface ConnectedHostAgent {
 }
 
 export interface PendingRpc {
+  socket: WebSocket;
   correlationId: string;
   resolve: (response: TunnelHttpResponsePayload) => void;
   reject: (error: Error) => void;
@@ -29,7 +30,8 @@ export class TunnelRelayService {
   private connectedAgents = new Map<string, ConnectedHostAgent>(); // hostId -> ConnectedHostAgent
   private pendingRpcs = new Map<string, PendingRpc>(); // correlationId -> PendingRpc
   private clientSessionSockets = new Map<string, Set<WebSocket>>(); // sessionId -> Set<WebSocket>
-  private clientSessions = new Map<string, { allowedWorkspaceIds: string[]; role: string }>();
+  private clientSessions = new Map<string, { allowedWorkspaceIds: string[]; role: string; expiresAt?: string }>();
+  private broadcastIds = new Set<string>();
   private terminalSessionListeners = new Map<string, Set<(msg: unknown) => void>>();
 
   public registerAgentSocket(
@@ -71,7 +73,7 @@ export class TunnelRelayService {
         } else if (msg.type === TunnelMessageType.TUNNEL_RESPONSE) {
           const payload = msg.payload as TunnelHttpResponsePayload;
           const pending = this.pendingRpcs.get(payload.correlationId);
-          if (pending) {
+          if (pending && pending.socket === socket) {
             clearTimeout(pending.timer);
             this.pendingRpcs.delete(payload.correlationId);
             pending.resolve(payload);
@@ -100,6 +102,13 @@ export class TunnelRelayService {
     });
 
     socket.on("close", () => {
+      for (const [id, pending] of this.pendingRpcs) {
+        if (pending.socket === socket) {
+          clearTimeout(pending.timer);
+          this.pendingRpcs.delete(id);
+          pending.reject(new AppError(ErrorCode.SERVICE_UNAVAILABLE, "Host disconnected during request", { statusCode: 503 }));
+        }
+      }
       if (this.connectedAgents.get(hostId)?.socket === socket) {
         this.connectedAgents.delete(hostId);
         auditService.record(AuditEventType.HOST_DISCONNECTED, hostId);
@@ -119,7 +128,7 @@ export class TunnelRelayService {
       return this.connectedAgents.get(hostId);
     }
     // Fallback if local-host-agent is requested or only one agent is connected
-    if ((!hostId || hostId === "local-host-agent") && this.connectedAgents.size > 0) {
+    if ((!hostId || hostId === "local-host-agent") && this.connectedAgents.size === 1) {
       return this.connectedAgents.values().next().value;
     }
     return undefined;
@@ -214,6 +223,7 @@ export class TunnelRelayService {
 
       this.pendingRpcs.set(correlationId, {
         correlationId,
+        socket: agent.socket,
         resolve,
         reject,
         timer,
@@ -234,7 +244,7 @@ export class TunnelRelayService {
   public registerClientSocket(
     sessionId: string,
     socket: WebSocket,
-    session?: { allowedWorkspaceIds: string[]; role: string }
+    session?: { allowedWorkspaceIds: string[]; role: string; expiresAt?: string }
   ): void {
     if (session) {
       this.clientSessions.set(sessionId, session);
@@ -247,7 +257,12 @@ export class TunnelRelayService {
     set.add(socket);
 
     if (typeof socket.on === "function") {
+      const expiryTimer = session?.expiresAt ? setInterval(() => {
+        if (Date.parse(session.expiresAt!) <= Date.now()) this.terminateSessionSockets(sessionId);
+      }, 1000) : undefined;
+      expiryTimer?.unref();
       socket.on("close", () => {
+        if (expiryTimer) clearInterval(expiryTimer);
         set?.delete(socket);
         if (set?.size === 0) {
           this.clientSessionSockets.delete(sessionId);
@@ -269,6 +284,12 @@ export class TunnelRelayService {
    * Broadcast a workspace event to all authorized client WebSockets
    */
   public broadcastWorkspaceEvent(workspaceId: string, event: unknown): void {
+    const eventId = (event as { id?: string })?.id;
+    if (eventId) {
+      if (this.broadcastIds.has(eventId)) return;
+      this.broadcastIds.add(eventId);
+      if (this.broadcastIds.size > 10000) this.broadcastIds.delete(this.broadcastIds.values().next().value!);
+    }
     const message = JSON.stringify({
       type: "workspace.event",
       payload: event,
@@ -276,8 +297,12 @@ export class TunnelRelayService {
 
     for (const [sessionId, sockets] of this.clientSessionSockets.entries()) {
       const session = this.clientSessions.get(sessionId);
+      if (!session) continue;
+      if (session.expiresAt && Date.parse(session.expiresAt) <= Date.now()) {
+        this.terminateSessionSockets(sessionId);
+        continue;
+      }
       if (
-        session &&
         session.allowedWorkspaceIds.length > 0 &&
         !session.allowedWorkspaceIds.includes(workspaceId)
       ) {
@@ -308,7 +333,12 @@ export class TunnelRelayService {
         }
       }
       this.clientSessionSockets.delete(sessionId);
+      this.clientSessions.delete(sessionId);
     }
+  }
+
+  public hasTerminalSubscribers(sessionId: string): boolean {
+    return (this.terminalSessionListeners.get(sessionId)?.size || 0) > 0;
   }
 }
 

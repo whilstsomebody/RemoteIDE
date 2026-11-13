@@ -44,4 +44,15 @@ describe("Phase 5 - Host Agent Process Manager", () => {
     const stopped = await service.stopProcess(proc.id);
     expect(["stopped", "crashed"]).toContain(stopped.status);
   });
+  it("preserves private environment on restart and does not kill the replacement process", async () => {
+    const proc = await service.startProcess({ workspaceId: "ws-restart", name: "restart", command: process.execPath, args: ["-e", "console.log(process.env.RESTART_VALUE); setInterval(() => {}, 100);"], cwd: process.cwd(), env: { RESTART_VALUE: "retained" } });
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    const restarted = await service.restartProcess(proc.id);
+    expect(restarted.pid).not.toBe(proc.pid);
+    await new Promise((resolve) => setTimeout(resolve, 3200));
+    expect((await service.getProcess(proc.id)).status).toBe("running");
+    expect(service.getLogs(proc.id).filter((line) => line.text.includes("retained")).length).toBeGreaterThanOrEqual(2);
+    await service.stopProcess(proc.id);
+  }, 10000);
+
 });

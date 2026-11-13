@@ -97,4 +97,4 @@ pnpm test
 pnpm typecheck
 ```
 
-For full setup documentation, see [docs/SETUP.md](file:///Users/aman/Documents/Project/RemoteIDE/docs/SETUP.md) and [docs/architecture/ARCHITECTURE.md](file:///Users/aman/Documents/Project/RemoteIDE/docs/architecture/ARCHITECTURE.md).
+For full setup documentation, see [docs/SETUP.md](docs/SETUP.md) and [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).

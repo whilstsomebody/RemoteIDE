@@ -91,9 +91,9 @@ export class JobManagerService {
     }
 
     // Working directory validation
-    let resolvedCwd = dto.cwd ? path.resolve(dto.cwd) : os.homedir();
+    const resolvedCwd = dto.cwd ? path.resolve(dto.cwd) : os.homedir();
     if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
-      resolvedCwd = os.homedir();
+      throw new AppError(ErrorCode.NOT_FOUND, `Working directory does not exist: ${resolvedCwd}`);
     }
 
     const jobId = generateId("job");
@@ -317,7 +317,7 @@ export class JobManagerService {
       try {
         record.process.kill("SIGTERM");
         setTimeout(() => {
-          if (record.process && !record.process.killed) {
+          if (record.process && record.process.exitCode === null && record.process.signalCode === null) {
             record.process.kill("SIGKILL");
           }
         }, 500);

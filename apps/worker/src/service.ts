@@ -10,6 +10,7 @@ export class WorkerService {
   private logger: Logger;
   private env: WorkerEnv;
   private handlers: Map<string, JobHandler[]> = new Map();
+  private inFlight = new Map<string, Promise<boolean>>();
   private processedEventIds = new Set<string>(); // In-memory deduplication set
   private processedCount: number = 0;
   private failureCount: number = 0;
@@ -87,6 +88,14 @@ export class WorkerService {
   public async processEvent<T extends Record<string, unknown>>(
     event: DurableEvent<T>
   ): Promise<boolean> {
+    const pending = this.inFlight.get(event.id);
+    if (pending) { await pending; return false; }
+    const processing = this.processEventOnce(event);
+    this.inFlight.set(event.id, processing);
+    try { return await processing; } finally { this.inFlight.delete(event.id); }
+  }
+
+  private async processEventOnce<T extends Record<string, unknown>>(event: DurableEvent<T>): Promise<boolean> {
     // 1. Deduplication check
     if (this.processedEventIds.has(event.id)) {
       this.logger.debug({ eventId: event.id }, "Duplicate event suppressed in worker");
@@ -113,16 +122,9 @@ export class WorkerService {
           { err, eventId: event.id, eventType: event.type },
           "Handler failed for event"
         );
+        throw err;
       }
     }
-
-    this.processedEventIds.add(event.id);
-    if (this.processedEventIds.size > 10000) {
-      // Bounded in-memory retention
-      const first = this.processedEventIds.values().next().value;
-      if (first) this.processedEventIds.delete(first);
-    }
-    this.processedCount++;
 
     // 2. Broadcast to Redis Pub/Sub for connected gateway fan-out
     if (this.isRedisConnected && this.redis) {
@@ -134,8 +136,17 @@ export class WorkerService {
         await this.redis.publish(REDIS_CHANNELS.GATEWAY_BROADCAST, payloadStr);
       } catch (redisErr) {
         this.logger.warn({ redisErr }, "Failed to publish worker event to Redis");
+        throw redisErr;
       }
     }
+
+    this.processedEventIds.add(event.id);
+    if (this.processedEventIds.size > 10000) {
+      // Bounded in-memory retention
+      const first = this.processedEventIds.values().next().value;
+      if (first) this.processedEventIds.delete(first);
+    }
+    this.processedCount++;
 
     return true;
   }
@@ -174,7 +185,8 @@ export class WorkerService {
               const event = JSON.parse(message.value.toString()) as DurableEvent<any>;
               await this.processEvent(event);
             } catch (err) {
-              this.logger.error({ err }, "Error parsing Kafka message in worker");
+              this.logger.error({ err }, "Kafka event processing failed; leave offset uncommitted");
+              throw err;
             }
           },
         });
@@ -192,6 +204,8 @@ export class WorkerService {
 
   public async stop(): Promise<void> {
     this.isRunning = false;
+    this.isKafkaConnected = false;
+    this.isRedisConnected = false;
 
     if (this.consumer) {
       try {

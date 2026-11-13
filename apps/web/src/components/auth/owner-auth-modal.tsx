@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Shield, User, Lock, Mail, CheckCircle2, AlertCircle, X, LogOut } from "lucide-react";
 import { Button, Input } from "@remote-ide/ui";
@@ -14,9 +16,7 @@ export interface OwnerAuthModalProps {
 export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
   isOpen,
   onClose,
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_HTTP_URL ||
-    process.env.NEXT_PUBLIC_GATEWAY_URL ||
-    "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
   onAuthSuccess,
 }) => {
   const [isBootstrapped, setIsBootstrapped] = useState<boolean | null>(null);
@@ -39,7 +39,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
   const checkStatus = useCallback(async () => {
     setError(null);
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/auth/status`);
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/auth/status`);
       if (res.ok) {
         const body = await res.json();
         const bootstrapped = !!body.data?.isBootstrapped;
@@ -51,7 +51,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
         // Check if current user is logged in
         const token = localStorage.getItem("remote_ide_token") || "";
         if (token) {
-          const sessRes = await fetch(`${gatewayUrl}/api/v1/auth/sessions`, {
+          const sessRes = await gatewayFetch(`${gatewayUrl}/api/v1/auth/sessions`, {
             headers: { Authorization: `Bearer ${token}` },
             credentials: "include",
           });
@@ -95,7 +95,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
       let tokenToUse = localSetupToken;
       if (!tokenToUse) {
         try {
-          const statusRes = await fetch(`${gatewayUrl}/api/v1/auth/status`);
+          const statusRes = await gatewayFetch(`${gatewayUrl}/api/v1/auth/status`);
           if (statusRes.ok) {
             const sbody = await statusRes.json();
             tokenToUse = sbody.data?.localSetupToken || "";
@@ -105,7 +105,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
         }
       }
 
-      const res = await fetch(`${gatewayUrl}/api/v1/auth/bootstrap`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/auth/bootstrap`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -152,7 +152,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
     setSuccessMsg(null);
 
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/auth/login`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/auth/login`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -191,7 +191,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
     try {
       const token = localStorage.getItem("remote_ide_token") || "";
       if (token) {
-        await fetch(`${gatewayUrl}/api/v1/auth/logout`, {
+        await gatewayFetch(`${gatewayUrl}/api/v1/auth/logout`, {
           method: "POST",
           headers: { Authorization: `Bearer ${token}` },
           credentials: "include",

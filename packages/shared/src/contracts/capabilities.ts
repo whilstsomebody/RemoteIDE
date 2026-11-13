@@ -6,6 +6,7 @@ export enum UserRole {
   DEVELOPER = "developer",
   EDITOR = "editor",
   VIEWER = "viewer",
+  // eslint-disable-next-line @typescript-eslint/no-duplicate-enum-values -- public compatibility alias
   COLLABORATOR = "editor", // backwards-compatibility alias
 }
 

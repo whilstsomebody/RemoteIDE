@@ -1,3 +1,4 @@
+import { isLocalRequest } from "../services/request-auth.js";
 import { FastifyPluginAsync } from "fastify";
 import {
   BootstrapOwnerDtoSchema,
@@ -29,10 +30,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     let session = token ? authService.getSessionByToken(token) : null;
     if (!session && !token) {
       const isLoopback =
-        req.ip === "127.0.0.1" ||
-        req.ip === "::1" ||
-        req.ip === "::ffff:127.0.0.1" ||
-        req.hostname === "localhost";
+        isLocalRequest(req);
 
       if (isLoopback && !authService.isOwnerBootstrapped()) {
         session = {
@@ -91,10 +89,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/auth/status", async (req, reply) => {
     const isBootstrapped = authService.isOwnerBootstrapped();
     const isLoopback =
-      req.ip === "127.0.0.1" ||
-      req.ip === "::1" ||
-      req.ip === "::ffff:127.0.0.1" ||
-      req.hostname === "localhost";
+      isLocalRequest(req);
 
     return reply.send(
       createSuccessEnvelope({
@@ -243,10 +238,7 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     let currentSession = token ? authService.getSessionByToken(token) : null;
     if (!currentSession && !token) {
       const isLoopback =
-        req.ip === "127.0.0.1" ||
-        req.ip === "::1" ||
-        req.ip === "::ffff:127.0.0.1" ||
-        req.hostname === "localhost";
+        isLocalRequest(req);
 
       if (isLoopback && !authService.isOwnerBootstrapped()) {
         currentSession = {

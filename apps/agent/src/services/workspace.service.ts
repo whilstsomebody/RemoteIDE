@@ -19,7 +19,7 @@ const { DatabaseSync } = require("node:sqlite") as {
 export class WorkspaceService {
   private db: InstanceType<typeof DatabaseSync>;
 
-  constructor(dbPath: string = ":memory:") {
+  constructor(dbPath: string = ":memory:", private allowedRoots: string[] = []) {
     if (dbPath !== ":memory:") {
       const dir = path.dirname(dbPath);
       if (!fs.existsSync(dir)) {
@@ -71,7 +71,16 @@ export class WorkspaceService {
 
       // Canonicalize path (resolves any symlinks in the root path itself)
       const realCanonicalPath = fs.realpathSync(resolvedPath);
+      if (this.allowedRoots.length && !this.allowedRoots.some((root) => {
+        const canonical = fs.realpathSync(path.resolve(root));
+        return realCanonicalPath === canonical || realCanonicalPath.startsWith(`${canonical}${path.sep}`);
+      })) {
+        throw new AppError(ErrorCode.PATH_NOT_ALLOWED, "Workspace is outside configured project roots");
+      }
       const folderName = path.basename(realCanonicalPath) || name;
+      if (verifiedFolders.some((folder) => folder.name === folderName)) {
+        throw new AppError(ErrorCode.INVALID_WORKSPACE_PATH, "Workspace folder names must be unique");
+      }
 
       verifiedFolders.push({
         id: generateId("fld"),

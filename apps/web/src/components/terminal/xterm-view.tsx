@@ -1,5 +1,7 @@
 "use client";
 
+import { GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useEffect, useRef, useState, useCallback } from "react";
 import type { Terminal } from "@xterm/xterm";
 import type { FitAddon } from "@xterm/addon-fit";
@@ -24,7 +26,7 @@ export interface XtermViewProps {
 
 export const XtermView: React.FC<XtermViewProps> = ({
   sessionId,
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
   className = "",
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);

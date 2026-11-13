@@ -24,7 +24,7 @@ export const AgentEnvSchema = BaseConfigSchema.extend({
   PORT: z.coerce.number().default(4001),
   HOST: z.string().default("127.0.0.1"),
   GATEWAY_WS_URL: z.string().default("ws://127.0.0.1:4000/api/v1/tunnel/agent"),
-  AGENT_AUTH_TOKEN: z.string().default("dev-agent-token-1234567890"),
+  AGENT_AUTH_TOKEN: z.string().default(""),
   HOST_IDENTIFIER: z.string().default("local-host-agent"),
   SQLITE_JOURNAL_PATH: z.string().default("./data/agent-journal.sqlite"),
   ALLOWED_PROJECT_ROOTS: z.string().default(process.cwd()),

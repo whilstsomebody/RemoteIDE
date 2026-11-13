@@ -1,3 +1,4 @@
+import { authenticateAgent, authenticateClient } from "../services/request-auth.js";
 import { FastifyPluginAsync } from "fastify";
 import {
   SyncEventsDtoSchema,
@@ -11,6 +12,7 @@ import { syncService } from "../services/sync.service.js";
 export const syncRoutes: FastifyPluginAsync = async (fastify) => {
   // 1. Submit pending events from host agent (with host sequence numbers)
   fastify.post("/api/v1/sync/events", async (req, reply) => {
+    if (!authenticateAgent(req)) return reply.status(401).send(createErrorResponse(ErrorCode.UNAUTHORIZED, "Agent authentication required"));
     const parse = SyncEventsDtoSchema.safeParse(req.body);
     if (!parse.success) {
       return reply
@@ -29,7 +31,12 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
 
   // 2. Client reconciliation: fetch events since a specific revision
   fastify.get("/api/v1/sync/reconcile", async (req, reply) => {
+    const session = authenticateClient(req);
+    if (!session) return reply.status(401).send(createErrorResponse(ErrorCode.UNAUTHORIZED, "Authentication required"));
     const query = req.query as Record<string, string | undefined>;
+    if (session.allowedWorkspaceIds.length && !session.allowedWorkspaceIds.includes(query.workspaceId || "")) {
+      return reply.status(403).send(createErrorResponse(ErrorCode.FORBIDDEN, "Workspace access denied"));
+    }
     const parse = ReconcileEventsDtoSchema.safeParse({
       workspaceId: query.workspaceId,
       sinceRevision: query.sinceRevision ? parseInt(query.sinceRevision, 10) : 0,
@@ -56,7 +63,9 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
   });
 
   // 3. Operational & Performance metrics
-  fastify.get("/api/v1/sync/metrics", async (_req, _reply) => {
+  fastify.get("/api/v1/sync/metrics", async (req, reply) => {
+    const session = authenticateClient(req);
+    if (!session?.isOwner) return reply.status(403).send(createErrorResponse(ErrorCode.FORBIDDEN, "Owner authentication required"));
     const metrics = syncService.getMetrics();
     return createSuccessResponse(metrics);
   });

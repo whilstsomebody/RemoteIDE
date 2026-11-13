@@ -157,6 +157,7 @@ export interface TunnelHttpRequestPayload {
 }
 
 export interface TunnelHttpResponsePayload {
+  bodyEncoding?: "base64";
   correlationId: string;
   statusCode: number;
   headers?: Record<string, string>;

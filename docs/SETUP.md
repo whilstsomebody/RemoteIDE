@@ -6,7 +6,7 @@ This guide describes how to configure, run, and develop **RemoteIDE** locally.
 
 ## 1. Prerequisites
 
-- **Node.js**: `v20+` or `v24+` (verified on Node.js `v24.19.0`)
+- **Node.js**: `v22.13+` or `v24+` (required for `node:sqlite`) (verified on Node.js `v24.19.0`)
 - **pnpm**: `v10+` or `v12+` (verified on pnpm `12.18.0`)
 - **Docker & Docker Compose**: For local PostgreSQL, Redis, and Kafka (KRaft mode)
 

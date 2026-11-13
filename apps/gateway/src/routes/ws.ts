@@ -1,3 +1,4 @@
+import { isLocalRequest } from "../services/request-auth.js";
 import { FastifyPluginAsync } from "fastify";
 import {
   WsMessageType,
@@ -26,12 +27,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!session) {
       const isLoopback =
-        req.ip === "127.0.0.1" ||
-        req.ip === "::1" ||
-        req.ip === "::ffff:127.0.0.1" ||
-        req.hostname === "localhost";
+        isLocalRequest(req);
 
-      if (isLoopback && !authService.isOwnerBootstrapped()) {
+      if (!token && isLoopback && !authService.isOwnerBootstrapped()) {
         session = {
           id: req.requestId,
           userId: "local-dev",
@@ -66,6 +64,7 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     tunnelRelayService.registerClientSocket(session.id, socket, {
       allowedWorkspaceIds: session.allowedWorkspaceIds,
       role: session.role,
+      expiresAt: session.expiresAt,
     });
 
     // Send connection greeting
@@ -199,12 +198,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
       // Allow loopback owner before bootstrap for local dev
       if (!session && !token) {
         const isLoopback =
-          req.ip === "127.0.0.1" ||
-          req.ip === "::1" ||
-          req.ip === "::ffff:127.0.0.1" ||
-          req.hostname === "localhost";
+          isLocalRequest(req);
 
-        if (isLoopback && !authService.isOwnerBootstrapped()) {
+        if (!token && isLoopback && !authService.isOwnerBootstrapped()) {
           session = {
             id: req.requestId,
             userId: "local-dev",
@@ -234,7 +230,7 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
         return;
       }
 
-      tunnelRelayService.registerClientSocket(session.id, socket);
+      tunnelRelayService.registerClientSocket(session.id, socket, { allowedWorkspaceIds: session.allowedWorkspaceIds, role: session.role, expiresAt: session.expiresAt });
 
       const hostId = session.hostId || "local-host-agent";
 
@@ -259,6 +255,10 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Forward client input and window resize frames to host agent over tunnel
       socket.on("message", (raw: Buffer | string) => {
+        if ((token && !authService.getSessionByToken(token)) || Date.parse(session.expiresAt) <= Date.now()) {
+          socket.close(4401, "Session expired or revoked");
+          return;
+        }
         try {
           const text = raw.toString("utf-8");
           const msg = JSON.parse(text);
@@ -294,9 +294,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
       socket.on("close", () => {
         unsubscribe();
-        tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_CLOSE, {
-          sessionId,
-        });
+        if (!tunnelRelayService.hasTerminalSubscribers(sessionId)) {
+          tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_CLOSE, { sessionId });
+        }
       });
     }
   );

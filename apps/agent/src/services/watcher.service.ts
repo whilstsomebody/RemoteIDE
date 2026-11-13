@@ -13,6 +13,7 @@ export type WatcherCallback = (event: {
 export class WatcherService {
   private journalService: LocalJournalService;
   private watchers: Map<string, fs.FSWatcher[]> = new Map();
+  private pollingTimers = new Map<string, NodeJS.Timeout[]>();
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
   private listeners: Set<WatcherCallback> = new Set();
   private ignoredPatterns: Set<string>;
@@ -56,6 +57,24 @@ export class WatcherService {
     for (const folder of workspace.folders) {
       if (!fs.existsSync(folder.path)) continue;
 
+      let snapshot = this.scanFolder(folder.path);
+      let polling = false;
+      const startPolling = () => {
+        if (polling) return;
+        polling = true;
+        const timer = setInterval(() => {
+          const next = this.scanFolder(folder.path);
+          for (const relativePath of new Set([...snapshot.keys(), ...next.keys()])) {
+            if (snapshot.get(relativePath) !== next.get(relativePath)) {
+              this.handleFileChange(workspace.id, folder.path, relativePath);
+            }
+          }
+          snapshot = next;
+        }, 500);
+        const timers = this.pollingTimers.get(workspace.id) || [];
+        timers.push(timer);
+        this.pollingTimers.set(workspace.id, timers);
+      };
       try {
         const watcher = fs.watch(folder.path, { recursive: true }, (_event, filename) => {
           if (!filename) return;
@@ -82,16 +101,42 @@ export class WatcherService {
           this.debounceTimers.set(debounceKey, timer);
         });
 
+        watcher.on("error", () => {
+          watcher.close();
+          startPolling();
+        });
         workspaceWatchers.push(watcher);
-      } catch (err) {
-        // Fallback or non-critical watch error
+      } catch {
+        startPolling();
       }
     }
 
     this.watchers.set(workspace.id, workspaceWatchers);
   }
 
+  private scanFolder(root: string): Map<string, string> {
+    const snapshot = new Map<string, string>();
+    const visit = (directory: string) => {
+      try {
+        for (const entry of fs.readdirSync(directory, { withFileTypes: true })) {
+          if (this.ignoredPatterns.has(entry.name) || entry.isSymbolicLink()) continue;
+          const fullPath = path.join(directory, entry.name);
+          const stat = fs.statSync(fullPath);
+          snapshot.set(path.relative(root, fullPath), `${stat.mtimeMs}:${stat.size}`);
+          if (entry.isDirectory()) visit(fullPath);
+        }
+      } catch { /* Directory may be removed during traversal. */ }
+    };
+    visit(root);
+    return snapshot;
+  }
+
   public unwatchWorkspace(workspaceId: string): void {
+    for (const timer of this.pollingTimers.get(workspaceId) || []) clearInterval(timer);
+    this.pollingTimers.delete(workspaceId);
+    for (const [key, timer] of this.debounceTimers) {
+      if (key.startsWith(`${workspaceId}:`)) { clearTimeout(timer); this.debounceTimers.delete(key); }
+    }
     const existing = this.watchers.get(workspaceId);
     if (existing) {
       for (const w of existing) {
@@ -147,6 +192,9 @@ export class WatcherService {
   }
 
   public stopAll(): void {
+    for (const timers of this.pollingTimers.values()) for (const timer of timers) clearInterval(timer);
+    this.pollingTimers.clear();
+    this.recentInternalSaves.clear();
     for (const timer of this.debounceTimers.values()) {
       clearTimeout(timer);
     }

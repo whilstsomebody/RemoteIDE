@@ -134,4 +134,25 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
 
     await app.close();
   });
+  it("counts concurrent sessions per link and never delegates owner access", async () => {
+    const app = await buildApp({ logger: false });
+    try {
+      const headers = { authorization: `Bearer ${ownerToken}` };
+      const ownerGrant = await app.inject({ method: "POST", url: "/api/v1/share-links", headers, payload: { name: "Owner grant", role: UserRole.OWNER } });
+      expect(ownerGrant.statusCode).toBe(403);
+      const tokens: string[] = [];
+      for (const name of ["Review A", "Review B"]) {
+        const created = await app.inject({ method: "POST", url: "/api/v1/share-links", headers, payload: { name, role: UserRole.VIEWER, oneTimeRedemption: false, maxConcurrentSessions: 1 } });
+        expect(created.statusCode).toBe(201);
+        tokens.push(created.json().data.rawToken);
+      }
+      for (const token of tokens) {
+        const redeemed = await app.inject({ method: "POST", url: "/api/v1/share-links/redeem", payload: { token } });
+        expect(redeemed.statusCode).toBe(200);
+      }
+      const second = await app.inject({ method: "POST", url: "/api/v1/share-links/redeem", payload: { token: tokens[0] } });
+      expect(second.statusCode).toBe(429);
+    } finally { await app.close(); }
+  });
+
 });

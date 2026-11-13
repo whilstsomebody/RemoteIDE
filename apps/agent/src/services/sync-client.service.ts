@@ -93,7 +93,11 @@ export class SyncClientService {
 
       const res = await fetch(`${this.gatewayHttpUrl}/api/v1/sync/events`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: {
+          "Content-Type": "application/json",
+          ...(process.env.AGENT_AUTH_TOKEN ? { Authorization: `Bearer ${process.env.AGENT_AUTH_TOKEN}` } : {}),
+        },
+        signal: AbortSignal.timeout(15000),
         body: JSON.stringify(dto),
       });
 

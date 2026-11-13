@@ -9,7 +9,6 @@ import {
   WS_PROTOCOL_VERSION,
   hasPermission,
   Permission,
-  generateId,
   generateRequestId,
   generateCorrelationId,
   formatStructuredLog,

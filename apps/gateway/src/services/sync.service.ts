@@ -49,8 +49,7 @@ export class SyncService {
 
     for (const ev of events) {
       // 1. Deduplication check via Redis idempotency key
-      const isNew = await this.redis.acquireIdempotencyKey(`agent_ev:${ev.eventId}`);
-      if (!isNew || this.outbox.isEventProcessed(ev.eventId)) {
+      if (this.outbox.isEventProcessed(ev.eventId)) {
         duplicateEventIds.push(ev.eventId);
         continue;
       }

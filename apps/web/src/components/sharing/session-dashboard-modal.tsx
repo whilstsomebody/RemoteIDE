@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Shield,
@@ -24,7 +26,7 @@ export interface SessionDashboardModalProps {
 export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
   isOpen,
   onClose,
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
 }) => {
   const [activeTab, setActiveTab] = useState<"sessions" | "links" | "audit">("sessions");
   const [sessions, setSessions] = useState<RemoteSession[]>([]);
@@ -45,16 +47,16 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
       if (token) headers.Authorization = `Bearer ${token}`;
 
       const [sessRes, linksRes, auditRes, tunnelRes] = await Promise.all([
-        fetch(`${gatewayUrl}/api/v1/auth/sessions`, { headers, credentials: "include" }).catch(
+        gatewayFetch(`${gatewayUrl}/api/v1/auth/sessions`, { headers, credentials: "include" }).catch(
           () => null
         ),
-        fetch(`${gatewayUrl}/api/v1/share-links`, { headers, credentials: "include" }).catch(
+        gatewayFetch(`${gatewayUrl}/api/v1/share-links`, { headers, credentials: "include" }).catch(
           () => null
         ),
-        fetch(`${gatewayUrl}/api/v1/auth/audit`, { headers, credentials: "include" }).catch(
+        gatewayFetch(`${gatewayUrl}/api/v1/auth/audit`, { headers, credentials: "include" }).catch(
           () => null
         ),
-        fetch(`${gatewayUrl}/api/v1/tunnel/status`, { headers, credentials: "include" }).catch(
+        gatewayFetch(`${gatewayUrl}/api/v1/tunnel/status`, { headers, credentials: "include" }).catch(
           () => null
         ),
       ]);
@@ -103,7 +105,7 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      await fetch(`${gatewayUrl}/api/v1/auth/sessions/${sessionId}`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/auth/sessions/${sessionId}`, {
         method: "DELETE",
         headers,
         credentials: "include",
@@ -125,7 +127,7 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      await fetch(`${gatewayUrl}/api/v1/share-links/${linkId}`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/share-links/${linkId}`, {
         method: "DELETE",
         headers,
         credentials: "include",

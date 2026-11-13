@@ -5,7 +5,7 @@ import path from "node:path";
 import { FilesystemService } from "../src/services/filesystem.service.js";
 import { WorkspaceService } from "../src/services/workspace.service.js";
 import { LocalJournalService } from "../src/services/local-journal.service.js";
-import { ErrorCode, AppError } from "@remote-ide/shared";
+import { ErrorCode } from "@remote-ide/shared";
 
 describe("FilesystemService & Security", () => {
   let tmpDir: string;
@@ -172,6 +172,49 @@ describe("FilesystemService & Security", () => {
       const read = fsService.readFile(workspaceId, "safe_link.txt");
       expect(read.content).toBe("Internal safe content");
     });
+  });
+
+  it("blocks writes and moves through an escaping ancestor with missing parents", () => {
+    fs.symlinkSync(outsideDir, path.join(workspaceDir, "escape"));
+    expect(() => fsService.writeFile(workspaceId, "escape/new/nested/file.txt", "unsafe")).toThrowError(expect.objectContaining({ code: ErrorCode.SYMLINK_ESCAPE_DETECTED }));
+    expect(() => fsService.createItem(workspaceId, "escape/new/nested", "directory")).toThrow();
+    fsService.writeFile(workspaceId, "source.txt", "safe");
+    expect(() => fsService.moveItem(workspaceId, "source.txt", "escape/new/nested/file.txt")).toThrow();
+    expect(fs.readdirSync(outsideDir)).toEqual([]);
+  });
+
+  it("uses the same ETag for read, stat and save and preserves executable permissions", () => {
+    const filename = path.join(workspaceDir, "script.sh");
+    fs.writeFileSync(filename, "echo old", { mode: 0o700 });
+    const read = fsService.readFile(workspaceId, "script.sh");
+    expect(fsService.getFileStat(workspaceId, "script.sh").eTag).toBe(read.eTag);
+    const saved = fsService.writeFile(workspaceId, "script.sh", "echo new", { expectedETag: read.eTag });
+    expect(fsService.getFileStat(workspaceId, "script.sh").eTag).toBe(saved.eTag);
+    expect(fs.statSync(filename).mode & 0o777).toBe(0o700);
+  });
+
+  it("does not recreate a deleted file when saving a stale buffer", () => {
+    const saved = fsService.writeFile(workspaceId, "file.txt", "old");
+    fsService.deleteItem(workspaceId, "file.txt");
+    expect(() => fsService.writeFile(workspaceId, "file.txt", "new", { expectedETag: saved.eTag })).toThrowError(expect.objectContaining({ code: ErrorCode.CONCURRENCY_CONFLICT }));
+  });
+
+  it("matches every consecutive line and filename in search", () => {
+    fsService.writeFile(workspaceId, "match-a.txt", "match\nmatch\nmatch");
+    fsService.writeFile(workspaceId, "match-b.txt", "match");
+    expect(fsService.searchFiles(workspaceId, { query: "match", type: "content" }).totalMatches).toBe(4);
+    expect(fsService.searchFiles(workspaceId, { query: "match", type: "filename" }).totalMatches).toBe(2);
+  });
+
+  it("keeps paths distinct across multiple workspace roots", () => {
+    fs.writeFileSync(path.join(workspaceDir, "same.txt"), "first");
+    fs.writeFileSync(path.join(outsideDir, "same.txt"), "second");
+    const multi = workspaceService.registerWorkspace("Multi", [workspaceDir, outsideDir]);
+    const tree = fsService.listDirectory(multi.id, "", 2);
+    expect(tree.map((node) => node.path)).toEqual(["workspace", "outside"]);
+    expect(tree[1]?.children?.[0]?.path).toBe("outside/same.txt");
+    expect(fsService.readFile(multi.id, "outside/same.txt").content).toBe("second");
+    expect(fsService.searchFiles(multi.id, { query: "same" }).results.map((item) => item.path)).toEqual(["workspace/same.txt", "outside/same.txt"]);
   });
 
   describe("Binary files and size limits", () => {

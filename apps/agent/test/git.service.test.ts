@@ -99,4 +99,13 @@ describe("Phase 5 - Host Agent Git Service", () => {
     expect(history[0]?.message).toBe("Commit 2");
     expect(history[1]?.message).toBe("Commit 1");
   });
+  it("parses branch names and rejects branch/remote option injection", async () => {
+    fs.writeFileSync(path.join(tmpDir, "a.txt"), "a");
+    await service.stage(tmpDir, ["a.txt"]);
+    await service.commit(tmpDir, "initial");
+    expect(await service.getBranches(tmpDir)).toContainEqual(expect.objectContaining({ name: "main", current: true }));
+    await expect(service.checkout(tmpDir, "--detach")).rejects.toThrow("command options");
+    await expect(service.push(tmpDir, "--all")).rejects.toThrow("command options");
+  });
+
 });

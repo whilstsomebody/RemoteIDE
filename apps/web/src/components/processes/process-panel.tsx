@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import { Square, RotateCw, Plus, RefreshCw, Layers, X } from "lucide-react";
 import { ManagedProcess } from "@remote-ide/shared";
@@ -30,7 +32,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   const fetchProcesses = useCallback(async () => {
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/processes?workspaceId=${workspaceId}`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/processes?workspaceId=${workspaceId}`, {
         credentials: "include",
       });
       if (res.ok) {
@@ -50,7 +52,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   const fetchLogs = useCallback(
     async (id: string) => {
       try {
-        const res = await fetch(`${gatewayUrl}/api/v1/processes/${id}/logs`, {
+        const res = await gatewayFetch(`${gatewayUrl}/api/v1/processes/${id}/logs`, {
           credentials: "include",
         });
         if (res.ok) {
@@ -93,7 +95,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
             .filter(Boolean)
         : [];
 
-      const res = await fetch(`${gatewayUrl}/api/v1/processes`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/processes`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -122,7 +124,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   const handleStop = async (id: string) => {
     try {
-      await fetch(`${gatewayUrl}/api/v1/processes/${id}/stop`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/processes/${id}/stop`, {
         method: "POST",
         credentials: "include",
       });
@@ -134,7 +136,7 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   const handleRestart = async (id: string) => {
     try {
-      await fetch(`${gatewayUrl}/api/v1/processes/${id}/restart`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/processes/${id}/restart`, {
         method: "POST",
         credentials: "include",
       });

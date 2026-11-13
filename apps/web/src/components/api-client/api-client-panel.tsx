@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
+
 import React, { useState } from "react";
 import { Send, Copy, Check, Plus, Trash2, Clock, Zap } from "lucide-react";
 import {
@@ -54,7 +56,7 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
     setIsLoading(true);
     setResponse(null);
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/api-client/execute`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/api-client/execute`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

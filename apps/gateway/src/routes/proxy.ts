@@ -1,6 +1,9 @@
+import { isLocalRequest } from "../services/request-auth.js";
 import { FastifyPluginAsync, FastifyRequest, FastifyReply } from "fastify";
 import {
   Permission,
+  requiredRequestPermission,
+  routeSegments,
   UserRole,
   hasPermission,
   createErrorEnvelope,
@@ -11,70 +14,6 @@ import {
 import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 import { auditService } from "../services/audit.service.js";
-
-function getRequiredPermission(method: string, path: string): Permission {
-  const m = method.toUpperCase();
-
-  // Terminal is owner-only terminal access
-  if (path.includes("/terminal")) {
-    return Permission.TERMINAL_ACCESS;
-  }
-
-  // Git operations with granular capability check
-  if (path.includes("/git")) {
-    if (path.includes("/discard") || path.includes("/branch/delete")) {
-      return Permission.GIT_DESTRUCTIVE;
-    }
-    if (path.includes("/push") || path.includes("/pull") || path.includes("/fetch")) {
-      return Permission.GIT_PUSH;
-    }
-    if (m === "POST") {
-      return Permission.GIT_WRITE;
-    }
-    return Permission.GIT_READ;
-  }
-
-  // Processes manager
-  if (path.includes("/processes")) {
-    if (m === "GET") return Permission.FS_READ;
-    return Permission.PROCESS_CONTROL;
-  }
-
-  // Ports management
-  if (path.includes("/ports")) {
-    if (m === "GET") return Permission.FS_READ;
-    return Permission.PORT_FORWARD;
-  }
-
-  // Application Preview
-  if (path.includes("/preview")) {
-    return Permission.PREVIEW_ACCESS;
-  }
-
-  // API Client
-  if (path.includes("/api-client")) {
-    return Permission.TASK_EXECUTE;
-  }
-
-  // Background jobs & task execution
-  if (path.includes("/jobs")) {
-    if (m === "GET") return Permission.FS_READ;
-    return Permission.TASK_EXECUTE;
-  }
-
-  // Deletion
-  if (m === "DELETE") {
-    return Permission.FS_DELETE;
-  }
-
-  // File mutations
-  if (m === "POST" || m === "PUT" || m === "PATCH") {
-    return Permission.FS_WRITE;
-  }
-
-  // Reads
-  return Permission.FS_READ;
-}
 
 export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   // Shared proxy handler forwarding RPC requests across the reverse tunnel
@@ -94,10 +33,7 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
     if (!session) {
       if (!token) {
         const isLoopback =
-          req.ip === "127.0.0.1" ||
-          req.ip === "::1" ||
-          req.ip === "::ffff:127.0.0.1" ||
-          req.hostname === "localhost";
+          isLocalRequest(req);
 
         if (isLoopback && !authService.isOwnerBootstrapped()) {
           // Fallback local unauthenticated session for initial onboarding
@@ -148,10 +84,10 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     // 2. Capability verification (Gateway layer)
-    const requiredPerm = getRequiredPermission(req.method, req.url);
+    const requiredPerm = requiredRequestPermission(req.method, req.url, req.body);
 
     // Strict owner-only terminal protection
-    if (req.url.includes("/terminal") && session.role !== UserRole.OWNER) {
+    if (requiredPerm === Permission.TERMINAL_ACCESS && session.role !== UserRole.OWNER) {
       auditService.record(AuditEventType.CAPABILITY_CHECK_FAILED, session.userId, {
         ipAddress: req.ip,
         targetId: req.url,
@@ -197,11 +133,18 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         );
     }
 
+    const segments = routeSegments(req.url);
+    if (segments[2] === "workspaces" &&
+        (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) &&
+        session.role !== UserRole.OWNER) {
+      return reply.status(403).send(createErrorEnvelope(ErrorCode.FORBIDDEN, "Only the owner can register or remove host workspaces"));
+    }
+
     // 3. Workspace scope boundary restriction
     if (session.allowedWorkspaceIds && session.allowedWorkspaceIds.length > 0) {
       // Extract workspace ID from URL: e.g. /api/v1/workspaces/:id/...
-      const match = req.url.match(/\/api\/v1\/workspaces\/([a-zA-Z0-9_-]+)/);
-      if (match && match[1] && match[1] !== "register") {
+      const match = segments[2] === "workspaces" && segments[3] ? ["", segments[3]] : null;
+      if (match && match[1] && match[1] !== "register" && match[1] !== "active") {
         const targetWsId = match[1];
         if (!session.allowedWorkspaceIds.includes(targetWsId)) {
           auditService.record(AuditEventType.SECURITY_SENSITIVE_OP, session.userId, {
@@ -254,7 +197,15 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         }
       }
 
-      return reply.status(response.statusCode).send(response.body);
+      if (segments[2] === "preview") {
+        reply.removeHeader("set-cookie");
+        reply.header("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups");
+        reply.header("Referrer-Policy", "no-referrer");
+      }
+      return reply.status(response.statusCode).send(
+        response.bodyEncoding === "base64" && typeof response.body === "string"
+          ? Buffer.from(response.body, "base64") : response.body
+      );
     } catch (err: unknown) {
       if (err instanceof AppError) {
         return reply

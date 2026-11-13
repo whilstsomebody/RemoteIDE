@@ -45,6 +45,12 @@ export class GitService {
     return resolved;
   }
 
+  private validateOperand(value: string): void {
+    if (!value || value.startsWith("-") || value.includes("\0")) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "Git branch and remote names must not be command options");
+    }
+  }
+
   /**
    * Run git command using structured arguments only.
    */
@@ -362,7 +368,7 @@ export class GitService {
     const { stdout } = await this.runGit(repoPath, [
       "branch",
       "-a",
-      "--format=%(refname:short)%x00%(HEAD)%x00%(upstream:short)",
+      "--format=%(refname:short)%00%(HEAD)%00%(upstream:short)",
     ]);
 
     if (!stdout.trim()) return [];
@@ -385,6 +391,7 @@ export class GitService {
    * Switch or create branch.
    */
   public async checkout(repoPath: string, branch: string, createNew = false): Promise<void> {
+    this.validateOperand(branch);
     const args = ["checkout"];
     if (createNew) args.push("-b");
     args.push(branch);
@@ -406,6 +413,7 @@ export class GitService {
         "Explicit confirmation is required to delete a branch."
       );
     }
+    this.validateOperand(branch);
     const flag = force ? "-D" : "-d";
     await this.runGit(repoPath, ["branch", flag, branch]);
   }
@@ -414,14 +422,17 @@ export class GitService {
    * Fetch from remote.
    */
   public async fetch(repoPath: string, remote = "origin"): Promise<void> {
-    await this.runGit(repoPath, ["fetch", remote]);
+    this.validateOperand(remote);
+    await this.runGit(repoPath, ["fetch", "--", remote]);
   }
 
   /**
    * Pull changes.
    */
   public async pull(repoPath: string, remote = "origin", branch?: string): Promise<void> {
-    const args = ["pull", remote];
+    this.validateOperand(remote);
+    if (branch) this.validateOperand(branch);
+    const args = ["pull", "--", remote];
     if (branch) args.push(branch);
     await this.runGit(repoPath, args);
   }
@@ -440,9 +451,11 @@ export class GitService {
       throw new AppError(ErrorCode.BAD_REQUEST, "Explicit confirmation is required to force-push.");
     }
 
+    this.validateOperand(remote);
+    if (branch) this.validateOperand(branch);
     const args = ["push"];
     if (force) args.push("--force");
-    args.push(remote);
+    args.push("--", remote);
     if (branch) args.push(branch);
 
     await this.runGit(repoPath, args);

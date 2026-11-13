@@ -1,3 +1,4 @@
+import { authenticateAgent } from "../services/request-auth.js";
 import { FastifyPluginAsync } from "fastify";
 import { createSuccessEnvelope, TunnelMessageType } from "@remote-ide/shared";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
@@ -7,7 +8,12 @@ export const tunnelRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/tunnel/agent", { websocket: true }, (socket, req) => {
     fastify.log.info({ ip: req.ip }, "Host agent establishing reverse tunnel connection");
 
+    if (!authenticateAgent(req)) {
+      socket.close(4401, "Agent authentication required");
+      return;
+    }
     let hostId = "local-host-agent";
+    let registered = false;
 
     socket.on("message", (raw: Buffer | string) => {
       try {
@@ -15,7 +21,12 @@ export const tunnelRoutes: FastifyPluginAsync = async (fastify) => {
         const msg = JSON.parse(text);
 
         if (msg.type === TunnelMessageType.AGENT_REGISTER) {
-          hostId = msg.payload?.hostId || hostId;
+          if (registered || typeof msg.payload?.hostId !== "string" || !msg.payload.hostId) {
+            socket.close(4400, "Invalid or repeated agent registration");
+            return;
+          }
+          registered = true;
+          hostId = msg.payload.hostId;
           tunnelRelayService.registerAgentSocket(hostId, socket, msg.payload?.capabilities);
 
           socket.send(

@@ -3,7 +3,6 @@ import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
 import { WorkspaceService } from "../src/services/workspace.service.js";
-import { ErrorCode } from "@remote-ide/shared";
 
 describe("WorkspaceService", () => {
   let tmpDir: string;
@@ -61,7 +60,7 @@ describe("WorkspaceService", () => {
     fs.mkdirSync(dirA);
     fs.mkdirSync(dirB);
 
-    const wsA = workspaceService.registerWorkspace("Project A", [dirA]);
+    const _wsA = workspaceService.registerWorkspace("Project A", [dirA]);
     const wsB = workspaceService.registerWorkspace("Project B", [dirB]);
 
     const list = workspaceService.listWorkspaces();
@@ -79,4 +78,17 @@ describe("WorkspaceService", () => {
     // Verify folder on host disk is completely untouched!
     expect(fs.existsSync(dirB)).toBe(true);
   });
+  it("enforces configured project roots after resolving symlinks", () => {
+    const allowed = path.join(tmpDir, "allowed");
+    const outside = path.join(tmpDir, "outside");
+    fs.mkdirSync(allowed); fs.mkdirSync(outside);
+    fs.symlinkSync(outside, path.join(allowed, "escape"));
+    const restricted = new WorkspaceService(":memory:", [allowed]);
+    try {
+      expect(() => restricted.registerWorkspace("Outside", [outside])).toThrow("outside configured project roots");
+      expect(() => restricted.registerWorkspace("Escape", [path.join(allowed, "escape")])).toThrow("outside configured project roots");
+      expect(restricted.registerWorkspace("Allowed", [allowed]).folders).toHaveLength(1);
+    } finally { restricted.close(); }
+  });
+
 });

@@ -24,3 +24,5 @@ export * from "./utils/crypto.js";
 
 // Config
 export * from "./config/env.js";
+
+export * from "./contracts/access-policy.js";

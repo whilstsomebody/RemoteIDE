@@ -111,30 +111,43 @@ export class FilesystemService {
       return {
         fullPath: candidatePath,
         canonicalRoot,
-        relativeToFolder: subPath,
+        relativeToFolder: workspace.folders.length > 1 ? path.join(selectedFolder.name, subPath) : subPath,
         folderName: selectedFolder.name,
       };
     }
 
     // 3. For new files that don't exist yet, verify parent directory's canonical resolution
     if (options.allowMissing) {
-      const parentDir = path.dirname(candidatePath);
-      if (fs.existsSync(parentDir)) {
-        const canonicalParent = fs.realpathSync(parentDir);
-        if (
-          canonicalParent !== canonicalRoot &&
-          !canonicalParent.startsWith(`${canonicalRoot}${path.sep}`)
-        ) {
-          throw new AppError(
-            ErrorCode.SYMLINK_ESCAPE_DETECTED,
-            `Parent directory symlink escapes workspace root: ${relativePath}`
-          );
+      // Inspect every existing ancestor, including dangling symlinks. Checking only
+      // the immediate parent misses link/new-directory/new-file escapes.
+      let ancestor = candidatePath;
+      while (true) {
+        try {
+          fs.lstatSync(ancestor);
+          let canonicalAncestor: string;
+          try {
+            canonicalAncestor = fs.realpathSync(ancestor);
+          } catch {
+            throw new AppError(ErrorCode.SYMLINK_ESCAPE_DETECTED, "Unresolvable path ancestor");
+          }
+          if (
+            canonicalAncestor !== canonicalRoot &&
+            !canonicalAncestor.startsWith(`${canonicalRoot}${path.sep}`)
+          ) {
+            throw new AppError(ErrorCode.SYMLINK_ESCAPE_DETECTED, "Path ancestor escapes workspace root");
+          }
+          break;
+        } catch (error) {
+          if ((error as NodeJS.ErrnoException).code !== "ENOENT") throw error;
+          const parent = path.dirname(ancestor);
+          if (parent === ancestor) throw error;
+          ancestor = parent;
         }
       }
       return {
         fullPath: candidatePath,
         canonicalRoot,
-        relativeToFolder: subPath,
+        relativeToFolder: workspace.folders.length > 1 ? path.join(selectedFolder.name, subPath) : subPath,
         folderName: selectedFolder.name,
       };
     }
@@ -174,7 +187,15 @@ export class FilesystemService {
     relativeDir: string = "",
     depth: number = 1
   ): FileNode[] {
-    const { fullPath, canonicalRoot } = this.resolveSafePath(workspaceId, relativeDir);
+    depth = Math.max(1, Math.min(Number.isFinite(depth) ? depth : 1, 20));
+    const workspace = this.workspaceService.getWorkspace(workspaceId);
+    if (!relativeDir && workspace.folders.length > 1) {
+      return workspace.folders.map((folder) => ({
+        name: folder.name, path: folder.name, type: "directory" as const,
+        children: depth > 1 ? this.listDirectory(workspaceId, folder.name, depth - 1) : undefined,
+      }));
+    }
+    const { fullPath, canonicalRoot, folderName } = this.resolveSafePath(workspaceId, relativeDir);
 
     const stat = fs.statSync(fullPath);
     if (!stat.isDirectory()) {
@@ -190,7 +211,9 @@ export class FilesystemService {
       }
 
       const itemFullPath = path.join(fullPath, entry.name);
-      const itemRelative = path.relative(canonicalRoot, itemFullPath);
+      const itemRelative = workspace.folders.length > 1
+        ? path.join(folderName, path.relative(canonicalRoot, itemFullPath))
+        : path.relative(canonicalRoot, itemFullPath);
 
       try {
         const itemLstat = fs.lstatSync(itemFullPath);
@@ -198,7 +221,7 @@ export class FilesystemService {
 
         let isDirectory = entry.isDirectory();
         let size = itemLstat.size;
-        let isBinary = false;
+        const isBinary = false;
 
         if (isSymlink) {
           try {
@@ -275,7 +298,7 @@ export class FilesystemService {
       isFile: stat.isFile(),
       isSymlink,
       isBinary,
-      eTag: this.computeETag(stat),
+      eTag: this.computeETag(stat, stat.isFile() && stat.size <= this.maxFileSizeBytes ? fs.readFileSync(fullPath) : undefined),
     };
   }
 
@@ -369,6 +392,10 @@ export class FilesystemService {
       }
     }
 
+    if (!isExisting && options.expectedETag) {
+      throw new AppError(ErrorCode.CONCURRENCY_CONFLICT, "File was deleted since it was read");
+    }
+
     // Prepare buffer
     const encoding = options.encoding ?? "utf-8";
     const buffer = Buffer.from(content, encoding);
@@ -397,13 +424,24 @@ export class FilesystemService {
     const tempFileName = `.${path.basename(fullPath)}.tmp.${crypto.randomUUID()}`;
     const tempFilePath = path.join(parentDir, tempFileName);
 
-    const fd = fs.openSync(tempFilePath, "w", 0o644);
-    fs.writeSync(fd, buffer, 0, buffer.length, 0);
-    fs.fsyncSync(fd);
-    fs.closeSync(fd);
+    const mode = isExisting ? fs.statSync(fullPath).mode & 0o777 : 0o644;
+    const fd = fs.openSync(tempFilePath, "wx", mode);
+    try {
+      fs.writeFileSync(fd, buffer);
+      fs.fchmodSync(fd, mode);
+      fs.fsyncSync(fd);
+    } catch (error) {
+      fs.rmSync(tempFilePath, { force: true });
+      throw error;
+    } finally {
+      fs.closeSync(fd);
+    }
 
-    // Atomic rename
-    fs.renameSync(tempFilePath, fullPath);
+    try {
+      fs.renameSync(tempFilePath, fullPath);
+    } finally {
+      fs.rmSync(tempFilePath, { force: true });
+    }
 
     // Suppress watcher echo loop
     if (this.watcherService) {
@@ -477,6 +515,9 @@ export class FilesystemService {
   ): { from: string; to: string } {
     const source = this.resolveSafePath(workspaceId, fromPath);
     const destination = this.resolveSafePath(workspaceId, toPath, { allowMissing: true });
+    if (source.fullPath === source.canonicalRoot || destination.fullPath === destination.canonicalRoot) {
+      throw new AppError(ErrorCode.PATH_NOT_ALLOWED, "Cannot move or replace a workspace root");
+    }
 
     if (fs.existsSync(destination.fullPath) && !overwrite) {
       throw new AppError(
@@ -576,7 +617,7 @@ export class FilesystemService {
 
     let regex: RegExp;
     try {
-      const flags = options.caseSensitive ? "g" : "gi";
+      const flags = options.caseSensitive ? "" : "i";
       regex = options.isRegex
         ? new RegExp(options.query, flags)
         : new RegExp(options.query.replace(/[.*+?^${}()|[\]\\]/g, "\\$&"), flags);
@@ -596,7 +637,9 @@ export class FilesystemService {
           if (this.ignoredPatterns.has(entry.name)) continue;
 
           const itemPath = path.join(currentDir, entry.name);
-          const relativePath = path.relative(canonicalRoot, itemPath);
+          const relativePath = workspace.folders.length > 1
+            ? path.join(folder.name, path.relative(canonicalRoot, itemPath))
+            : path.relative(canonicalRoot, itemPath);
 
           if (entry.isDirectory()) {
             searchDir(itemPath);

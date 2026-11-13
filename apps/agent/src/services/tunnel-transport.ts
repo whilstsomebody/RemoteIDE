@@ -8,6 +8,8 @@ import {
   Permission,
   hasPermission,
   ErrorCode,
+  requiredRequestPermission,
+  routeSegments,
 } from "@remote-ide/shared";
 import { terminalService } from "./terminal.service.js";
 
@@ -68,7 +70,9 @@ export class RelayTunnelTransport implements ITunnelTransport {
 
     try {
       const url = `${this.opts.gatewayWsUrl}?hostId=${encodeURIComponent(this.opts.hostId)}`;
-      this.ws = new WebSocket(url);
+      this.ws = new WebSocket(url, {
+        headers: this.opts.token ? { Authorization: `Bearer ${this.opts.token}` } : {},
+      });
 
       this.ws.on("open", () => {
         this.backoffMs = this.initialBackoffMs; // Reset backoff on success
@@ -137,6 +141,7 @@ export class RelayTunnelTransport implements ITunnelTransport {
                 }
               );
 
+              this.terminalUnsubscribers.get(sessionId)?.();
               this.terminalUnsubscribers.set(sessionId, unsubscribe);
               this.ws?.send(
                 JSON.stringify({
@@ -188,6 +193,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
 
       this.ws.on("close", () => {
         this.stopHeartbeat();
+        for (const unsubscribe of this.terminalUnsubscribers.values()) unsubscribe();
+        this.terminalUnsubscribers.clear();
         if (!this.isShuttingDown) {
           this.scheduleReconnect();
         }
@@ -253,62 +260,19 @@ export class RelayTunnelTransport implements ITunnelTransport {
     try {
       const auth = req.authContext;
 
+      if (!auth) {
+        return { correlationId: req.correlationId, statusCode: 401, body: { success: false, error: { code: ErrorCode.UNAUTHORIZED, message: "Tunnel authorization context required" } } };
+      }
+      const segments = routeSegments(req.path);
+      if (segments[2] === "workspaces" && (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) && auth.role !== UserRole.OWNER) {
+        return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Only the owner can manage host workspaces" } } };
+      }
       // 1. Dual-layer Capability Enforcement on Host Agent
       if (auth) {
-        const method = req.method.toUpperCase();
-        let required: Permission = Permission.FS_READ;
-
-        if (req.path.includes("/terminal")) {
-          required = Permission.TERMINAL_ACCESS;
-          // Phase 3 & 4 requirement: Terminal access is strictly owner-only!
-          if (auth.role !== UserRole.OWNER) {
-            return {
-              correlationId: req.correlationId,
-              statusCode: 403,
-              body: {
-                success: false,
-                error: {
-                  code: ErrorCode.FORBIDDEN,
-                  message:
-                    "Host agent rejected request: Terminal access is restricted to host owner only.",
-                },
-              },
-            };
-          }
-        } else if (req.path.includes("/git")) {
-          if (
-            req.path.includes("/discard") ||
-            req.path.includes("/branch/delete") ||
-            (req.body as any)?.force === true
-          ) {
-            required = Permission.GIT_DESTRUCTIVE;
-          } else if (
-            req.path.includes("/push") ||
-            req.path.includes("/pull") ||
-            req.path.includes("/fetch")
-          ) {
-            required = Permission.GIT_PUSH;
-          } else if (method === "POST") {
-            required = Permission.GIT_WRITE;
-          } else {
-            required = Permission.GIT_READ;
-          }
-        } else if (req.path.includes("/processes")) {
-          required = method === "GET" ? Permission.FS_READ : Permission.PROCESS_CONTROL;
-        } else if (req.path.includes("/ports")) {
-          required = method === "GET" ? Permission.FS_READ : Permission.PORT_FORWARD;
-        } else if (req.path.includes("/preview")) {
-          required = Permission.PREVIEW_ACCESS;
-        } else if (req.path.includes("/api-client")) {
-          required = Permission.TASK_EXECUTE;
-        } else if (req.path.includes("/jobs")) {
-          required = Permission.TASK_EXECUTE;
-        } else if (method === "DELETE") {
-          required = Permission.FS_DELETE;
-        } else if (method === "POST" || method === "PUT" || method === "PATCH") {
-          required = Permission.FS_WRITE;
+        const required = requiredRequestPermission(req.method, req.path, req.body);
+        if (required === Permission.TERMINAL_ACCESS && auth.role !== UserRole.OWNER) {
+          return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Terminal access is restricted to owner" } } };
         }
-
         if (!hasPermission(required, auth.capabilities)) {
           return {
             correlationId: req.correlationId,
@@ -325,8 +289,13 @@ export class RelayTunnelTransport implements ITunnelTransport {
 
         // 2. Dual-layer Workspace Restriction on Host Agent
         if (auth.allowedWorkspaceIds && auth.allowedWorkspaceIds.length > 0) {
-          const match = req.path.match(/\/api\/v1\/workspaces\/([a-zA-Z0-9_-]+)/);
-          if (match && match[1] && match[1] !== "register") {
+          // Host-wide tools accept absolute paths or execute arbitrary commands;
+          // they cannot safely honor a workspace-only grant.
+          if (segments[2] !== "workspaces") {
+            return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Host-wide tools require an unrestricted session" } } };
+          }
+          const match = segments[3] ? ["", segments[3]] : null;
+          if (match && match[1] && match[1] !== "register" && match[1] !== "active") {
             const targetWsId = match[1];
             if (!auth.allowedWorkspaceIds.includes(targetWsId)) {
               return {
@@ -361,9 +330,17 @@ export class RelayTunnelTransport implements ITunnelTransport {
         parsedBody = response.payload;
       }
 
+      if (auth.allowedWorkspaceIds.length > 0 && segments[2] === "workspaces" && parsedBody && typeof parsedBody === "object") {
+        const envelope = parsedBody as { data?: unknown };
+        if (Array.isArray(envelope.data)) {
+          envelope.data = envelope.data.filter((ws) => auth.allowedWorkspaceIds.includes(ws.id));
+        } else if (segments[3] === "active" && envelope.data && !auth.allowedWorkspaceIds.includes((envelope.data as { id: string }).id)) {
+          envelope.data = null;
+        }
+      }
       const headers: Record<string, string> = {};
       for (const [k, v] of Object.entries(response.headers)) {
-        if (v !== undefined) {
+        if (v !== undefined && !["content-length", "transfer-encoding", "connection"].includes(k)) {
           headers[k] = Array.isArray(v) ? v.join(", ") : String(v);
         }
       }
@@ -372,7 +349,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
         correlationId: req.correlationId,
         statusCode: response.statusCode,
         headers,
-        body: parsedBody,
+        body: segments[2] === "preview" ? response.rawPayload.toString("base64") : parsedBody,
+        ...(segments[2] === "preview" ? { bodyEncoding: "base64" as const } : {}),
       };
     } catch (err: unknown) {
       return {
@@ -389,6 +367,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
   public async disconnect(): Promise<void> {
     this.isShuttingDown = true;
     this.stopHeartbeat();
+    for (const unsubscribe of this.terminalUnsubscribers.values()) unsubscribe();
+    this.terminalUnsubscribers.clear();
     if (this.reconnectTimer) {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;

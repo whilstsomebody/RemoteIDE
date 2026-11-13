@@ -27,7 +27,7 @@ export class HostIdentityService {
 
   private loadOrCreateIdentity(hostIdOverride?: string): HostIdentity {
     const now = new Date().toISOString();
-    const desiredHostId = hostIdOverride || process.env.HOST_IDENTIFIER || generateId("host");
+    const desiredHostId = hostIdOverride || process.env.HOST_IDENTIFIER;
 
     if (fs.existsSync(this.configPath)) {
       try {
@@ -45,7 +45,7 @@ export class HostIdentityService {
     }
 
     const newIdentity: HostIdentity = {
-      hostId: desiredHostId,
+      hostId: desiredHostId || generateId("host"),
       hostName: os.hostname(),
       platform: os.platform(),
       arch: os.arch(),

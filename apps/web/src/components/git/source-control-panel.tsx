@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback } from "react";
 import {
   GitBranch,
@@ -48,7 +50,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${gatewayUrl}/api/v1/git/status?path=${encodeURIComponent(workspacePath)}`,
         { credentials: "include" }
       );
@@ -69,7 +71,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
   const fetchBranches = useCallback(async () => {
     if (!workspacePath) return;
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${gatewayUrl}/api/v1/git/branches?path=${encodeURIComponent(workspacePath)}`,
         { credentials: "include" }
       );
@@ -92,7 +94,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
   const handleStage = async (paths?: string[], all = false) => {
     setIsLoading(true);
     try {
-      await fetch(`${gatewayUrl}/api/v1/git/stage`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/git/stage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -110,7 +112,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
   const handleUnstage = async (paths?: string[], all = false) => {
     setIsLoading(true);
     try {
-      await fetch(`${gatewayUrl}/api/v1/git/unstage`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/git/unstage`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -129,7 +131,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
     if (!discardTarget) return;
     setIsLoading(true);
     try {
-      await fetch(`${gatewayUrl}/api/v1/git/discard`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/git/discard`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -154,7 +156,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/git/commit`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/git/commit`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -183,7 +185,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
     setIsSyncing(true);
     setError(null);
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/git/${action}`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/git/${action}`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -207,7 +209,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
     setIsLoading(true);
     setError(null);
     try {
-      const res = await fetch(`${gatewayUrl}/api/v1/git/checkout`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/git/checkout`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
@@ -229,7 +231,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
 
   const handleViewDiff = async (file: string, staged: boolean) => {
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${gatewayUrl}/api/v1/git/diff?path=${encodeURIComponent(
           workspacePath
         )}&file=${encodeURIComponent(file)}&staged=${staged}`,
@@ -250,7 +252,7 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
   const handleStash = async (action: "push" | "pop") => {
     setIsLoading(true);
     try {
-      await fetch(`${gatewayUrl}/api/v1/git/stash`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/git/stash`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",

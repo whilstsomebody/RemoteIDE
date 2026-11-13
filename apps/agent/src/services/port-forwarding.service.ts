@@ -183,6 +183,9 @@ export class PortForwardingService {
       const cleanHeaders = { ...headers };
       delete cleanHeaders["host"];
       delete cleanHeaders["connection"];
+      for (const key of Object.keys(cleanHeaders)) {
+        if (["authorization", "cookie", "content-length", "transfer-encoding"].includes(key.toLowerCase()) || key.toLowerCase().startsWith("x-remoteide-")) delete cleanHeaders[key];
+      }
 
       const req = http.request(
         targetUrl,

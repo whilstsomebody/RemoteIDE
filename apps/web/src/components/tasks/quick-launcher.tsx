@@ -1,5 +1,7 @@
 "use client";
 
+import { gatewayFetch, GATEWAY_URL } from "../../lib/api/client";
+
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import {
   Play,
@@ -56,7 +58,7 @@ const PREDEFINED_TASKS: PredefinedTask[] = [
 ];
 
 export const QuickLauncher: React.FC<QuickLauncherProps> = ({
-  gatewayUrl = process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000",
+  gatewayUrl = GATEWAY_URL,
   workspacePath,
   className = "",
 }) => {
@@ -75,7 +77,7 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
       const headers: Record<string, string> = {};
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${gatewayUrl}/api/v1/jobs`, { headers });
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/jobs`, { headers });
       if (res.ok) {
         const body = await res.json();
         const list: JobDefinition[] = body.data || [];
@@ -97,7 +99,7 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
         const headers: Record<string, string> = {};
         if (token) headers.Authorization = `Bearer ${token}`;
 
-        const res = await fetch(`${gatewayUrl}/api/v1/jobs/${jobId}/logs`, { headers });
+        const res = await gatewayFetch(`${gatewayUrl}/api/v1/jobs/${jobId}/logs`, { headers });
         if (res.ok) {
           const body = await res.json();
           setJobLogs(body.data || []);
@@ -134,7 +136,7 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${gatewayUrl}/api/v1/jobs`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/jobs`, {
         method: "POST",
         headers,
         body: JSON.stringify({
@@ -167,7 +169,7 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      await fetch(`${gatewayUrl}/api/v1/jobs/${jobId}/cancel`, {
+      await gatewayFetch(`${gatewayUrl}/api/v1/jobs/${jobId}/cancel`, {
         method: "POST",
         headers,
       });
@@ -185,7 +187,7 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
       const headers: Record<string, string> = { "Content-Type": "application/json" };
       if (token) headers.Authorization = `Bearer ${token}`;
 
-      const res = await fetch(`${gatewayUrl}/api/v1/jobs/${jobId}/retry`, {
+      const res = await gatewayFetch(`${gatewayUrl}/api/v1/jobs/${jobId}/retry`, {
         method: "POST",
         headers,
       });

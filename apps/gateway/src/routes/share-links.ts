@@ -1,3 +1,4 @@
+import { isLocalRequest } from "../services/request-auth.js";
 import { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   CreateShareLinkDtoSchema,
@@ -27,10 +28,7 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
     let session = token ? authService.getSessionByToken(token) : null;
     if (!session && !token) {
       const isLoopback =
-        req.ip === "127.0.0.1" ||
-        req.ip === "::1" ||
-        req.ip === "::ffff:127.0.0.1" ||
-        req.hostname === "localhost";
+        isLocalRequest(req);
 
       if (isLoopback && !authService.isOwnerBootstrapped()) {
         session = {
@@ -81,6 +79,10 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
       );
     }
 
+    if (currentSession.allowedWorkspaceIds.length > 0 &&
+        (!validation.data.allowedWorkspaceIds.length || validation.data.allowedWorkspaceIds.some((id) => !currentSession.allowedWorkspaceIds.includes(id)))) {
+      return reply.status(403).send(createErrorEnvelope(ErrorCode.FORBIDDEN, "Share link cannot exceed your workspace scope"));
+    }
     const result = shareLinkService.createShareLink(currentSession.userId, validation.data);
     return reply.status(201).send(createSuccessEnvelope(result));
   });

@@ -61,7 +61,7 @@ export class RedisService {
         enableOfflineQueue: false,
       });
 
-      this.client.on("connect", () => {
+      this.client.on("ready", () => {
         this.isConnected = true;
         this.logger.info("Connected to Redis server");
       });
@@ -74,6 +74,16 @@ export class RedisService {
         );
       });
 
+      this.client.on("close", () => { this.isConnected = false; });
+      this.subscriber.on("ready", () => {
+        const channels = [...this.localPubSub.keys()];
+        if (channels.length) void this.subscriber?.subscribe(...channels).catch(() => {});
+      });
+      this.subscriber.on("message", (channel, message) => {
+        for (const handler of this.localPubSub.get(channel) || []) {
+          try { handler(message); } catch (error) { this.logger.error({ error }, "Redis subscriber handler failed"); }
+        }
+      });
       this.subscriber.on("error", (err) => {
         this.logger.warn({ err: err.message }, "Redis subscriber error (using memory fallback)");
       });
@@ -499,6 +509,7 @@ export class RedisService {
     if (this.isConnected && this.client) {
       try {
         deliveredCount = await this.client.publish(channel, msgString);
+        if (this.subscriber?.status === "ready") return deliveredCount;
       } catch (err) {
         this.logger.warn({ err }, "Redis publish error");
       }
@@ -532,11 +543,6 @@ export class RedisService {
     if (this.isConnected && this.subscriber) {
       try {
         await this.subscriber.subscribe(channel);
-        this.subscriber.on("message", (ch, msg) => {
-          if (ch === channel) {
-            handler(msg);
-          }
-        });
       } catch (err) {
         this.logger.warn({ err }, "Redis subscribe error");
       }

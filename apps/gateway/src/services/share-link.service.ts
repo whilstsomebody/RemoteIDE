@@ -1,5 +1,7 @@
+import { GatewayStateStore, gatewayStateStore } from "./state-store.js";
 import {
   ShareLink,
+  UserRole,
   CreateShareLinkDto,
   RedeemShareLinkDto,
   ROLE_PERMISSIONS,
@@ -37,10 +39,24 @@ export class ShareLinkService {
   private links = new Map<string, StoredShareLink>(); // id -> StoredShareLink
   private tokenHashToId = new Map<string, string>(); // tokenHash -> id
 
+  constructor(private stateStore?: GatewayStateStore) {
+    const links = stateStore?.read<[string, StoredShareLink][]>("share-links");
+    if (links) {
+      this.links = new Map(links);
+      for (const link of this.links.values()) this.tokenHashToId.set(link.tokenHash, link.id);
+    }
+  }
+  private persist(): void {
+    this.stateStore?.write("share-links", [...this.links]);
+  }
+
   public createShareLink(
     actorId: string,
     dto: CreateShareLinkDto
   ): { shareLink: ShareLink; rawToken: string; accessUrl: string } {
+    if (dto.role === UserRole.OWNER) {
+      throw new AppError(ErrorCode.FORBIDDEN, "Owner access cannot be delegated through a share link");
+    }
     const rawToken = generateSecureRandomToken(32);
     const tokenHash = sha256Sync(rawToken);
     const linkId = createId("link");
@@ -70,6 +86,7 @@ export class ShareLinkService {
 
     this.links.set(linkId, stored);
     this.tokenHashToId.set(tokenHash, linkId);
+    this.persist();
 
     auditService.record(AuditEventType.SHARE_LINK_CREATED, actorId, {
       targetId: linkId,
@@ -153,23 +170,20 @@ export class ShareLinkService {
     }
 
     // Max concurrent sessions check
-    const activeSessions = authService
-      .listActiveSessions()
-      .filter((s) => s.role === link.role && !s.isRevoked);
-
-    if (activeSessions.length >= link.maxConcurrentSessions && link.maxConcurrentSessions > 0) {
-      // If single use, we allow replacement or reject
-      if (!link.oneTimeRedemption) {
-        throw new AppError(
-          ErrorCode.RATE_LIMITED,
-          `Maximum concurrent sessions (${link.maxConcurrentSessions}) reached for this access link`,
-          { statusCode: 429 }
-        );
-      }
+    if (
+      link.maxConcurrentSessions > 0 &&
+      authService.countSessionsForShareLink(link.id) >= link.maxConcurrentSessions
+    ) {
+      throw new AppError(
+        ErrorCode.RATE_LIMITED,
+        `Maximum concurrent sessions (${link.maxConcurrentSessions}) reached for this access link`,
+        { statusCode: 429 }
+      );
     }
 
     link.usedCount += 1;
     link.lastUsedAt = new Date().toISOString();
+    this.persist();
 
     // Create independently authenticated session
     // Cap session duration by link expiry (or max 8 hours)
@@ -206,6 +220,7 @@ export class ShareLinkService {
 
     link.isRevoked = true;
     link.revokedAt = new Date().toISOString();
+    this.persist();
 
     // Invalidate existing sessions immediately
     authService.revokeAllSessionsForShareLink(linkId);
@@ -245,4 +260,4 @@ export class ShareLinkService {
   }
 }
 
-export const shareLinkService = new ShareLinkService();
+export const shareLinkService = new ShareLinkService(gatewayStateStore);
