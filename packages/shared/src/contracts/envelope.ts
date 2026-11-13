@@ -101,3 +101,6 @@ export function createErrorResponse(
     },
   };
 }
+
+export const createSuccessEnvelope = createSuccessResponse;
+export const createErrorEnvelope = createErrorResponse;

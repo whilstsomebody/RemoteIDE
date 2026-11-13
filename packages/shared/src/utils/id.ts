@@ -20,6 +20,8 @@ export function generateId(prefix?: string): string {
   return prefix ? `${prefix}_${uuid.replace(/-/g, "")}` : uuid;
 }
 
+export const createId = generateId;
+
 export function generateRequestId(): string {
   return generateId("req");
 }

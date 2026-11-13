@@ -24,6 +24,7 @@ export function collectHostCapabilities(allowedPaths: string[] = []): HostAgentC
       processManagement: true,
       gitIntegration: true,
       sqliteJournal: true,
+      reverseTunnel: true,
     },
     limits: {
       maxOpenFiles: 100,

@@ -13,6 +13,8 @@ import { WorkspaceCanvas } from "./workspace-canvas";
 import { OpenFolderModal } from "../workspace/open-folder-modal";
 import { CloneRepoModal } from "../workspace/clone-repo-modal";
 import { AgentPanel } from "../agent/agent-panel";
+import { ShareLinkModal } from "../sharing/share-link-modal";
+import { SessionDashboardModal } from "../sharing/session-dashboard-modal";
 import { Workspace, FileNode } from "@remote-ide/shared";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
@@ -70,6 +72,8 @@ export const IdeShell: React.FC = () => {
   const [agentWidth, setAgentWidth] = useState<number>(360);
   const [isOpenFolderModalOpen, setIsOpenFolderModalOpen] = useState<boolean>(false);
   const [isCloneRepoModalOpen, setIsCloneRepoModalOpen] = useState<boolean>(false);
+  const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
+  const [isSessionDashboardOpen, setIsSessionDashboardOpen] = useState<boolean>(false);
   const [untitledCount, setUntitledCount] = useState<number>(1);
 
   // Helper: Append log entry
@@ -837,6 +841,8 @@ export const IdeShell: React.FC = () => {
         }}
         isAgentOpen={isAgentOpen}
         onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
+        onOpenShare={() => setIsShareModalOpen(true)}
+        onOpenSessions={() => setIsSessionDashboardOpen(true)}
       />
 
       {/* Main Middle Layout */}
@@ -1031,6 +1037,20 @@ export const IdeShell: React.FC = () => {
           await handleRegisterWorkspace(targetName, targetPath);
           addLog(`Cloned repository "${targetName}" from ${repoUrl}`, "success", "Git");
         }}
+      />
+
+      {/* Share Link Modal */}
+      <ShareLinkModal
+        isOpen={isShareModalOpen}
+        onClose={() => setIsShareModalOpen(false)}
+        workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+        currentWorkspaceId={activeWorkspace?.id}
+      />
+
+      {/* Session Control Dashboard Modal */}
+      <SessionDashboardModal
+        isOpen={isSessionDashboardOpen}
+        onClose={() => setIsSessionDashboardOpen(false)}
       />
     </div>
   );

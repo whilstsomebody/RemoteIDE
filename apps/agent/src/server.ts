@@ -8,7 +8,7 @@ async function main(): Promise<void> {
   // Enforce loopback interface for Phase 1
   const bindHost = "127.0.0.1";
 
-  const { app, journal, watcherService, workspaceService } = await buildAgentApp({
+  const { app, journal, watcherService, workspaceService, tunnelTransport } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
   });
@@ -16,6 +16,9 @@ async function main(): Promise<void> {
   const shutdown = async (signal: string) => {
     app.log.info({ signal }, "Shutting down host agent cleanly...");
     try {
+      if (tunnelTransport) {
+        await tunnelTransport.disconnect();
+      }
       watcherService.stopAll();
       await app.close();
       workspaceService.close();
@@ -36,6 +39,12 @@ async function main(): Promise<void> {
     app.log.info(
       `RemoteIDE Host Agent running strictly on http://${bindHost}:${env.PORT} (loopback only)`
     );
+
+    // Start outbound persistent tunnel connection to remote gateway
+    if (tunnelTransport) {
+      void tunnelTransport.connect();
+      app.log.info("Host agent reverse tunnel outbound transport initialized.");
+    }
     app.log.info(`Agent Health: http://${bindHost}:${env.PORT}/api/v1/health`);
     app.log.info(`Agent Ready: http://${bindHost}:${env.PORT}/api/v1/ready`);
     app.log.info(`Agent Workspaces: http://${bindHost}:${env.PORT}/api/v1/workspaces`);

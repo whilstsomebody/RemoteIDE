@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Laptop, RefreshCw, Sparkles } from "lucide-react";
+import { Laptop, RefreshCw, Sparkles, Share2, Shield } from "lucide-react";
 import { Button, StatusIndicator } from "@remote-ide/ui";
 
 export interface HeaderProps {
@@ -11,6 +11,8 @@ export interface HeaderProps {
   onRefresh?: () => void;
   isAgentOpen?: boolean;
   onToggleAgent?: () => void;
+  onOpenShare?: () => void;
+  onOpenSessions?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -20,6 +22,8 @@ export const Header: React.FC<HeaderProps> = ({
   onRefresh,
   isAgentOpen = false,
   onToggleAgent,
+  onOpenShare,
+  onOpenSessions,
 }) => {
   return (
     <header className="h-9 border-b border-ide-border bg-[#18181b] flex items-center justify-between px-3 text-xs select-none z-10 shrink-0">
@@ -31,7 +35,7 @@ export const Header: React.FC<HeaderProps> = ({
         <span className="font-medium text-zinc-300 text-xs truncate max-w-xs">{projectName}</span>
       </div>
 
-      {/* Right: Host info, Connection, Refresh load icon, Coding Agent open icon */}
+      {/* Right: Host info, Connection, Share, Sessions, Refresh load icon, Coding Agent open icon */}
       <div className="flex items-center gap-2">
         <div className="flex items-center gap-1.5 bg-zinc-900/90 px-2 py-0.5 rounded border border-zinc-800 text-[11px] text-zinc-400 font-mono">
           <Laptop className="w-3.5 h-3.5 text-zinc-400" />
@@ -39,6 +43,32 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <StatusIndicator status={connectionStatus} />
+
+        {/* Share Workspace link generator */}
+        {onOpenShare && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenShare}
+            title="Share Access (Temporary Links & Permissions)"
+            className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          >
+            <Share2 className="w-3.5 h-3.5 text-sky-400" />
+          </Button>
+        )}
+
+        {/* Session Control & Security Dashboard */}
+        {onOpenSessions && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenSessions}
+            title="Session Control & Security Audit Dashboard"
+            className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          >
+            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+          </Button>
+        )}
 
         {/* Load / Refresh connection icon */}
         {onRefresh && (

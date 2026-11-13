@@ -7,6 +7,10 @@ import { errorHandlerPlugin } from "./plugins/errorHandler.js";
 import { healthRoutes } from "./routes/health.js";
 import { wsRoutes } from "./routes/ws.js";
 import { apiV1Routes } from "./routes/api-v1.js";
+import { authRoutes } from "./routes/auth.js";
+import { shareLinkRoutes } from "./routes/share-links.js";
+import { tunnelRoutes } from "./routes/tunnel.js";
+import { proxyRoutes } from "./routes/proxy.js";
 
 export async function buildApp(opts: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const app = fastify({
@@ -31,6 +35,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(cors, {
     origin: process.env.CORS_ORIGIN || "*",
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
+    credentials: true,
   });
   await app.register(websocket);
   await app.register(requestIdPlugin);
@@ -40,6 +45,10 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(healthRoutes);
   await app.register(apiV1Routes);
   await app.register(wsRoutes);
+  await app.register(authRoutes);
+  await app.register(shareLinkRoutes);
+  await app.register(tunnelRoutes);
+  await app.register(proxyRoutes);
 
   return app;
 }

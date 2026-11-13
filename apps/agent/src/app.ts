@@ -11,11 +11,14 @@ import { HostIdentityService } from "./services/host-identity.service.js";
 import { WorkspaceService } from "./services/workspace.service.js";
 import { FilesystemService } from "./services/filesystem.service.js";
 import { WatcherService } from "./services/watcher.service.js";
+import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
 
 export interface AgentAppOptions extends FastifyServerOptions {
   journalPath?: string;
   dataDir?: string;
   allowedPaths?: string[];
+  gatewayWsUrl?: string;
+  enableTunnel?: boolean;
 }
 
 export interface AgentContext {
@@ -25,6 +28,7 @@ export interface AgentContext {
   workspaceService: WorkspaceService;
   fsService: FilesystemService;
   watcherService: WatcherService;
+  tunnelTransport?: ITunnelTransport;
 }
 
 export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentContext> {
@@ -88,6 +92,19 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(workspaceRoutes, { workspaceService, watcherService });
   await app.register(fileRoutes, { fsService, journalService: journal });
 
+  // Outbound Reverse Tunnel Transport (Local Relay or Cloud Tunnel)
+  let tunnelTransport: ITunnelTransport | undefined;
+  if (opts.enableTunnel !== false) {
+    const gatewayWsUrl =
+      opts.gatewayWsUrl || process.env.GATEWAY_WS_URL || "ws://127.0.0.1:4000/api/v1/tunnel/agent";
+
+    tunnelTransport = new RelayTunnelTransport({
+      gatewayWsUrl,
+      hostId: identity.getHostId(),
+      app,
+    });
+  }
+
   return {
     app,
     journal,
@@ -95,5 +112,6 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     workspaceService,
     fsService,
     watcherService,
+    tunnelTransport,
   };
 }
