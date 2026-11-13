@@ -12,6 +12,10 @@ export * from "./contracts/filesystem.js";
 export * from "./contracts/auth.js";
 export * from "./contracts/terminal.js";
 export * from "./contracts/job.js";
+export * from "./contracts/git.js";
+export * from "./contracts/process.js";
+export * from "./contracts/preview.js";
+export * from "./contracts/api-client.js";
 
 // Utils
 export * from "./utils/id.js";

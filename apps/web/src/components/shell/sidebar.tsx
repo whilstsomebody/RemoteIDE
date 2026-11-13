@@ -9,6 +9,7 @@ import { WorkspaceManager } from "../workspace/workspace-manager";
 import { FileTree } from "../workspace/file-tree";
 import { SearchPanel } from "../workspace/search-panel";
 import { SettingsPanel } from "./settings-panel";
+import { SourceControlPanel } from "../git/source-control-panel";
 import { EditorSettings } from "../../lib/storage/settings-storage";
 
 export interface SidebarProps {
@@ -115,11 +116,13 @@ export const Sidebar: React.FC<SidebarProps> = ({
             ? "Explorer"
             : activeTab === "search"
               ? "Search"
-              : activeTab === "terminal"
-                ? "Terminals"
-                : activeTab === "agent"
-                  ? "Host Agent"
-                  : "Settings"}
+              : activeTab === "git"
+                ? "Source Control"
+                : activeTab === "terminal"
+                  ? "Terminals"
+                  : activeTab === "agent"
+                    ? "Host Agent"
+                    : "Settings"}
         </span>
       </div>
 
@@ -161,6 +164,14 @@ export const Sidebar: React.FC<SidebarProps> = ({
             workspaceId={activeWorkspace ? activeWorkspace.id : null}
             agentUrl={agentUrl}
             onOpenFile={onSelectFile}
+          />
+        )}
+
+        {activeTab === "git" && (
+          <SourceControlPanel
+            gatewayUrl={agentUrl}
+            workspacePath={activeWorkspace?.folders?.[0]?.path}
+            onRefreshWorkspace={onRefreshFiles}
           />
         )}
 

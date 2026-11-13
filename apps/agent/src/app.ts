@@ -8,6 +8,10 @@ import { workspaceRoutes } from "./routes/workspaces.js";
 import { fileRoutes } from "./routes/files.js";
 import { terminalRoutes } from "./routes/terminals.js";
 import { jobRoutes } from "./routes/jobs.js";
+import { gitRoutes } from "./routes/git.js";
+import { processRoutes } from "./routes/processes.js";
+import { portRoutes } from "./routes/ports.js";
+import { apiClientRoutes } from "./routes/api-client.js";
 import { LocalJournalService } from "./services/local-journal.service.js";
 import { HostIdentityService } from "./services/host-identity.service.js";
 import { WorkspaceService } from "./services/workspace.service.js";
@@ -21,6 +25,19 @@ import {
   JobManagerService,
   jobManagerService as defaultJobManagerService,
 } from "./services/job-manager.service.js";
+import { GitService, gitService as defaultGitService } from "./services/git.service.js";
+import {
+  ProcessManagerService,
+  processManagerService as defaultProcessManagerService,
+} from "./services/process-manager.service.js";
+import {
+  PortForwardingService,
+  portForwardingService as defaultPortForwardingService,
+} from "./services/port-forwarding.service.js";
+import {
+  ApiClientService,
+  apiClientService as defaultApiClientService,
+} from "./services/api-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
 
@@ -41,6 +58,10 @@ export interface AgentContext {
   watcherService: WatcherService;
   terminalService: TerminalService;
   jobManagerService: JobManagerService;
+  gitService: GitService;
+  processManagerService: ProcessManagerService;
+  portForwardingService: PortForwardingService;
+  apiClientService: ApiClientService;
   terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
 }
@@ -107,6 +128,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(fileRoutes, { fsService, journalService: journal });
   await app.register(terminalRoutes, { terminalService: defaultTerminalService });
   await app.register(jobRoutes, { jobManagerService: defaultJobManagerService });
+  await app.register(gitRoutes, { gitService: defaultGitService });
+  await app.register(processRoutes, { processManagerService: defaultProcessManagerService });
+  await app.register(portRoutes, { portForwardingService: defaultPortForwardingService });
+  await app.register(apiClientRoutes, { apiClientService: defaultApiClientService });
 
   // Terminal WebSocket server for direct local connections
   const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
@@ -134,6 +159,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     watcherService,
     terminalService: defaultTerminalService,
     jobManagerService: defaultJobManagerService,
+    gitService: defaultGitService,
+    processManagerService: defaultProcessManagerService,
+    portForwardingService: defaultPortForwardingService,
+    apiClientService: defaultApiClientService,
     terminalWsServer,
     tunnelTransport,
   };

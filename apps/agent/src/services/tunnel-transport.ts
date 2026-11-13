@@ -275,6 +275,32 @@ export class RelayTunnelTransport implements ITunnelTransport {
               },
             };
           }
+        } else if (req.path.includes("/git")) {
+          if (
+            req.path.includes("/discard") ||
+            req.path.includes("/branch/delete") ||
+            (req.body as any)?.force === true
+          ) {
+            required = Permission.GIT_DESTRUCTIVE;
+          } else if (
+            req.path.includes("/push") ||
+            req.path.includes("/pull") ||
+            req.path.includes("/fetch")
+          ) {
+            required = Permission.GIT_PUSH;
+          } else if (method === "POST") {
+            required = Permission.GIT_WRITE;
+          } else {
+            required = Permission.GIT_READ;
+          }
+        } else if (req.path.includes("/processes")) {
+          required = method === "GET" ? Permission.FS_READ : Permission.PROCESS_CONTROL;
+        } else if (req.path.includes("/ports")) {
+          required = method === "GET" ? Permission.FS_READ : Permission.PORT_FORWARD;
+        } else if (req.path.includes("/preview")) {
+          required = Permission.PREVIEW_ACCESS;
+        } else if (req.path.includes("/api-client")) {
+          required = Permission.TASK_EXECUTE;
         } else if (req.path.includes("/jobs")) {
           required = Permission.TASK_EXECUTE;
         } else if (method === "DELETE") {

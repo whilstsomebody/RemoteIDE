@@ -20,6 +20,42 @@ function getRequiredPermission(method: string, path: string): Permission {
     return Permission.TERMINAL_ACCESS;
   }
 
+  // Git operations with granular capability check
+  if (path.includes("/git")) {
+    if (path.includes("/discard") || path.includes("/branch/delete")) {
+      return Permission.GIT_DESTRUCTIVE;
+    }
+    if (path.includes("/push") || path.includes("/pull") || path.includes("/fetch")) {
+      return Permission.GIT_PUSH;
+    }
+    if (m === "POST") {
+      return Permission.GIT_WRITE;
+    }
+    return Permission.GIT_READ;
+  }
+
+  // Processes manager
+  if (path.includes("/processes")) {
+    if (m === "GET") return Permission.FS_READ;
+    return Permission.PROCESS_CONTROL;
+  }
+
+  // Ports management
+  if (path.includes("/ports")) {
+    if (m === "GET") return Permission.FS_READ;
+    return Permission.PORT_FORWARD;
+  }
+
+  // Application Preview
+  if (path.includes("/preview")) {
+    return Permission.PREVIEW_ACCESS;
+  }
+
+  // API Client
+  if (path.includes("/api-client")) {
+    return Permission.TASK_EXECUTE;
+  }
+
   // Background jobs & task execution
   if (path.includes("/jobs")) {
     if (m === "GET") return Permission.FS_READ;
@@ -76,10 +112,16 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
               Permission.FS_DELETE,
               Permission.FS_TRANSFER,
               Permission.GIT_OPERATION,
+              Permission.GIT_READ,
+              Permission.GIT_WRITE,
+              Permission.GIT_PUSH,
+              Permission.GIT_DESTRUCTIVE,
               Permission.TASK_EXECUTE,
               Permission.TERMINAL_ACCESS,
+              Permission.TERMINAL_EXECUTE,
               Permission.PROCESS_CONTROL,
               Permission.PORT_FORWARD,
+              Permission.PREVIEW_ACCESS,
             ],
             allowedWorkspaceIds: [],
             deviceName: "Local Host",
@@ -234,4 +276,9 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.all("/api/v1/terminals*", handleProxy);
   fastify.all("/api/v1/jobs*", handleProxy);
   fastify.all("/api/v1/files*", handleProxy);
+  fastify.all("/api/v1/git*", handleProxy);
+  fastify.all("/api/v1/processes*", handleProxy);
+  fastify.all("/api/v1/ports*", handleProxy);
+  fastify.all("/api/v1/preview*", handleProxy);
+  fastify.all("/api/v1/api-client*", handleProxy);
 };

@@ -17,8 +17,23 @@ import { EditorPane } from "../src/components/editor/editor-pane";
 import { IdeShell } from "../src/components/shell/ide-shell";
 import { TerminalContainer } from "../src/components/terminal/terminal-container";
 import { QuickLauncher } from "../src/components/tasks/quick-launcher";
+import { SourceControlPanel } from "../src/components/git/source-control-panel";
+import { GitDiffModal } from "../src/components/git/git-diff-modal";
+import { ProcessPanel } from "../src/components/processes/process-panel";
+import { PortsPanel } from "../src/components/preview/ports-panel";
+import { PreviewTab } from "../src/components/preview/preview-tab";
+import { ApiClientPanel } from "../src/components/api-client/api-client-panel";
 
 describe("IDE Components & Viewers Export Integrity", () => {
+  it("exports Git, Process, Preview, and API Client components", () => {
+    expect(SourceControlPanel).toBeDefined();
+    expect(GitDiffModal).toBeDefined();
+    expect(ProcessPanel).toBeDefined();
+    expect(PortsPanel).toBeDefined();
+    expect(PreviewTab).toBeDefined();
+    expect(ApiClientPanel).toBeDefined();
+  });
+
   it("exports terminal and background task execution components", () => {
     expect(TerminalContainer).toBeDefined();
     expect(QuickLauncher).toBeDefined();

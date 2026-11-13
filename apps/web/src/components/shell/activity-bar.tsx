@@ -1,24 +1,34 @@
 "use client";
 
 import React from "react";
-import { Files, Search, Terminal, Settings, Server } from "lucide-react";
+import { Files, Search, Terminal, Settings, Server, GitBranch, Send, Globe } from "lucide-react";
 import { cn } from "@remote-ide/ui";
 
-export type ActivityTab = "files" | "search" | "terminal" | "agent" | "settings";
+export type ActivityTab =
+  "files" | "search" | "git" | "apiclient" | "preview" | "terminal" | "agent" | "settings";
 
 export interface ActivityBarProps {
   activeTab: ActivityTab | null;
   onSelectTab: (tab: ActivityTab) => void;
+  gitBadgeCount?: number;
 }
 
-export const ActivityBar: React.FC<ActivityBarProps> = ({ activeTab, onSelectTab }) => {
+export const ActivityBar: React.FC<ActivityBarProps> = ({
+  activeTab,
+  onSelectTab,
+  gitBadgeCount = 0,
+}) => {
   const items: Array<{
     id: ActivityTab;
     label: string;
     icon: React.ComponentType<{ className?: string }>;
+    badge?: number;
   }> = [
     { id: "files", label: "Explorer", icon: Files },
     { id: "search", label: "Search Workspace", icon: Search },
+    { id: "git", label: "Source Control", icon: GitBranch, badge: gitBadgeCount },
+    { id: "apiclient", label: "API Client", icon: Send },
+    { id: "preview", label: "App Preview", icon: Globe },
     { id: "terminal", label: "Terminal", icon: Terminal },
     { id: "agent", label: "Host Agent", icon: Server },
   ];
@@ -35,11 +45,16 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({ activeTab, onSelectTab
               onClick={() => onSelectTab(item.id)}
               title={item.label}
               className={cn(
-                "w-10 h-10 flex items-center justify-center rounded transition-colors text-zinc-400 hover:text-zinc-100",
+                "w-10 h-10 relative flex items-center justify-center rounded transition-colors text-zinc-400 hover:text-zinc-100",
                 isActive && "text-white bg-zinc-800/80 border-l-2 border-indigo-500 rounded-l-none"
               )}
             >
               <Icon className="w-5 h-5" />
+              {item.badge !== undefined && item.badge > 0 && (
+                <span className="absolute top-1.5 right-1.5 bg-indigo-600 text-white text-[9px] font-bold px-1 rounded-full min-w-[14px] text-center">
+                  {item.badge}
+                </span>
+              )}
             </button>
           );
         })}

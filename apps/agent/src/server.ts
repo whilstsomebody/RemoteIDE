@@ -17,6 +17,7 @@ async function main(): Promise<void> {
     jobManagerService,
     terminalWsServer,
     tunnelTransport,
+    processManagerService,
   } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
@@ -31,6 +32,7 @@ async function main(): Promise<void> {
       terminalWsServer?.close();
       await terminalService.shutdownAll();
       await jobManagerService.shutdownAll();
+      processManagerService.shutdown();
       watcherService.stopAll();
       await app.close();
       workspaceService.close();

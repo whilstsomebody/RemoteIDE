@@ -850,7 +850,16 @@ export const IdeShell: React.FC = () => {
         {/* Left Activity Bar */}
         <ActivityBar
           activeTab={activeTab}
-          onSelectTab={(tab) => setActiveTab((prev) => (prev === tab ? null : tab))}
+          onSelectTab={(tab) => {
+            if (tab === "terminal" || tab === "preview" || tab === "apiclient") {
+              updateUiLayout({
+                bottomPanelOpen: true,
+                bottomPanelTab: tab,
+              });
+            } else {
+              setActiveTab((prev) => (prev === tab ? null : tab));
+            }
+          }}
         />
 
         {/* Resizable Sidebar */}

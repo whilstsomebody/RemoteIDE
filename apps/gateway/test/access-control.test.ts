@@ -239,6 +239,57 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(viewerJobRes.statusCode).toBe(403);
 
+    // 4. Phase 5 Granular Capability Enforcement
+    // Viewer cannot commit or mutate git
+    const viewerGitRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/git/commit",
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: { message: "Unauthorized commit" },
+    });
+    expect(viewerGitRes.statusCode).toBe(403);
+
+    // Developer cannot perform destructive Git discard
+    const devGitDiscardRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/git/discard",
+      headers: {
+        authorization: `Bearer ${
+          authService.createSessionInternal({
+            userId: "dev-2",
+            hostId: "local-host-agent",
+            role: UserRole.DEVELOPER,
+            capabilities: ROLE_PERMISSIONS[UserRole.DEVELOPER],
+            allowedWorkspaceIds: [],
+            deviceName: "Dev",
+            ipAddress: "127.0.0.1",
+            userAgent: "Test",
+            isOwner: false,
+          }).sessionToken
+        }`,
+      },
+      payload: { paths: ["file.ts"], confirmed: true },
+    });
+    expect(devGitDiscardRes.statusCode).toBe(403);
+
+    // Viewer cannot forward ports
+    const viewerPortRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/ports/forward",
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: { port: 3000 },
+    });
+    expect(viewerPortRes.statusCode).toBe(403);
+
+    // Viewer cannot manage processes
+    const viewerProcessRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/processes",
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: { workspaceId: "ws-1", name: "bad", command: "ls" },
+    });
+    expect(viewerProcessRes.statusCode).toBe(403);
+
     await app.close();
   });
 });

@@ -10,12 +10,21 @@ import {
   Minimize2,
   Trash2,
   Activity,
+  Layers,
+  Globe,
+  Send,
+  ExternalLink,
 } from "lucide-react";
 import { cn } from "@remote-ide/ui";
 import { TerminalContainer } from "../terminal/terminal-container";
 import { QuickLauncher } from "../tasks/quick-launcher";
+import { ProcessPanel } from "../processes/process-panel";
+import { PortsPanel } from "../preview/ports-panel";
+import { PreviewTab } from "../preview/preview-tab";
+import { ApiClientPanel } from "../api-client/api-client-panel";
 
-export type BottomPanelTab = "terminal" | "tasks" | "output" | "problems";
+export type BottomPanelTab =
+  "terminal" | "tasks" | "processes" | "ports" | "preview" | "apiclient" | "output" | "problems";
 
 export interface LogEntry {
   id: string;
@@ -142,6 +151,58 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           </button>
 
           <button
+            onClick={() => onSelectTab("processes")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
+              activeTab === "processes"
+                ? "bg-zinc-800 text-zinc-100 font-medium"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <Layers className="w-3.5 h-3.5 text-violet-400" />
+            <span>Processes</span>
+          </button>
+
+          <button
+            onClick={() => onSelectTab("ports")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
+              activeTab === "ports"
+                ? "bg-zinc-800 text-zinc-100 font-medium"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <Globe className="w-3.5 h-3.5 text-teal-400" />
+            <span>Ports</span>
+          </button>
+
+          <button
+            onClick={() => onSelectTab("preview")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
+              activeTab === "preview"
+                ? "bg-zinc-800 text-zinc-100 font-medium"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+            <span>Preview</span>
+          </button>
+
+          <button
+            onClick={() => onSelectTab("apiclient")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
+              activeTab === "apiclient"
+                ? "bg-zinc-800 text-zinc-100 font-medium"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <Send className="w-3.5 h-3.5 text-indigo-400" />
+            <span>API Client</span>
+          </button>
+
+          <button
             onClick={() => onSelectTab("output")}
             className={cn(
               "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
@@ -223,6 +284,34 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         {activeTab === "tasks" && (
           <div className="h-full w-full">
             <QuickLauncher gatewayUrl={gatewayUrl} workspacePath={workspacePath} />
+          </div>
+        )}
+
+        {activeTab === "processes" && (
+          <div className="h-full w-full">
+            <ProcessPanel
+              gatewayUrl={gatewayUrl}
+              workspaceId="default"
+              workspacePath={workspacePath}
+            />
+          </div>
+        )}
+
+        {activeTab === "ports" && (
+          <div className="h-full w-full">
+            <PortsPanel gatewayUrl={gatewayUrl} onOpenPreview={() => onSelectTab("preview")} />
+          </div>
+        )}
+
+        {activeTab === "preview" && (
+          <div className="h-full w-full">
+            <PreviewTab gatewayUrl={gatewayUrl} />
+          </div>
+        )}
+
+        {activeTab === "apiclient" && (
+          <div className="h-full w-full">
+            <ApiClientPanel gatewayUrl={gatewayUrl} />
           </div>
         )}
 
