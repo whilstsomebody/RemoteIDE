@@ -11,6 +11,12 @@ import { authRoutes } from "./routes/auth.js";
 import { shareLinkRoutes } from "./routes/share-links.js";
 import { tunnelRoutes } from "./routes/tunnel.js";
 import { proxyRoutes } from "./routes/proxy.js";
+import { syncRoutes } from "./routes/sync.js";
+import { redisService } from "./services/redis.service.js";
+import { kafkaService } from "./services/kafka.service.js";
+import { outboxService } from "./services/outbox.service.js";
+import { tunnelRelayService } from "./services/tunnel-relay.service.js";
+import { REDIS_CHANNELS } from "@remote-ide/shared";
 
 export async function buildApp(opts: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const app = fastify({
@@ -49,6 +55,28 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(shareLinkRoutes);
   await app.register(tunnelRoutes);
   await app.register(proxyRoutes);
+  await app.register(syncRoutes);
+
+  // Background Outbox Worker & Distributed Fan-Out
+  outboxService.start(500);
+
+  // Subscribe to Redis Broadcast Channel for multi-gateway WebSocket fan-out
+  void redisService.subscribe(REDIS_CHANNELS.GATEWAY_BROADCAST, (messageStr) => {
+    try {
+      const payload = JSON.parse(messageStr);
+      if (payload && payload.workspaceId) {
+        tunnelRelayService.broadcastWorkspaceEvent(payload.workspaceId, payload);
+      }
+    } catch {
+      // Ignore malformed broadcast message
+    }
+  });
+
+  app.addHook("onClose", async () => {
+    outboxService.stop();
+    await redisService.close();
+    await kafkaService.close();
+  });
 
   return app;
 }

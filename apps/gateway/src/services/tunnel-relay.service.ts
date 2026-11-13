@@ -29,6 +29,7 @@ export class TunnelRelayService {
   private connectedAgents = new Map<string, ConnectedHostAgent>(); // hostId -> ConnectedHostAgent
   private pendingRpcs = new Map<string, PendingRpc>(); // correlationId -> PendingRpc
   private clientSessionSockets = new Map<string, Set<WebSocket>>(); // sessionId -> Set<WebSocket>
+  private clientSessions = new Map<string, { allowedWorkspaceIds: string[]; role: string }>();
   private terminalSessionListeners = new Map<string, Set<(msg: unknown) => void>>();
 
   public registerAgentSocket(
@@ -214,9 +215,16 @@ export class TunnelRelayService {
   }
 
   /**
-   * Track client WebSocket for session termination
+   * Track client WebSocket for session termination and workspace notifications
    */
-  public registerClientSocket(sessionId: string, socket: WebSocket): void {
+  public registerClientSocket(
+    sessionId: string,
+    socket: WebSocket,
+    session?: { allowedWorkspaceIds: string[]; role: string }
+  ): void {
+    if (session) {
+      this.clientSessions.set(sessionId, session);
+    }
     let set = this.clientSessionSockets.get(sessionId);
     if (!set) {
       set = new Set();
@@ -224,12 +232,52 @@ export class TunnelRelayService {
     }
     set.add(socket);
 
-    socket.on("close", () => {
-      set?.delete(socket);
-      if (set?.size === 0) {
-        this.clientSessionSockets.delete(sessionId);
-      }
+    if (typeof socket.on === "function") {
+      socket.on("close", () => {
+        set?.delete(socket);
+        if (set?.size === 0) {
+          this.clientSessionSockets.delete(sessionId);
+          this.clientSessions.delete(sessionId);
+        }
+      });
+    }
+  }
+
+  public getClientSocketCount(): number {
+    let count = 0;
+    for (const set of this.clientSessionSockets.values()) {
+      count += set.size;
+    }
+    return count;
+  }
+
+  /**
+   * Broadcast a workspace event to all authorized client WebSockets
+   */
+  public broadcastWorkspaceEvent(workspaceId: string, event: unknown): void {
+    const message = JSON.stringify({
+      type: "workspace.event",
+      payload: event,
     });
+
+    for (const [sessionId, sockets] of this.clientSessionSockets.entries()) {
+      const session = this.clientSessions.get(sessionId);
+      if (
+        session &&
+        session.allowedWorkspaceIds.length > 0 &&
+        !session.allowedWorkspaceIds.includes(workspaceId)
+      ) {
+        continue;
+      }
+
+      for (const ws of sockets) {
+        if (ws.readyState === WebSocket.OPEN) {
+          try {
+            ws.send(message);
+          } catch {}
+        }
+      }
+    }
   }
 
   /**

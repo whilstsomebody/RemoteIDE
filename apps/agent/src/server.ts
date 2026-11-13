@@ -18,6 +18,7 @@ async function main(): Promise<void> {
     terminalWsServer,
     tunnelTransport,
     processManagerService,
+    syncClient,
   } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
@@ -30,6 +31,7 @@ async function main(): Promise<void> {
         await tunnelTransport.disconnect();
       }
       terminalWsServer?.close();
+      syncClient.stop();
       await terminalService.shutdownAll();
       await jobManagerService.shutdownAll();
       processManagerService.shutdown();
@@ -59,6 +61,7 @@ async function main(): Promise<void> {
       void tunnelTransport.connect();
       app.log.info("Host agent reverse tunnel outbound transport initialized.");
     }
+    syncClient.start();
     app.log.info(`Agent Health: http://${bindHost}:${env.PORT}/api/v1/health`);
     app.log.info(`Agent Ready: http://${bindHost}:${env.PORT}/api/v1/ready`);
     app.log.info(`Agent Workspaces: http://${bindHost}:${env.PORT}/api/v1/workspaces`);

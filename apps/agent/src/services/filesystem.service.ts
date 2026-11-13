@@ -13,15 +13,18 @@ import {
 } from "@remote-ide/shared";
 import { WorkspaceService } from "./workspace.service.js";
 import { LocalJournalService } from "./local-journal.service.js";
+import type { WatcherService } from "./watcher.service.js";
 
 export interface FilesystemServiceOptions {
   maxFileSizeMb?: number;
   ignoredPatterns?: string[];
+  watcherService?: WatcherService;
 }
 
 export class FilesystemService {
   private workspaceService: WorkspaceService;
   private journalService?: LocalJournalService;
+  private watcherService?: WatcherService;
   private maxFileSizeBytes: number;
   private ignoredPatterns: Set<string>;
 
@@ -32,6 +35,7 @@ export class FilesystemService {
   ) {
     this.workspaceService = workspaceService;
     this.journalService = journalService;
+    this.watcherService = options?.watcherService;
     this.maxFileSizeBytes = (options?.maxFileSizeMb ?? 25) * 1024 * 1024;
     this.ignoredPatterns = new Set(
       options?.ignoredPatterns ?? [".git", "node_modules", ".DS_Store", "Thumbs.db", ".turbo"]
@@ -401,6 +405,11 @@ export class FilesystemService {
     // Atomic rename
     fs.renameSync(tempFilePath, fullPath);
 
+    // Suppress watcher echo loop
+    if (this.watcherService) {
+      this.watcherService.markInternalSave(workspaceId, relativeToFolder);
+    }
+
     const newStat = fs.statSync(fullPath);
     const newETag = this.computeETag(newStat, buffer);
 
@@ -441,6 +450,9 @@ export class FilesystemService {
     }
 
     if (type === "directory") {
+      if (this.watcherService) {
+        this.watcherService.markInternalSave(workspaceId, relativeToFolder);
+      }
       fs.mkdirSync(fullPath, { recursive: true });
       if (this.journalService) {
         this.journalService.recordChange(workspaceId, relativeToFolder, "create", undefined, {
@@ -479,6 +491,11 @@ export class FilesystemService {
     }
 
     fs.renameSync(source.fullPath, destination.fullPath);
+
+    if (this.watcherService) {
+      this.watcherService.markInternalSave(workspaceId, source.relativeToFolder);
+      this.watcherService.markInternalSave(workspaceId, destination.relativeToFolder);
+    }
 
     if (this.journalService) {
       this.journalService.recordChange(
@@ -526,6 +543,10 @@ export class FilesystemService {
       fs.rmSync(fullPath, { recursive: true, force: true });
     } else {
       fs.unlinkSync(fullPath);
+    }
+
+    if (this.watcherService) {
+      this.watcherService.markInternalSave(workspaceId, relativeToFolder);
     }
 
     if (this.journalService) {

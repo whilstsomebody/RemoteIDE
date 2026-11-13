@@ -16,10 +16,32 @@ export class WatcherService {
   private debounceTimers: Map<string, NodeJS.Timeout> = new Map();
   private listeners: Set<WatcherCallback> = new Set();
   private ignoredPatterns: Set<string>;
+  private recentInternalSaves: Map<string, number> = new Map();
 
   constructor(journalService: LocalJournalService) {
     this.journalService = journalService;
     this.ignoredPatterns = new Set([".git", "node_modules", ".DS_Store", "Thumbs.db", ".turbo"]);
+  }
+
+  /**
+   * Mark a file operation initiated internally by RemoteIDE to prevent
+   * echo loops when the local filesystem watcher observes the same change.
+   */
+  public markInternalSave(workspaceId: string, relativePath: string, ttlMs = 2000): void {
+    const key = `${workspaceId}:${path.normalize(relativePath)}`;
+    this.recentInternalSaves.set(key, Date.now() + ttlMs);
+  }
+
+  public isInternalSave(workspaceId: string, relativePath: string): boolean {
+    const key = `${workspaceId}:${path.normalize(relativePath)}`;
+    const expiresAt = this.recentInternalSaves.get(key);
+    if (!expiresAt) return false;
+    if (expiresAt < Date.now()) {
+      this.recentInternalSaves.delete(key);
+      return false;
+    }
+    this.recentInternalSaves.delete(key);
+    return true;
   }
 
   public subscribe(callback: WatcherCallback): () => void {
@@ -82,6 +104,11 @@ export class WatcherService {
   }
 
   private handleFileChange(workspaceId: string, folderRoot: string, relativePath: string): void {
+    // Suppress internal save loop
+    if (this.isInternalSave(workspaceId, relativePath)) {
+      return;
+    }
+
     const fullPath = path.join(folderRoot, relativePath);
     const exists = fs.existsSync(fullPath);
 

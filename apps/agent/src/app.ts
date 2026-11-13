@@ -38,6 +38,7 @@ import {
   ApiClientService,
   apiClientService as defaultApiClientService,
 } from "./services/api-client.service.js";
+import { SyncClientService } from "./services/sync-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
 
@@ -62,6 +63,7 @@ export interface AgentContext {
   processManagerService: ProcessManagerService;
   portForwardingService: PortForwardingService;
   apiClientService: ApiClientService;
+  syncClient: SyncClientService;
   terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
 }
@@ -81,8 +83,13 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   const identity = new HostIdentityService(dataDir);
   const journal = new LocalJournalService(journalPath);
   const workspaceService = new WorkspaceService(journalPath);
-  const fsService = new FilesystemService(workspaceService, journal);
   const watcherService = new WatcherService(journal);
+  const fsService = new FilesystemService(workspaceService, journal, { watcherService });
+  const syncClient = new SyncClientService({
+    gatewayHttpUrl: process.env.GATEWAY_HTTP_URL || "http://localhost:4000",
+    hostId: identity.getHostId(),
+    journalService: journal,
+  });
 
   // Auto-watch any already registered workspaces on boot
   for (const ws of workspaceService.listWorkspaces()) {
@@ -163,6 +170,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     processManagerService: defaultProcessManagerService,
     portForwardingService: defaultPortForwardingService,
     apiClientService: defaultApiClientService,
+    syncClient,
     terminalWsServer,
     tunnelTransport,
   };

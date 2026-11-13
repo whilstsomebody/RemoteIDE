@@ -62,8 +62,11 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    // Register active socket for this session so instant revocation severs it
-    tunnelRelayService.registerClientSocket(session.id, socket);
+    // Register active socket for this session so instant revocation severs it and workspace fan-out reaches it
+    tunnelRelayService.registerClientSocket(session.id, socket, {
+      allowedWorkspaceIds: session.allowedWorkspaceIds,
+      role: session.role,
+    });
 
     // Send connection greeting
     socket.send(

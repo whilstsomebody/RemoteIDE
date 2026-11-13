@@ -27,6 +27,7 @@ import {
 import { DraftStorage } from "../../lib/storage/draft-storage";
 
 const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_HTTP_URL || "http://localhost:4001";
+const GATEWAY_WS_URL = process.env.NEXT_PUBLIC_GATEWAY_WS_URL || "ws://localhost:4000/api/v1/ws";
 
 export const IdeShell: React.FC = () => {
   // 1. Layout & Settings state (loaded from LocalStorage)
@@ -75,6 +76,7 @@ export const IdeShell: React.FC = () => {
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [isSessionDashboardOpen, setIsSessionDashboardOpen] = useState<boolean>(false);
   const [untitledCount, setUntitledCount] = useState<number>(1);
+  const [_workspaceRevision, setWorkspaceRevision] = useState<number>(0);
 
   // Helper: Append log entry
   const addLog = useCallback(
@@ -192,6 +194,80 @@ export const IdeShell: React.FC = () => {
         setPrimaryActiveTab(session.primaryActiveTab);
       }
     }
+  }, [activeWorkspace, fetchFiles, addLog]);
+
+  // 7. Live Distributed Synchronization via Gateway WebSocket
+  useEffect(() => {
+    let ws: WebSocket | null = null;
+    let reconnectTimer: NodeJS.Timeout | null = null;
+    let isDisposed = false;
+
+    const connectWs = () => {
+      if (isDisposed) return;
+      try {
+        ws = new WebSocket(GATEWAY_WS_URL);
+
+        ws.onopen = () => {
+          setConnectionStatus("connected");
+          addLog("Connected to distributed event synchronization relay", "info", "Sync");
+        };
+
+        ws.onmessage = (event) => {
+          try {
+            const data = JSON.parse(event.data);
+            if (data.type === "workspace.event" && data.payload) {
+              const eventPayload = data.payload;
+              if (eventPayload.revision) {
+                setWorkspaceRevision(eventPayload.revision);
+              }
+
+              // Auto-refresh file tree when file changes occur
+              if (
+                !activeWorkspace ||
+                !eventPayload.workspaceId ||
+                eventPayload.workspaceId === activeWorkspace.id
+              ) {
+                void fetchFiles();
+                addLog(
+                  `Live sync: ${eventPayload.type} (rev ${eventPayload.revision || 1})`,
+                  "info",
+                  "Sync"
+                );
+              }
+            }
+          } catch {
+            // Non-JSON frame
+          }
+        };
+
+        ws.onerror = () => {
+          setConnectionStatus("error");
+        };
+
+        ws.onclose = (event) => {
+          setConnectionStatus("disconnected");
+          if (event.code === 4401) {
+            addLog("Remote session expired or revoked", "error", "Auth");
+          } else if (!isDisposed) {
+            reconnectTimer = setTimeout(connectWs, 3000);
+          }
+        };
+      } catch {
+        if (!isDisposed) {
+          reconnectTimer = setTimeout(connectWs, 5000);
+        }
+      }
+    };
+
+    connectWs();
+
+    return () => {
+      isDisposed = true;
+      if (reconnectTimer) clearTimeout(reconnectTimer);
+      if (ws) {
+        ws.close();
+      }
+    };
   }, [activeWorkspace, fetchFiles, addLog]);
 
   // Open file into specified pane (defaults to primary)
