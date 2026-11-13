@@ -22,6 +22,8 @@ async function main(): Promise<void> {
   } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
+    hostId: env.HOST_IDENTIFIER,
+    gatewayWsUrl: env.GATEWAY_WS_URL,
   });
 
   const shutdown = async (signal: string) => {

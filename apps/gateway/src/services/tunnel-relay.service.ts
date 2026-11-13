@@ -111,8 +111,22 @@ export class TunnelRelayService {
     });
   }
 
+  /**
+   * Helper to resolve a connected agent by hostId or single-agent fallback
+   */
+  public getConnectedAgent(hostId = "local-host-agent"): ConnectedHostAgent | undefined {
+    if (this.connectedAgents.has(hostId)) {
+      return this.connectedAgents.get(hostId);
+    }
+    // Fallback if local-host-agent is requested or only one agent is connected
+    if ((!hostId || hostId === "local-host-agent") && this.connectedAgents.size > 0) {
+      return this.connectedAgents.values().next().value;
+    }
+    return undefined;
+  }
+
   public isHostOnline(hostId = "local-host-agent"): boolean {
-    const agent = this.connectedAgents.get(hostId);
+    const agent = this.getConnectedAgent(hostId);
     if (!agent) return false;
     return agent.socket.readyState === WebSocket.OPEN;
   }
@@ -123,7 +137,7 @@ export class TunnelRelayService {
     lastHeartbeatAt?: string;
     capabilities?: Record<string, unknown>;
   } {
-    const agent = this.connectedAgents.get(hostId);
+    const agent = this.getConnectedAgent(hostId);
     if (!agent || agent.socket.readyState !== WebSocket.OPEN) {
       return { online: false };
     }
@@ -157,7 +171,7 @@ export class TunnelRelayService {
    * Send terminal control or input frame to the host agent over the tunnel.
    */
   public sendTerminalMessage(hostId: string, type: TunnelMessageType, payload: unknown): void {
-    const agent = this.connectedAgents.get(hostId);
+    const agent = this.getConnectedAgent(hostId);
     if (agent && agent.socket.readyState === WebSocket.OPEN) {
       agent.socket.send(JSON.stringify({ type, payload }));
     }
@@ -171,7 +185,7 @@ export class TunnelRelayService {
     reqPayload: Omit<TunnelHttpRequestPayload, "correlationId">,
     timeoutMs = 15000
   ): Promise<TunnelHttpResponsePayload> {
-    const agent = this.connectedAgents.get(hostId);
+    const agent = this.getConnectedAgent(hostId);
     if (!agent || agent.socket.readyState !== WebSocket.OPEN) {
       throw new AppError(
         ErrorCode.SERVICE_UNAVAILABLE,

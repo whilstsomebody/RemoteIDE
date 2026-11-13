@@ -47,6 +47,7 @@ export interface AgentAppOptions extends FastifyServerOptions {
   dataDir?: string;
   allowedPaths?: string[];
   gatewayWsUrl?: string;
+  hostId?: string;
   enableTunnel?: boolean;
 }
 
@@ -80,7 +81,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   const journalPath =
     opts.journalPath || process.env.SQLITE_JOURNAL_PATH || `${dataDir}/agent-journal.sqlite`;
 
-  const identity = new HostIdentityService(dataDir);
+  const identity = new HostIdentityService(dataDir, opts.hostId);
   const journal = new LocalJournalService(journalPath);
   const workspaceService = new WorkspaceService(journalPath);
   const watcherService = new WatcherService(journal);

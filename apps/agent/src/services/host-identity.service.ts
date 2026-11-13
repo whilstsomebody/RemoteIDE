@@ -16,22 +16,27 @@ export class HostIdentityService {
   private identity: HostIdentity;
   private readonly configPath: string;
 
-  constructor(storageDir: string = "./data") {
+  constructor(storageDir: string = "./data", hostIdOverride?: string) {
     if (!fs.existsSync(storageDir)) {
       fs.mkdirSync(storageDir, { recursive: true });
     }
 
     this.configPath = path.join(storageDir, "host-identity.json");
-    this.identity = this.loadOrCreateIdentity();
+    this.identity = this.loadOrCreateIdentity(hostIdOverride);
   }
 
-  private loadOrCreateIdentity(): HostIdentity {
+  private loadOrCreateIdentity(hostIdOverride?: string): HostIdentity {
     const now = new Date().toISOString();
+    const desiredHostId = hostIdOverride || process.env.HOST_IDENTIFIER || generateId("host");
+
     if (fs.existsSync(this.configPath)) {
       try {
         const raw = fs.readFileSync(this.configPath, "utf-8");
         const parsed = JSON.parse(raw) as HostIdentity;
         parsed.lastStartedAt = now;
+        if (desiredHostId && parsed.hostId !== desiredHostId) {
+          parsed.hostId = desiredHostId;
+        }
         fs.writeFileSync(this.configPath, JSON.stringify(parsed, null, 2), "utf-8");
         return parsed;
       } catch {
@@ -40,7 +45,7 @@ export class HostIdentityService {
     }
 
     const newIdentity: HostIdentity = {
-      hostId: generateId("host"),
+      hostId: desiredHostId,
       hostName: os.hostname(),
       platform: os.platform(),
       arch: os.arch(),
