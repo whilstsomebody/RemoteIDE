@@ -9,6 +9,7 @@ export enum ErrorCode {
   NOT_FOUND = "NOT_FOUND",
   CONFLICT = "CONFLICT",
   RATE_LIMITED = "RATE_LIMITED",
+  RESOURCE_EXHAUSTED = "RESOURCE_EXHAUSTED",
   REQUEST_TIMEOUT = "REQUEST_TIMEOUT",
 
   // Host / Agent Errors
@@ -47,6 +48,7 @@ export const HTTP_STATUS_BY_ERROR_CODE: Record<ErrorCode, number> = {
   [ErrorCode.NOT_FOUND]: 404,
   [ErrorCode.CONFLICT]: 409,
   [ErrorCode.RATE_LIMITED]: 429,
+  [ErrorCode.RESOURCE_EXHAUSTED]: 429,
   [ErrorCode.REQUEST_TIMEOUT]: 408,
 
   [ErrorCode.HOST_DISCONNECTED]: 503,

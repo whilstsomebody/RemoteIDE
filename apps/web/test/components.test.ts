@@ -15,8 +15,14 @@ import { BinaryViewer } from "../src/components/viewers/binary-viewer";
 import { CodeEditor } from "../src/components/editor/code-editor";
 import { EditorPane } from "../src/components/editor/editor-pane";
 import { IdeShell } from "../src/components/shell/ide-shell";
+import { TerminalContainer } from "../src/components/terminal/terminal-container";
+import { QuickLauncher } from "../src/components/tasks/quick-launcher";
 
 describe("IDE Components & Viewers Export Integrity", () => {
+  it("exports terminal and background task execution components", () => {
+    expect(TerminalContainer).toBeDefined();
+    expect(QuickLauncher).toBeDefined();
+  });
   it("exports all code editor and pane components", () => {
     expect(CodeEditor).toBeDefined();
     expect(EditorPane).toBeDefined();

@@ -22,4 +22,3 @@ export const shareLinks = pgTable("share_links", {
 
 export type ShareLink = typeof shareLinks.$inferSelect;
 export type NewShareLink = typeof shareLinks.$inferInsert;
-

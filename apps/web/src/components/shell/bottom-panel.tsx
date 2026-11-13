@@ -9,11 +9,13 @@ import {
   Maximize2,
   Minimize2,
   Trash2,
-  Cpu,
+  Activity,
 } from "lucide-react";
 import { cn } from "@remote-ide/ui";
+import { TerminalContainer } from "../terminal/terminal-container";
+import { QuickLauncher } from "../tasks/quick-launcher";
 
-export type BottomPanelTab = "terminal" | "output" | "problems";
+export type BottomPanelTab = "terminal" | "tasks" | "output" | "problems";
 
 export interface LogEntry {
   id: string;
@@ -43,6 +45,8 @@ export interface BottomPanelProps {
   problems: ProblemEntry[];
   onClearLogs?: () => void;
   onSelectProblem?: (problem: ProblemEntry) => void;
+  gatewayUrl?: string;
+  workspacePath?: string;
 }
 
 export const BottomPanel: React.FC<BottomPanelProps> = ({
@@ -56,6 +60,8 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
   problems,
   onClearLogs,
   onSelectProblem,
+  gatewayUrl,
+  workspacePath,
 }) => {
   const [isMaximized, setIsMaximized] = useState(false);
   const isDraggingRef = useRef(false);
@@ -120,6 +126,19 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           >
             <TerminalIcon className="w-3.5 h-3.5 text-indigo-400" />
             <span>Terminal</span>
+          </button>
+
+          <button
+            onClick={() => onSelectTab("tasks")}
+            className={cn(
+              "flex items-center gap-1.5 px-3 py-1.5 rounded transition-colors text-xs font-mono",
+              activeTab === "tasks"
+                ? "bg-zinc-800 text-zinc-100 font-medium"
+                : "text-zinc-400 hover:text-zinc-200"
+            )}
+          >
+            <Activity className="w-3.5 h-3.5 text-sky-400" />
+            <span>Tasks</span>
           </button>
 
           <button
@@ -194,28 +213,21 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       </div>
 
       {/* Tab Contents */}
-      <div className="flex-1 overflow-y-auto p-3 font-mono text-xs text-zinc-300 select-text bg-zinc-950">
+      <div className="flex-1 overflow-hidden font-mono text-xs text-zinc-300 select-text bg-[#09090b]">
         {activeTab === "terminal" && (
-          <div className="h-full flex flex-col justify-between p-3 bg-zinc-900/60 rounded border border-zinc-800/80">
-            <div className="space-y-2">
-              <div className="flex items-center gap-2 text-zinc-400 text-xs">
-                <Cpu className="w-4 h-4 text-indigo-400" />
-                <span className="font-semibold text-zinc-200">RemoteIDE Host Terminal Daemon</span>
-              </div>
-              <p className="text-[11px] text-zinc-500 leading-relaxed font-sans">
-                Interactive pseudoterminal (PTY) multiplexing and WebSocket execution channels will
-                stream live shell sessions in Phase 3.
-              </p>
-            </div>
-            <div className="text-[11px] text-zinc-600 border-t border-zinc-800 pt-2 flex items-center justify-between">
-              <span>Ready for PTY attachment</span>
-              <span>127.0.0.1:4001</span>
-            </div>
+          <div className="h-full w-full">
+            <TerminalContainer gatewayUrl={gatewayUrl} />
+          </div>
+        )}
+
+        {activeTab === "tasks" && (
+          <div className="h-full w-full">
+            <QuickLauncher gatewayUrl={gatewayUrl} workspacePath={workspacePath} />
           </div>
         )}
 
         {activeTab === "output" && (
-          <div className="space-y-1">
+          <div className="h-full overflow-y-auto p-3 space-y-1">
             {logs.length === 0 ? (
               <div className="text-zinc-600 italic py-4 text-center">No output logs recorded.</div>
             ) : (

@@ -6,11 +6,22 @@ import { healthRoutes } from "./routes/health.js";
 import { capabilitiesRoutes } from "./routes/capabilities.js";
 import { workspaceRoutes } from "./routes/workspaces.js";
 import { fileRoutes } from "./routes/files.js";
+import { terminalRoutes } from "./routes/terminals.js";
+import { jobRoutes } from "./routes/jobs.js";
 import { LocalJournalService } from "./services/local-journal.service.js";
 import { HostIdentityService } from "./services/host-identity.service.js";
 import { WorkspaceService } from "./services/workspace.service.js";
 import { FilesystemService } from "./services/filesystem.service.js";
 import { WatcherService } from "./services/watcher.service.js";
+import {
+  TerminalService,
+  terminalService as defaultTerminalService,
+} from "./services/terminal.service.js";
+import {
+  JobManagerService,
+  jobManagerService as defaultJobManagerService,
+} from "./services/job-manager.service.js";
+import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
 
 export interface AgentAppOptions extends FastifyServerOptions {
@@ -28,6 +39,9 @@ export interface AgentContext {
   workspaceService: WorkspaceService;
   fsService: FilesystemService;
   watcherService: WatcherService;
+  terminalService: TerminalService;
+  jobManagerService: JobManagerService;
+  terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
 }
 
@@ -91,6 +105,12 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   });
   await app.register(workspaceRoutes, { workspaceService, watcherService });
   await app.register(fileRoutes, { fsService, journalService: journal });
+  await app.register(terminalRoutes, { terminalService: defaultTerminalService });
+  await app.register(jobRoutes, { jobManagerService: defaultJobManagerService });
+
+  // Terminal WebSocket server for direct local connections
+  const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
+  terminalWsServer.init();
 
   // Outbound Reverse Tunnel Transport (Local Relay or Cloud Tunnel)
   let tunnelTransport: ITunnelTransport | undefined;
@@ -112,6 +132,9 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     workspaceService,
     fsService,
     watcherService,
+    terminalService: defaultTerminalService,
+    jobManagerService: defaultJobManagerService,
+    terminalWsServer,
     tunnelTransport,
   };
 }

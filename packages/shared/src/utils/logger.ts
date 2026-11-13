@@ -45,3 +45,18 @@ export function formatStructuredLog(
   };
   return JSON.stringify(entry);
 }
+
+export const logger = {
+  info: (ctxOrMsg: unknown, msg?: string) => {
+    if (typeof ctxOrMsg === "string") console.log(formatStructuredLog("info", ctxOrMsg));
+    else console.log(formatStructuredLog("info", msg || "", ctxOrMsg as LogContext));
+  },
+  warn: (ctxOrMsg: unknown, msg?: string) => {
+    if (typeof ctxOrMsg === "string") console.warn(formatStructuredLog("warn", ctxOrMsg));
+    else console.warn(formatStructuredLog("warn", msg || "", ctxOrMsg as LogContext));
+  },
+  error: (ctxOrMsg: unknown, msg?: string) => {
+    if (typeof ctxOrMsg === "string") console.error(formatStructuredLog("error", ctxOrMsg));
+    else console.error(formatStructuredLog("error", msg || "", ctxOrMsg as LogContext));
+  },
+};

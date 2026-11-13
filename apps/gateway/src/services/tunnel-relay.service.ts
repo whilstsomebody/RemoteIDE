@@ -29,6 +29,7 @@ export class TunnelRelayService {
   private connectedAgents = new Map<string, ConnectedHostAgent>(); // hostId -> ConnectedHostAgent
   private pendingRpcs = new Map<string, PendingRpc>(); // correlationId -> PendingRpc
   private clientSessionSockets = new Map<string, Set<WebSocket>>(); // sessionId -> Set<WebSocket>
+  private terminalSessionListeners = new Map<string, Set<(msg: unknown) => void>>();
 
   public registerAgentSocket(
     hostId: string,
@@ -74,6 +75,23 @@ export class TunnelRelayService {
             this.pendingRpcs.delete(payload.correlationId);
             pending.resolve(payload);
           }
+        } else if (
+          msg.type === TunnelMessageType.TERMINAL_DATA ||
+          msg.type === TunnelMessageType.TERMINAL_ATTACHED
+        ) {
+          const sessionId = msg.payload?.sessionId;
+          if (sessionId) {
+            const listeners = this.terminalSessionListeners.get(sessionId);
+            if (listeners) {
+              for (const listener of listeners) {
+                try {
+                  listener(msg);
+                } catch {
+                  // Ignore listener error
+                }
+              }
+            }
+          }
         }
       } catch (err) {
         // Malformed frame
@@ -114,6 +132,34 @@ export class TunnelRelayService {
       lastHeartbeatAt: agent.lastHeartbeatAt,
       capabilities: agent.capabilities,
     };
+  }
+
+  /**
+   * Subscribe to live terminal stream chunks from the host agent over the tunnel.
+   */
+  public subscribeTerminal(sessionId: string, listener: (msg: unknown) => void): () => void {
+    let set = this.terminalSessionListeners.get(sessionId);
+    if (!set) {
+      set = new Set();
+      this.terminalSessionListeners.set(sessionId, set);
+    }
+    set.add(listener);
+    return () => {
+      set?.delete(listener);
+      if (set?.size === 0) {
+        this.terminalSessionListeners.delete(sessionId);
+      }
+    };
+  }
+
+  /**
+   * Send terminal control or input frame to the host agent over the tunnel.
+   */
+  public sendTerminalMessage(hostId: string, type: TunnelMessageType, payload: unknown): void {
+    const agent = this.connectedAgents.get(hostId);
+    if (agent && agent.socket.readyState === WebSocket.OPEN) {
+      agent.socket.send(JSON.stringify({ type, payload }));
+    }
   }
 
   /**

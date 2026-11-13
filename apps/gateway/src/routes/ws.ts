@@ -5,6 +5,8 @@ import {
   createWsMessage,
   WsBaseEnvelopeSchema,
   type WsEnvelope,
+  TunnelMessageType,
+  UserRole,
 } from "@remote-ide/shared";
 import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
@@ -175,4 +177,124 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
       fastify.log.info({ requestId: req.requestId }, "WebSocket connection closed");
     });
   });
+
+  // Streaming interactive terminal session WebSocket route over reverse tunnel
+  fastify.get<{ Params: { id: string } }>(
+    "/api/v1/terminals/:id/stream",
+    { websocket: true },
+    (socket, req) => {
+      const sessionId = req.params.id;
+      const query = req.query as Record<string, string | undefined>;
+      const token =
+        query.token ||
+        req.headers.authorization?.replace(/^Bearer\s+/i, "") ||
+        req.headers.cookie?.match(/remoteide_session=([^;]+)/)?.[1] ||
+        req.headers.cookie?.match(/remote_ide_token=([^;]+)/)?.[1];
+
+      let session = token ? authService.getSessionByToken(token) : null;
+
+      // Allow loopback owner before bootstrap for local dev
+      if (!session && !token) {
+        const isLoopback =
+          req.ip === "127.0.0.1" ||
+          req.ip === "::1" ||
+          req.ip === "::ffff:127.0.0.1" ||
+          req.hostname === "localhost";
+
+        if (isLoopback && !authService.isOwnerBootstrapped()) {
+          session = {
+            id: req.requestId,
+            userId: "local-dev",
+            hostId: "local-host-agent",
+            role: UserRole.OWNER,
+            capabilities: [],
+            allowedWorkspaceIds: [],
+            deviceName: "Local Loopback",
+            ipAddress: req.ip,
+            userAgent: req.headers["user-agent"] || "",
+            isOwner: true,
+            createdAt: new Date().toISOString(),
+            expiresAt: new Date(Date.now() + 86400000).toISOString(),
+            isRevoked: false,
+          };
+        }
+      }
+
+      if (!session) {
+        socket.close(4401, "Unauthorized: Authentication session required");
+        return;
+      }
+
+      // Terminal execution is strictly owner-only!
+      if (session.role !== UserRole.OWNER) {
+        socket.close(4403, `Forbidden: Role "${session.role}" is denied terminal access`);
+        return;
+      }
+
+      tunnelRelayService.registerClientSocket(session.id, socket);
+
+      const hostId = session.hostId || "local-host-agent";
+
+      // Subscribe to terminal output frames coming back across reverse tunnel from host agent
+      const unsubscribe = tunnelRelayService.subscribeTerminal(sessionId, (msg: any) => {
+        if (socket.readyState === 1 /* OPEN */) {
+          if (msg.type === TunnelMessageType.TERMINAL_DATA) {
+            socket.send(JSON.stringify({ type: "output", sessionId, data: msg.payload?.data }));
+          } else if (msg.type === TunnelMessageType.TERMINAL_ATTACHED) {
+            socket.send(
+              JSON.stringify({ type: "attached", sessionId, buffer: msg.payload?.buffer })
+            );
+          }
+        }
+      });
+
+      // Send attach request to host agent over tunnel
+      tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_ATTACH, {
+        sessionId,
+        authContext: { role: session.role },
+      });
+
+      // Forward client input and window resize frames to host agent over tunnel
+      socket.on("message", (raw: Buffer | string) => {
+        try {
+          const text = raw.toString("utf-8");
+          const msg = JSON.parse(text);
+
+          if (msg.type === "input" && typeof msg.data === "string") {
+            tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_DATA, {
+              sessionId,
+              data: msg.data,
+            });
+          } else if (
+            msg.type === "resize" &&
+            typeof msg.cols === "number" &&
+            typeof msg.rows === "number"
+          ) {
+            tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_RESIZE, {
+              sessionId,
+              cols: msg.cols,
+              rows: msg.rows,
+            });
+          } else if (msg.type === "ping") {
+            socket.send(JSON.stringify({ type: "pong" }));
+          }
+        } catch {
+          const str = raw.toString("utf-8");
+          if (str) {
+            tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_DATA, {
+              sessionId,
+              data: str,
+            });
+          }
+        }
+      });
+
+      socket.on("close", () => {
+        unsubscribe();
+        tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_CLOSE, {
+          sessionId,
+        });
+      });
+    }
+  );
 };

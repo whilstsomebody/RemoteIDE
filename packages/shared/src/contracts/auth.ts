@@ -133,6 +133,11 @@ export enum TunnelMessageType {
   TUNNEL_HEARTBEAT = "tunnel.heartbeat",
   TUNNEL_HEARTBEAT_ACK = "tunnel.heartbeat.ack",
   SESSION_REVOCATION = "tunnel.session.revoked",
+  TERMINAL_ATTACH = "tunnel.terminal.attach",
+  TERMINAL_ATTACHED = "tunnel.terminal.attached",
+  TERMINAL_DATA = "tunnel.terminal.data",
+  TERMINAL_RESIZE = "tunnel.terminal.resize",
+  TERMINAL_CLOSE = "tunnel.terminal.close",
 }
 
 export interface TunnelHttpRequestPayload {

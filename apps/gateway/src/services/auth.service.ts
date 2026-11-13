@@ -277,7 +277,8 @@ export class AuthService {
     const tokenHash = sha256Sync(rawToken);
     const sessionId = createId("sess");
     const now = new Date();
-    const expiresAt = new Date(now.getTime() + params.durationSeconds * 1000).toISOString();
+    const duration = params.durationSeconds ?? 3600;
+    const expiresAt = new Date(now.getTime() + duration * 1000).toISOString();
 
     const stored: StoredSession = {
       id: sessionId,

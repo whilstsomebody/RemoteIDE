@@ -180,5 +180,65 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     expect(res.statusCode).toBe(401);
     await app.close();
   });
-});
 
+  it("strictly denies terminal execution to Viewer and Editor roles with 403 Forbidden", async () => {
+    const app = await buildApp({ logger: false });
+
+    // 1. Viewer session
+    const { sessionToken: viewerToken } = authService.createSessionInternal({
+      userId: "viewer-user",
+      hostId: "local-host-agent",
+      role: UserRole.VIEWER,
+      capabilities: [Permission.FS_READ],
+      allowedWorkspaceIds: [],
+      deviceName: "Viewer iPad",
+      ipAddress: "192.168.1.50",
+      userAgent: "Safari",
+      isOwner: false,
+    });
+
+    const viewerRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/terminals",
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: {},
+    });
+
+    expect(viewerRes.statusCode).toBe(403);
+    const viewerBody = JSON.parse(viewerRes.payload);
+    expect(viewerBody.error.message).toContain("strictly restricted to host owner");
+
+    // 2. Editor session
+    const { sessionToken: editorToken } = authService.createSessionInternal({
+      userId: "editor-user",
+      hostId: "local-host-agent",
+      role: UserRole.EDITOR,
+      capabilities: [Permission.FS_READ, Permission.FS_WRITE],
+      allowedWorkspaceIds: [],
+      deviceName: "Editor Laptop",
+      ipAddress: "192.168.1.51",
+      userAgent: "Chrome",
+      isOwner: false,
+    });
+
+    const editorRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/terminals",
+      headers: { authorization: `Bearer ${editorToken}` },
+      payload: {},
+    });
+
+    expect(editorRes.statusCode).toBe(403);
+
+    // 3. Denies job execution to Viewer
+    const viewerJobRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/jobs",
+      headers: { authorization: `Bearer ${viewerToken}` },
+      payload: { name: "Unauthorized Job", command: "ls" },
+    });
+    expect(viewerJobRes.statusCode).toBe(403);
+
+    await app.close();
+  });
+});

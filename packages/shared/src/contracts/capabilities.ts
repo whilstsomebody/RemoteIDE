@@ -17,6 +17,7 @@ export enum Permission {
   GIT_OPERATION = "git:operation",
   TASK_EXECUTE = "task:execute",
   TERMINAL_ACCESS = "terminal:access",
+  TERMINAL_EXECUTE = "terminal:execute",
   PROCESS_CONTROL = "process:control",
   PORT_FORWARD = "port:forward",
 
@@ -37,6 +38,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GIT_OPERATION,
     Permission.TASK_EXECUTE,
     Permission.TERMINAL_ACCESS,
+    Permission.TERMINAL_EXECUTE,
     Permission.PROCESS_CONTROL,
     Permission.PORT_FORWARD,
     Permission.TERMINAL_READ,
@@ -66,7 +68,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.TASK_EXECUTE,
   ],
   [UserRole.EDITOR]: [Permission.FS_READ, Permission.FS_WRITE, Permission.FS_TRANSFER],
-  [UserRole.VIEWER]: [Permission.FS_READ, Permission.TERMINAL_READ],
+  [UserRole.VIEWER]: [Permission.FS_READ],
 };
 
 export const HostAgentCapabilitiesSchema = z.object({

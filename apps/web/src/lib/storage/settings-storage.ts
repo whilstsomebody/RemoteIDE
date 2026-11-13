@@ -15,7 +15,7 @@ export interface UiLayoutSettings {
   splitRatio: number; // 0.1 to 0.9 (default 0.5)
   bottomPanelOpen: boolean;
   bottomPanelHeight: number;
-  bottomPanelTab: "terminal" | "output" | "problems";
+  bottomPanelTab: "terminal" | "tasks" | "output" | "problems";
 }
 
 export interface WorkspaceSessionState {

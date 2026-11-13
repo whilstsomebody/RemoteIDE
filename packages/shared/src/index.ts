@@ -10,6 +10,8 @@ export * from "./contracts/health.js";
 export * from "./contracts/workspace.js";
 export * from "./contracts/filesystem.js";
 export * from "./contracts/auth.js";
+export * from "./contracts/terminal.js";
+export * from "./contracts/job.js";
 
 // Utils
 export * from "./utils/id.js";

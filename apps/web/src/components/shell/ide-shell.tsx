@@ -937,7 +937,7 @@ export const IdeShell: React.FC = () => {
             </div>
           )}
 
-          {/* Bottom Panel (Terminal, Output, Problems) */}
+          {/* Bottom Panel (Terminal, Tasks, Output, Problems) */}
           <BottomPanel
             isOpen={uiLayout.bottomPanelOpen}
             activeTab={uiLayout.bottomPanelTab}
@@ -951,6 +951,8 @@ export const IdeShell: React.FC = () => {
             onSelectProblem={(prob) => {
               void openFile(prob.filePath, "primary", prob.line);
             }}
+            gatewayUrl={process.env.NEXT_PUBLIC_GATEWAY_URL || "http://localhost:4000"}
+            workspacePath={activeWorkspace?.folders?.[0]?.path}
           />
         </div>
 

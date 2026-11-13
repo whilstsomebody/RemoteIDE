@@ -129,4 +129,3 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
     await app.close();
   });
 });
-

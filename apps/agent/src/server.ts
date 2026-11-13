@@ -8,7 +8,16 @@ async function main(): Promise<void> {
   // Enforce loopback interface for Phase 1
   const bindHost = "127.0.0.1";
 
-  const { app, journal, watcherService, workspaceService, tunnelTransport } = await buildAgentApp({
+  const {
+    app,
+    journal,
+    watcherService,
+    workspaceService,
+    terminalService,
+    jobManagerService,
+    terminalWsServer,
+    tunnelTransport,
+  } = await buildAgentApp({
     journalPath: env.SQLITE_JOURNAL_PATH,
     allowedPaths: env.ALLOWED_PROJECT_ROOTS.split(","),
   });
@@ -19,6 +28,9 @@ async function main(): Promise<void> {
       if (tunnelTransport) {
         await tunnelTransport.disconnect();
       }
+      terminalWsServer?.close();
+      await terminalService.shutdownAll();
+      await jobManagerService.shutdownAll();
       watcherService.stopAll();
       await app.close();
       workspaceService.close();

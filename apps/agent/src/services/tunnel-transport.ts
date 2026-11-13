@@ -9,6 +9,7 @@ import {
   hasPermission,
   ErrorCode,
 } from "@remote-ide/shared";
+import { terminalService } from "./terminal.service.js";
 
 export interface ITunnelTransport {
   name: string;
@@ -42,6 +43,7 @@ export class RelayTunnelTransport implements ITunnelTransport {
   private readonly initialBackoffMs: number;
   private readonly maxBackoffMs: number;
   private readonly heartbeatIntervalMs: number;
+  private terminalUnsubscribers = new Map<string, () => void>();
 
   constructor(private readonly opts: TunnelTransportOptions) {
     this.initialBackoffMs = opts.initialBackoffMs ?? 1000;
@@ -107,6 +109,77 @@ export class RelayTunnelTransport implements ITunnelTransport {
                 payload: resPayload,
               })
             );
+          } else if (msg.type === TunnelMessageType.TERMINAL_ATTACH) {
+            const { sessionId, authContext } = msg.payload || {};
+            if (authContext?.role !== UserRole.OWNER) {
+              this.ws?.send(
+                JSON.stringify({
+                  type: TunnelMessageType.TERMINAL_DATA,
+                  payload: {
+                    sessionId,
+                    error: "Host agent rejected: Terminal execution is restricted to owner.",
+                  },
+                })
+              );
+              return;
+            }
+
+            try {
+              const { replayBuffer, unsubscribe } = terminalService.attach(
+                sessionId,
+                (terminalChunk) => {
+                  this.ws?.send(
+                    JSON.stringify({
+                      type: TunnelMessageType.TERMINAL_DATA,
+                      payload: { sessionId, data: terminalChunk },
+                    })
+                  );
+                }
+              );
+
+              this.terminalUnsubscribers.set(sessionId, unsubscribe);
+              this.ws?.send(
+                JSON.stringify({
+                  type: TunnelMessageType.TERMINAL_ATTACHED,
+                  payload: { sessionId, buffer: replayBuffer },
+                })
+              );
+            } catch (err: unknown) {
+              const message = err instanceof Error ? err.message : "Failed to attach to terminal";
+              this.ws?.send(
+                JSON.stringify({
+                  type: TunnelMessageType.TERMINAL_DATA,
+                  payload: { sessionId, error: message },
+                })
+              );
+            }
+          } else if (msg.type === TunnelMessageType.TERMINAL_DATA) {
+            const { sessionId, data: inputData } = msg.payload || {};
+            if (sessionId && typeof inputData === "string") {
+              try {
+                terminalService.writeTerminal(sessionId, inputData);
+              } catch {
+                // Ignore error on closed terminal
+              }
+            }
+          } else if (msg.type === TunnelMessageType.TERMINAL_RESIZE) {
+            const { sessionId, cols, rows } = msg.payload || {};
+            if (sessionId && typeof cols === "number" && typeof rows === "number") {
+              try {
+                terminalService.resizeTerminal(sessionId, cols, rows);
+              } catch {
+                // Ignore error on closed terminal
+              }
+            }
+          } else if (msg.type === TunnelMessageType.TERMINAL_CLOSE) {
+            const { sessionId } = msg.payload || {};
+            if (sessionId) {
+              const unsub = this.terminalUnsubscribers.get(sessionId);
+              if (unsub) {
+                unsub();
+                this.terminalUnsubscribers.delete(sessionId);
+              }
+            }
           }
         } catch (err) {
           // Bad frame
@@ -187,7 +260,7 @@ export class RelayTunnelTransport implements ITunnelTransport {
 
         if (req.path.includes("/terminal")) {
           required = Permission.TERMINAL_ACCESS;
-          // Phase 3 requirement: Terminal access is strictly owner-only!
+          // Phase 3 & 4 requirement: Terminal access is strictly owner-only!
           if (auth.role !== UserRole.OWNER) {
             return {
               correlationId: req.correlationId,
@@ -202,6 +275,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
               },
             };
           }
+        } else if (req.path.includes("/jobs")) {
+          required = Permission.TASK_EXECUTE;
         } else if (method === "DELETE") {
           required = Permission.FS_DELETE;
         } else if (method === "POST" || method === "PUT" || method === "PATCH") {
