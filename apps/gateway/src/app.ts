@@ -20,6 +20,7 @@ import { REDIS_CHANNELS } from "@remote-ide/shared";
 
 export async function buildApp(opts: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const app = fastify({
+    disableRequestLogging: true,
     logger: {
       level: process.env.LOG_LEVEL || "info",
       serializers: {

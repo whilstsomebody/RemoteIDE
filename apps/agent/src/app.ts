@@ -71,6 +71,7 @@ export interface AgentContext {
 
 export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentContext> {
   const app = fastify({
+    disableRequestLogging: true,
     logger: {
       level: process.env.LOG_LEVEL || "info",
     },
