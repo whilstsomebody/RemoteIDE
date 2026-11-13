@@ -36,6 +36,7 @@ export interface EditorPaneProps {
   settings: EditorSettings;
   agentUrl: string;
   activeWorkspaceId: string | null;
+  readOnly?: boolean;
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
   onUpdateContent: (path: string, content: string) => void;
@@ -57,6 +58,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   settings,
   agentUrl,
   activeWorkspaceId,
+  readOnly = false,
   onSelectTab,
   onCloseTab,
   onUpdateContent,
@@ -112,7 +114,16 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
       />
 
       {/* Breadcrumbs */}
-      {activeTab && <Breadcrumbs path={activeTab} />}
+      {activeTab && (
+        <div className="flex items-center justify-between border-b border-[#252526] bg-[#1e1e1e] pr-3">
+          <Breadcrumbs path={activeTab} />
+          {readOnly && (
+            <span className="text-[10px] font-semibold tracking-wider text-amber-400 bg-amber-950/40 border border-amber-800/60 px-1.5 py-0.5 rounded font-mono select-none">
+              READ-ONLY (VIEWER)
+            </span>
+          )}
+        </div>
+      )}
 
       {/* Editor Body */}
       <div
@@ -201,11 +212,20 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
                     fontSize={settings.fontSize}
                     tabSize={settings.tabSize}
                     wordWrap={settings.wordWrap}
-                    readOnly={activeBuffer.deletedOnDisk}
-                    onChange={(newDoc) => onUpdateContent(activeBuffer.path, newDoc)}
+                    readOnly={readOnly || activeBuffer.deletedOnDisk}
+                    onChange={(newDoc) => {
+                      if (readOnly) return;
+                      onUpdateContent(activeBuffer.path, newDoc);
+                    }}
                     onCursorChange={onCursorChange}
-                    onSave={() => onSaveFile(activeBuffer.path)}
-                    onSaveAll={onSaveAll}
+                    onSave={() => {
+                      if (readOnly) return;
+                      onSaveFile(activeBuffer.path);
+                    }}
+                    onSaveAll={() => {
+                      if (readOnly) return;
+                      onSaveAll();
+                    }}
                   />
                 </div>
               </div>

@@ -40,11 +40,23 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
   const fetchData = useCallback(async () => {
     setIsLoading(true);
     try {
+      const token = localStorage.getItem("remote_ide_token") || "";
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const [sessRes, linksRes, auditRes, tunnelRes] = await Promise.all([
-        fetch(`${gatewayUrl}/api/v1/auth/sessions`).catch(() => null),
-        fetch(`${gatewayUrl}/api/v1/share-links`).catch(() => null),
-        fetch(`${gatewayUrl}/api/v1/auth/audit`).catch(() => null),
-        fetch(`${gatewayUrl}/api/v1/tunnel/status`).catch(() => null),
+        fetch(`${gatewayUrl}/api/v1/auth/sessions`, { headers, credentials: "include" }).catch(
+          () => null
+        ),
+        fetch(`${gatewayUrl}/api/v1/share-links`, { headers, credentials: "include" }).catch(
+          () => null
+        ),
+        fetch(`${gatewayUrl}/api/v1/auth/audit`, { headers, credentials: "include" }).catch(
+          () => null
+        ),
+        fetch(`${gatewayUrl}/api/v1/tunnel/status`, { headers, credentials: "include" }).catch(
+          () => null
+        ),
       ]);
 
       if (sessRes?.ok) {
@@ -87,8 +99,14 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
       return;
     }
     try {
+      const token = localStorage.getItem("remote_ide_token") || "";
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       await fetch(`${gatewayUrl}/api/v1/auth/sessions/${sessionId}`, {
         method: "DELETE",
+        headers,
+        credentials: "include",
       });
       void fetchData();
     } catch {
@@ -103,8 +121,14 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
       return;
     }
     try {
+      const token = localStorage.getItem("remote_ide_token") || "";
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       await fetch(`${gatewayUrl}/api/v1/share-links/${linkId}`, {
         method: "DELETE",
+        headers,
+        credentials: "include",
       });
       void fetchData();
     } catch {

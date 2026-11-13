@@ -6,12 +6,87 @@ import {
   createErrorEnvelope,
   AppError,
   ErrorCode,
+  UserRole,
+  Permission,
   formatZodIssues,
 } from "@remote-ide/shared";
 import { authService } from "../services/auth.service.js";
 import { auditService } from "../services/audit.service.js";
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
+  // Current user / session profile
+  fastify.get("/api/v1/auth/me", async (req, reply) => {
+    const authHeader = req.headers.authorization;
+    const cookieHeader = req.headers.cookie;
+    let token = authHeader?.replace(/^Bearer\s+/i, "");
+    if (!token && cookieHeader) {
+      const match =
+        cookieHeader.match(/remoteide_session=([^;]+)/) ||
+        cookieHeader.match(/remote_ide_token=([^;]+)/);
+      if (match) token = match[1];
+    }
+
+    let session = token ? authService.getSessionByToken(token) : null;
+    if (!session && !token) {
+      const isLoopback =
+        req.ip === "127.0.0.1" ||
+        req.ip === "::1" ||
+        req.ip === "::ffff:127.0.0.1" ||
+        req.hostname === "localhost";
+
+      if (isLoopback && !authService.isOwnerBootstrapped()) {
+        session = {
+          id: "local-dev-session",
+          userId: "local-owner",
+          hostId: "local-host-agent",
+          role: UserRole.OWNER,
+          capabilities: [
+            Permission.FS_READ,
+            Permission.FS_WRITE,
+            Permission.FS_DELETE,
+            Permission.FS_TRANSFER,
+            Permission.GIT_OPERATION,
+            Permission.GIT_READ,
+            Permission.GIT_WRITE,
+            Permission.GIT_PUSH,
+            Permission.GIT_DESTRUCTIVE,
+            Permission.TASK_EXECUTE,
+            Permission.TERMINAL_ACCESS,
+            Permission.TERMINAL_EXECUTE,
+            Permission.PROCESS_CONTROL,
+            Permission.PORT_FORWARD,
+            Permission.PREVIEW_ACCESS,
+          ],
+          allowedWorkspaceIds: [],
+          deviceName: "Local Host",
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"] || "",
+          isOwner: true,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          isRevoked: false,
+        };
+      }
+    }
+
+    if (!session) {
+      return reply
+        .status(401)
+        .send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "No active session"));
+    }
+
+    return reply.send(
+      createSuccessEnvelope({
+        sessionId: session.id,
+        userId: session.userId,
+        role: session.role,
+        isOwner: session.isOwner,
+        capabilities: session.capabilities,
+        allowedWorkspaceIds: session.allowedWorkspaceIds,
+        deviceName: session.deviceName,
+      })
+    );
+  });
   // Check auth status
   fastify.get("/api/v1/auth/status", async (req, reply) => {
     const isBootstrapped = authService.isOwnerBootstrapped();
@@ -153,21 +228,66 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope({ loggedOut: true }));
   });
 
-  // 4. List active sessions
+  // 4. List active sessions (Owner, Operator, Developer)
   fastify.get("/api/v1/auth/sessions", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
     let token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token && cookieHeader) {
-      const match = cookieHeader.match(/remoteide_session=([^;]+)/);
+      const match =
+        cookieHeader.match(/remoteide_session=([^;]+)/) ||
+        cookieHeader.match(/remote_ide_token=([^;]+)/);
       if (match) token = match[1];
     }
 
-    const currentSession = token ? authService.getSessionByToken(token) : null;
+    let currentSession = token ? authService.getSessionByToken(token) : null;
+    if (!currentSession && !token) {
+      const isLoopback =
+        req.ip === "127.0.0.1" ||
+        req.ip === "::1" ||
+        req.ip === "::ffff:127.0.0.1" ||
+        req.hostname === "localhost";
+
+      if (isLoopback && !authService.isOwnerBootstrapped()) {
+        currentSession = {
+          id: "local-dev-session",
+          userId: "local-owner",
+          hostId: "local-host-agent",
+          role: UserRole.OWNER,
+          capabilities: [],
+          allowedWorkspaceIds: [],
+          deviceName: "Local Host",
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"] || "",
+          isOwner: true,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          isRevoked: false,
+        };
+      }
+    }
+
     if (!currentSession) {
       return reply
         .status(401)
         .send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Authentication required"));
+    }
+
+    const canView =
+      currentSession.isOwner ||
+      currentSession.role === UserRole.OWNER ||
+      currentSession.role === UserRole.OPERATOR ||
+      currentSession.role === UserRole.DEVELOPER;
+
+    if (!canView) {
+      return reply
+        .status(403)
+        .send(
+          createErrorEnvelope(
+            ErrorCode.FORBIDDEN,
+            "Only owner, operator, or developer can view active sessions"
+          )
+        );
     }
 
     const sessions = authService.listActiveSessions();
@@ -179,17 +299,34 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 5. Revoke session
+  // 5. Revoke session (Owner or Operator only)
   fastify.delete("/api/v1/auth/sessions/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const authHeader = req.headers.authorization;
-    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    const cookieHeader = req.headers.cookie;
+    let token = authHeader?.replace(/^Bearer\s+/i, "");
+    if (!token && cookieHeader) {
+      const match =
+        cookieHeader.match(/remoteide_session=([^;]+)/) ||
+        cookieHeader.match(/remote_ide_token=([^;]+)/);
+      if (match) token = match[1];
+    }
     const currentSession = token ? authService.getSessionByToken(token) : null;
 
-    if (!currentSession || !currentSession.isOwner) {
+    const canRevoke =
+      currentSession?.isOwner ||
+      currentSession?.role === UserRole.OWNER ||
+      currentSession?.role === UserRole.OPERATOR;
+
+    if (!currentSession || !canRevoke) {
       return reply
         .status(403)
-        .send(createErrorEnvelope(ErrorCode.FORBIDDEN, "Only owner can revoke remote sessions"));
+        .send(
+          createErrorEnvelope(
+            ErrorCode.FORBIDDEN,
+            "Only owner or operator can revoke remote sessions"
+          )
+        );
     }
 
     const success = authService.revokeSession(id, currentSession.userId);

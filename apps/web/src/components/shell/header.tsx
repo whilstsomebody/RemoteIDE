@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Laptop, RefreshCw, Sparkles, Share2, Shield } from "lucide-react";
+import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound } from "lucide-react";
 import { Button, StatusIndicator } from "@remote-ide/ui";
 
 export interface HeaderProps {
@@ -13,6 +13,8 @@ export interface HeaderProps {
   onToggleAgent?: () => void;
   onOpenShare?: () => void;
   onOpenSessions?: () => void;
+  onOpenAuth?: () => void;
+  isOwner?: boolean;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -24,6 +26,8 @@ export const Header: React.FC<HeaderProps> = ({
   onToggleAgent,
   onOpenShare,
   onOpenSessions,
+  onOpenAuth,
+  isOwner = false,
 }) => {
   return (
     <header className="h-9 border-b border-ide-border bg-[#18181b] flex items-center justify-between px-3 text-xs select-none z-10 shrink-0">
@@ -67,6 +71,19 @@ export const Header: React.FC<HeaderProps> = ({
             className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
             <Shield className="w-3.5 h-3.5 text-emerald-400" />
+          </Button>
+        )}
+
+        {/* Owner Account & Bootstrap */}
+        {onOpenAuth && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenAuth}
+            title={isOwner ? "Owner Account Profile" : "Initialize / Sign In as Host Owner"}
+            className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          >
+            <KeyRound className={`w-3.5 h-3.5 ${isOwner ? "text-amber-400" : "text-zinc-400"}`} />
           </Button>
         )}
 

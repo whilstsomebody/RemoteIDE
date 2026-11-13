@@ -15,7 +15,8 @@ import { CloneRepoModal } from "../workspace/clone-repo-modal";
 import { AgentPanel } from "../agent/agent-panel";
 import { ShareLinkModal } from "../sharing/share-link-modal";
 import { SessionDashboardModal } from "../sharing/session-dashboard-modal";
-import { Workspace, FileNode } from "@remote-ide/shared";
+import { OwnerAuthModal } from "../auth/owner-auth-modal";
+import { Workspace, FileNode, UserRole } from "@remote-ide/shared";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
   SettingsStorage,
@@ -27,6 +28,7 @@ import {
 import { DraftStorage } from "../../lib/storage/draft-storage";
 
 const AGENT_BASE_URL = process.env.NEXT_PUBLIC_AGENT_HTTP_URL || "http://localhost:4001";
+const GATEWAY_HTTP_URL = process.env.NEXT_PUBLIC_GATEWAY_HTTP_URL || "http://localhost:4000";
 const GATEWAY_WS_URL = process.env.NEXT_PUBLIC_GATEWAY_WS_URL || "ws://localhost:4000/api/v1/ws";
 
 export const IdeShell: React.FC = () => {
@@ -75,8 +77,39 @@ export const IdeShell: React.FC = () => {
   const [isCloneRepoModalOpen, setIsCloneRepoModalOpen] = useState<boolean>(false);
   const [isShareModalOpen, setIsShareModalOpen] = useState<boolean>(false);
   const [isSessionDashboardOpen, setIsSessionDashboardOpen] = useState<boolean>(false);
+  const [isAuthModalOpen, setIsAuthModalOpen] = useState<boolean>(false);
+  const [currentUserRole, setCurrentUserRole] = useState<UserRole | null>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("remote_ide_role");
+      if (stored && Object.values(UserRole).includes(stored as UserRole)) {
+        return stored as UserRole;
+      }
+    }
+    return null;
+  });
+  const [isOwnerAuthenticated, setIsOwnerAuthenticated] = useState<boolean>(() => {
+    if (typeof window !== "undefined") {
+      const stored = localStorage.getItem("remote_ide_role");
+      return stored === UserRole.OWNER;
+    }
+    return false;
+  });
   const [untitledCount, setUntitledCount] = useState<number>(1);
   const [_workspaceRevision, setWorkspaceRevision] = useState<number>(0);
+
+  // Derive granular role-based capabilities
+  const canCreateShareLink =
+    isOwnerAuthenticated ||
+    currentUserRole === UserRole.OWNER ||
+    currentUserRole === UserRole.OPERATOR;
+
+  const canViewSessions =
+    isOwnerAuthenticated ||
+    currentUserRole === UserRole.OWNER ||
+    currentUserRole === UserRole.OPERATOR ||
+    currentUserRole === UserRole.DEVELOPER;
+
+  const isReadOnly = currentUserRole === UserRole.VIEWER;
 
   // Helper: Append log entry
   const addLog = useCallback(
@@ -118,6 +151,45 @@ export const IdeShell: React.FC = () => {
     const next = SettingsStorage.saveUiLayout(updated);
     setUiLayout(next);
   };
+
+  // Fetch verified user session profile from Gateway
+  const fetchSessionProfile = useCallback(async () => {
+    try {
+      const token = localStorage.getItem("remote_ide_token") || "";
+      const headers: Record<string, string> = {};
+      if (token) headers.Authorization = `Bearer ${token}`;
+
+      const res = await fetch(`${GATEWAY_HTTP_URL}/api/v1/auth/me`, {
+        headers,
+        credentials: "include",
+      });
+
+      if (res.ok) {
+        const body = await res.json();
+        if (body.success && body.data) {
+          const role = body.data.role as UserRole;
+          const isOwner = Boolean(body.data.isOwner);
+          setCurrentUserRole(role);
+          setIsOwnerAuthenticated(isOwner);
+          if (role) {
+            localStorage.setItem("remote_ide_role", role);
+          }
+        }
+      } else if (res.status === 401) {
+        // If unauthenticated on loopback and owner not bootstrapped, check if status can be loaded
+        const storedRole = localStorage.getItem("remote_ide_role");
+        if (storedRole !== UserRole.VIEWER) {
+          setIsOwnerAuthenticated(false);
+        }
+      }
+    } catch {
+      // Gateway offline or local dev fallback
+    }
+  }, []);
+
+  useEffect(() => {
+    void fetchSessionProfile();
+  }, [fetchSessionProfile]);
 
   // Check agent health
   const checkAgentHealth = useCallback(async () => {
@@ -365,6 +437,7 @@ export const IdeShell: React.FC = () => {
 
   // Create a new untitled in-memory text file (VS Code style)
   const handleCreateUntitledFile = useCallback(() => {
+    if (isReadOnly) return;
     const filename = `Untitled-${untitledCount}.txt`;
     setUntitledCount((prev) => prev + 1);
 
@@ -387,7 +460,7 @@ export const IdeShell: React.FC = () => {
     setPrimaryTabs((prev) => (prev.includes(filename) ? prev : [...prev, filename]));
     setPrimaryActiveTab(filename);
     addLog(`Created new file ${filename}`, "info", "Editor");
-  }, [untitledCount, addLog]);
+  }, [untitledCount, addLog, isReadOnly]);
 
   // Close tab in specified pane
   const closeTab = useCallback(
@@ -427,6 +500,8 @@ export const IdeShell: React.FC = () => {
   // Update content of a buffer
   const updateBufferContent = useCallback(
     (path: string, newContent: string) => {
+      if (isReadOnly) return;
+
       // Diagnostic check for JSON problems
       if (path.endsWith(".json")) {
         try {
@@ -469,13 +544,13 @@ export const IdeShell: React.FC = () => {
         };
       });
     },
-    [activeWorkspace]
+    [activeWorkspace, isReadOnly]
   );
 
   // Save file to host agent atomically
   const saveFile = useCallback(
     async (path: string, forceOverwrite = false): Promise<void> => {
-      if (!activeWorkspace) return;
+      if (isReadOnly || !activeWorkspace) return;
       const buffer = buffers[path];
       if (!buffer) return;
 
@@ -530,11 +605,12 @@ export const IdeShell: React.FC = () => {
         addLog(`Error saving ${path}: ${(err as Error).message}`, "error", "Save");
       }
     },
-    [activeWorkspace, buffers, addLog]
+    [activeWorkspace, buffers, addLog, isReadOnly]
   );
 
   // Save all dirty files
   const saveAll = useCallback(async () => {
+    if (isReadOnly) return;
     const dirtyPaths = Object.values(buffers)
       .filter((b) => b.isDirty)
       .map((b) => b.path);
@@ -544,7 +620,7 @@ export const IdeShell: React.FC = () => {
     for (const p of dirtyPaths) {
       await saveFile(p);
     }
-  }, [buffers, saveFile]);
+  }, [buffers, saveFile, isReadOnly]);
 
   // Periodic external change detection & stat polling
   useEffect(() => {
@@ -638,7 +714,7 @@ export const IdeShell: React.FC = () => {
 
   // Autosave delay effect
   useEffect(() => {
-    if (editorSettings.autosave !== "delay") return;
+    if (isReadOnly || editorSettings.autosave !== "delay") return;
 
     const dirtyBuffers = Object.values(buffers).filter((b) => b.isDirty);
     if (dirtyBuffers.length === 0) return;
@@ -653,17 +729,17 @@ export const IdeShell: React.FC = () => {
     }, editorSettings.autosaveDelayMs || 2000);
 
     return () => clearTimeout(timer);
-  }, [buffers, editorSettings.autosave, editorSettings.autosaveDelayMs, saveFile]);
+  }, [buffers, editorSettings.autosave, editorSettings.autosaveDelayMs, saveFile, isReadOnly]);
 
   // Autosave on window blur
   useEffect(() => {
-    if (editorSettings.autosave !== "focus") return;
+    if (isReadOnly || editorSettings.autosave !== "focus") return;
     const handleBlur = () => {
       void saveAll();
     };
     window.addEventListener("blur", handleBlur);
     return () => window.removeEventListener("blur", handleBlur);
-  }, [editorSettings.autosave, saveAll]);
+  }, [editorSettings.autosave, saveAll, isReadOnly]);
 
   // Save session state to localStorage on tab change
   useEffect(() => {
@@ -724,7 +800,7 @@ export const IdeShell: React.FC = () => {
     name: string,
     type: "file" | "directory"
   ): Promise<void> => {
-    if (!activeWorkspace) return;
+    if (isReadOnly || !activeWorkspace) return;
     const targetPath = parentPath ? `${parentPath}/${name}` : name;
 
     const res = await fetch(
@@ -753,7 +829,7 @@ export const IdeShell: React.FC = () => {
   };
 
   const handleRenameItem = async (oldPath: string, newPath: string): Promise<void> => {
-    if (!activeWorkspace) return;
+    if (isReadOnly || !activeWorkspace) return;
 
     const res = await fetch(
       `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/move`,
@@ -796,7 +872,7 @@ export const IdeShell: React.FC = () => {
   };
 
   const handleDeleteItem = async (path: string): Promise<void> => {
-    if (!activeWorkspace) return;
+    if (isReadOnly || !activeWorkspace) return;
 
     const res = await fetch(
       `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files?path=${encodeURIComponent(
@@ -846,6 +922,7 @@ export const IdeShell: React.FC = () => {
   };
 
   const handleRemoveWorkspace = async (id: string) => {
+    if (isReadOnly) return;
     await fetch(`${AGENT_BASE_URL}/api/v1/workspaces/${id}`, { method: "DELETE" });
     await fetchWorkspaces();
   };
@@ -917,8 +994,14 @@ export const IdeShell: React.FC = () => {
         }}
         isAgentOpen={isAgentOpen}
         onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
-        onOpenShare={() => setIsShareModalOpen(true)}
-        onOpenSessions={() => setIsSessionDashboardOpen(true)}
+        onOpenShare={canCreateShareLink ? () => setIsShareModalOpen(true) : undefined}
+        onOpenSessions={canViewSessions ? () => setIsSessionDashboardOpen(true) : undefined}
+        onOpenAuth={
+          isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole
+            ? () => setIsAuthModalOpen(true)
+            : undefined
+        }
+        isOwner={isOwnerAuthenticated}
       />
 
       {/* Main Middle Layout */}
@@ -953,8 +1036,12 @@ export const IdeShell: React.FC = () => {
           files={files}
           selectedPath={primaryActiveTab}
           onSelectWorkspace={handleSelectWorkspace}
-          onOpenFolderModal={() => setIsOpenFolderModalOpen(true)}
-          onCloneRepoModal={() => setIsCloneRepoModalOpen(true)}
+          onOpenFolderModal={() => {
+            if (!isReadOnly) setIsOpenFolderModalOpen(true);
+          }}
+          onCloneRepoModal={() => {
+            if (!isReadOnly) setIsCloneRepoModalOpen(true);
+          }}
           onRemoveWorkspace={handleRemoveWorkspace}
           onSelectFile={(path) => void openFile(path, "primary")}
           onOpenToSide={(path) => {
@@ -962,9 +1049,9 @@ export const IdeShell: React.FC = () => {
             void openFile(path, "secondary");
           }}
           onRefreshFiles={fetchFiles}
-          onCreateItem={handleCreateItem}
-          onRenameItem={handleRenameItem}
-          onDeleteFile={handleDeleteItem}
+          onCreateItem={isReadOnly ? undefined : handleCreateItem}
+          onRenameItem={isReadOnly ? undefined : handleRenameItem}
+          onDeleteFile={isReadOnly ? undefined : handleDeleteItem}
           editorSettings={editorSettings}
           onUpdateEditorSettings={updateEditorSettings}
         />
@@ -972,7 +1059,9 @@ export const IdeShell: React.FC = () => {
         {/* Center Editor Area (Single or Split) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {primaryTabs.length === 0 && !uiLayout.isSplit ? (
-            <WorkspaceCanvas onNewUntitledFile={handleCreateUntitledFile} />
+            <WorkspaceCanvas
+              onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+            />
           ) : (
             <div className="flex-1 flex overflow-hidden">
               {/* Primary Editor Pane */}
@@ -985,6 +1074,7 @@ export const IdeShell: React.FC = () => {
                 settings={editorSettings}
                 agentUrl={AGENT_BASE_URL}
                 activeWorkspaceId={activeWorkspace ? activeWorkspace.id : null}
+                readOnly={isReadOnly}
                 onSelectTab={(path) => setPrimaryActiveTab(path)}
                 onCloseTab={(path) => closeTab(path, "primary")}
                 onUpdateContent={updateBufferContent}
@@ -994,7 +1084,7 @@ export const IdeShell: React.FC = () => {
                 onSplitEditor={() => updateUiLayout({ isSplit: !uiLayout.isSplit })}
                 isSplit={uiLayout.isSplit}
                 showSplitButton={true}
-                onNewUntitledFile={handleCreateUntitledFile}
+                onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
               />
 
               {/* Secondary Editor Pane (Split View) */}
@@ -1008,6 +1098,7 @@ export const IdeShell: React.FC = () => {
                   settings={editorSettings}
                   agentUrl={AGENT_BASE_URL}
                   activeWorkspaceId={activeWorkspace ? activeWorkspace.id : null}
+                  readOnly={isReadOnly}
                   onSelectTab={(path) => setSecondaryActiveTab(path)}
                   onCloseTab={(path) => closeTab(path, "secondary")}
                   onUpdateContent={updateBufferContent}
@@ -1016,7 +1107,7 @@ export const IdeShell: React.FC = () => {
                   onSplitEditor={() => updateUiLayout({ isSplit: false })}
                   isSplit={true}
                   showSplitButton={false}
-                  onNewUntitledFile={handleCreateUntitledFile}
+                  onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
                 />
               )}
             </div>
@@ -1098,7 +1189,7 @@ export const IdeShell: React.FC = () => {
 
       {/* Concurrency Conflict Dialog */}
       <ConflictDialog
-        isOpen={conflictPath !== null}
+        isOpen={conflictPath !== null && !isReadOnly}
         filePath={conflictPath || ""}
         onOverwriteHost={handleOverwriteHost}
         onReloadFromHost={handleReloadFromHost}
@@ -1107,7 +1198,7 @@ export const IdeShell: React.FC = () => {
 
       {/* Open Folder Modal */}
       <OpenFolderModal
-        isOpen={isOpenFolderModalOpen}
+        isOpen={isOpenFolderModalOpen && !isReadOnly}
         onClose={() => setIsOpenFolderModalOpen(false)}
         onOpenFolder={async (name, path) => {
           await handleRegisterWorkspace(name, path);
@@ -1117,7 +1208,7 @@ export const IdeShell: React.FC = () => {
 
       {/* Clone Repository Modal */}
       <CloneRepoModal
-        isOpen={isCloneRepoModalOpen}
+        isOpen={isCloneRepoModalOpen && !isReadOnly}
         onClose={() => setIsCloneRepoModalOpen(false)}
         onCloneRepo={async (repoUrl, targetName) => {
           const targetPath = `/Users/aman/Documents/Project/${targetName}`;
@@ -1127,17 +1218,36 @@ export const IdeShell: React.FC = () => {
       />
 
       {/* Share Link Modal */}
-      <ShareLinkModal
-        isOpen={isShareModalOpen}
-        onClose={() => setIsShareModalOpen(false)}
-        workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
-        currentWorkspaceId={activeWorkspace?.id}
-      />
+      {canCreateShareLink && (
+        <ShareLinkModal
+          isOpen={isShareModalOpen}
+          onClose={() => setIsShareModalOpen(false)}
+          workspaces={workspaces.map((w) => ({ id: w.id, name: w.name }))}
+          currentWorkspaceId={activeWorkspace?.id}
+          gatewayUrl={GATEWAY_HTTP_URL}
+        />
+      )}
 
       {/* Session Control Dashboard Modal */}
-      <SessionDashboardModal
-        isOpen={isSessionDashboardOpen}
-        onClose={() => setIsSessionDashboardOpen(false)}
+      {canViewSessions && (
+        <SessionDashboardModal
+          isOpen={isSessionDashboardOpen}
+          onClose={() => setIsSessionDashboardOpen(false)}
+          gatewayUrl={GATEWAY_HTTP_URL}
+        />
+      )}
+
+      {/* Owner Auth & Bootstrap Modal */}
+      <OwnerAuthModal
+        isOpen={isAuthModalOpen}
+        onClose={() => setIsAuthModalOpen(false)}
+        gatewayUrl={GATEWAY_HTTP_URL}
+        onAuthSuccess={(_token, user) => {
+          setIsOwnerAuthenticated(true);
+          setCurrentUserRole(UserRole.OWNER);
+          localStorage.setItem("remote_ide_role", UserRole.OWNER);
+          addLog(`Authenticated as Host Owner (${user?.email || "Owner"}).`, "success", "Auth");
+        }}
       />
     </div>
   );

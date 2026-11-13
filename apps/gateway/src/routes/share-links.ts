@@ -1,4 +1,4 @@
-import { FastifyPluginAsync } from "fastify";
+import { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   CreateShareLinkDtoSchema,
   RedeemShareLinkDtoSchema,
@@ -6,28 +6,69 @@ import {
   createErrorEnvelope,
   AppError,
   ErrorCode,
+  UserRole,
   formatZodIssues,
 } from "@remote-ide/shared";
 import { shareLinkService } from "../services/share-link.service.js";
 import { authService } from "../services/auth.service.js";
 
 export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Create a share link (Owner only)
-  fastify.post("/api/v1/share-links", async (req, reply) => {
+  const getSessionFromRequest = (req: FastifyRequest) => {
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
     let token = authHeader?.replace(/^Bearer\s+/i, "");
     if (!token && cookieHeader) {
-      const match = cookieHeader.match(/remoteide_session=([^;]+)/);
+      const match =
+        cookieHeader.match(/remoteide_session=([^;]+)/) ||
+        cookieHeader.match(/remote_ide_token=([^;]+)/);
       if (match) token = match[1];
     }
 
-    const currentSession = token ? authService.getSessionByToken(token) : null;
-    if (!currentSession || !currentSession.isOwner) {
+    let session = token ? authService.getSessionByToken(token) : null;
+    if (!session && !token) {
+      const isLoopback =
+        req.ip === "127.0.0.1" ||
+        req.ip === "::1" ||
+        req.ip === "::ffff:127.0.0.1" ||
+        req.hostname === "localhost";
+
+      if (isLoopback && !authService.isOwnerBootstrapped()) {
+        session = {
+          id: "local-dev-session",
+          userId: "local-owner",
+          hostId: "local-host-agent",
+          role: UserRole.OWNER,
+          capabilities: [],
+          allowedWorkspaceIds: [],
+          deviceName: "Local Host",
+          ipAddress: req.ip,
+          userAgent: req.headers["user-agent"] || "",
+          isOwner: true,
+          createdAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString(),
+          isRevoked: false,
+        };
+      }
+    }
+    return session;
+  };
+
+  // 1. Create a share link (Owner or Operator only)
+  fastify.post("/api/v1/share-links", async (req, reply) => {
+    const currentSession = getSessionFromRequest(req);
+    const canCreate =
+      currentSession?.isOwner ||
+      currentSession?.role === UserRole.OWNER ||
+      currentSession?.role === UserRole.OPERATOR;
+
+    if (!currentSession || !canCreate) {
       return reply
         .status(403)
         .send(
-          createErrorEnvelope(ErrorCode.FORBIDDEN, "Only owner can generate temporary share links")
+          createErrorEnvelope(
+            ErrorCode.FORBIDDEN,
+            "Only host owner or operator can generate temporary share links"
+          )
         );
     }
 
@@ -46,15 +87,7 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
 
   // 2. List share links
   fastify.get("/api/v1/share-links", async (req, reply) => {
-    const authHeader = req.headers.authorization;
-    const cookieHeader = req.headers.cookie;
-    let token = authHeader?.replace(/^Bearer\s+/i, "");
-    if (!token && cookieHeader) {
-      const match = cookieHeader.match(/remoteide_session=([^;]+)/);
-      if (match) token = match[1];
-    }
-
-    const currentSession = token ? authService.getSessionByToken(token) : null;
+    const currentSession = getSessionFromRequest(req);
     if (!currentSession || !currentSession.isOwner) {
       return reply
         .status(403)
@@ -68,9 +101,7 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
   // 3. Revoke share link
   fastify.delete("/api/v1/share-links/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
-    const authHeader = req.headers.authorization;
-    const token = authHeader?.replace(/^Bearer\s+/i, "");
-    const currentSession = token ? authService.getSessionByToken(token) : null;
+    const currentSession = getSessionFromRequest(req);
 
     if (!currentSession || !currentSession.isOwner) {
       return reply

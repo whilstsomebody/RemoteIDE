@@ -40,7 +40,25 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   // Plugins
   await app.register(sensible);
   await app.register(cors, {
-    origin: process.env.CORS_ORIGIN || "*",
+    origin: (origin, cb) => {
+      // Allow requests with no origin (like mobile apps, curl, or server-to-server)
+      if (!origin) return cb(null, true);
+      const allowed = [
+        "http://localhost:3000",
+        "http://127.0.0.1:3000",
+        "http://localhost:4000",
+        "http://127.0.0.1:4000",
+        process.env.CORS_ORIGIN,
+      ].filter(Boolean);
+      if (
+        allowed.includes(origin) ||
+        origin.startsWith("http://localhost:") ||
+        origin.startsWith("http://127.0.0.1:")
+      ) {
+        return cb(null, true);
+      }
+      return cb(null, false);
+    },
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   });

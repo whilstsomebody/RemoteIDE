@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useState, useEffect } from "react";
 import {
   Share2,
   X,
@@ -51,6 +51,15 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
   const [isCopied, setIsCopied] = useState(false);
   const [showQr, setShowQr] = useState(false);
 
+  useEffect(() => {
+    if (isOpen) {
+      setGeneratedLink(null);
+      setError(null);
+      setIsCopied(false);
+      setShowQr(false);
+    }
+  }, [isOpen]);
+
   if (!isOpen) return null;
 
   const handleGenerate = async (e: React.FormEvent) => {
@@ -59,9 +68,14 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
     setError(null);
 
     try {
+      const token = localStorage.getItem("remote_ide_token") || "";
+      const headers: Record<string, string> = { "Content-Type": "application/json" };
+      if (token) headers.Authorization = `Bearer ${token}`;
+
       const res = await fetch(`${gatewayUrl}/api/v1/share-links`, {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers,
+        credentials: "include",
         body: JSON.stringify({
           name,
           role,
@@ -368,10 +382,24 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               )}
             </div>
 
-            <div className="flex justify-end pt-2 border-t border-[#3c3c3c]">
+            <div className="flex items-center justify-between pt-2 border-t border-[#3c3c3c]">
               <button
                 type="button"
-                onClick={onClose}
+                onClick={() => {
+                  setGeneratedLink(null);
+                  setError(null);
+                  setShowQr(false);
+                }}
+                className="h-8 px-3 bg-[#1e1e1e] hover:bg-zinc-800 border border-[#3c3c3c] text-zinc-300 rounded text-xs font-medium transition-colors"
+              >
+                + Create Another Link
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setGeneratedLink(null);
+                  onClose();
+                }}
                 className="h-8 px-4 bg-[#2d2d2d] hover:bg-[#383838] text-zinc-200 rounded text-xs font-medium transition-colors"
               >
                 Done
