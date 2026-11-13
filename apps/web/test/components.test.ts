@@ -42,4 +42,3 @@ describe("IDE Components & Viewers Export Integrity", () => {
     expect(BinaryViewer).toBeDefined();
   });
 });
-

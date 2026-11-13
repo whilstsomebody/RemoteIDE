@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Terminal, Laptop, RefreshCw } from "lucide-react";
+import { Laptop, RefreshCw, Sparkles } from "lucide-react";
 import { Button, StatusIndicator } from "@remote-ide/ui";
 
 export interface HeaderProps {
@@ -9,6 +9,8 @@ export interface HeaderProps {
   connectionStatus: "connected" | "connecting" | "disconnected" | "error";
   hostName?: string;
   onRefresh?: () => void;
+  isAgentOpen?: boolean;
+  onToggleAgent?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -16,35 +18,55 @@ export const Header: React.FC<HeaderProps> = ({
   connectionStatus,
   hostName = "Local Host Agent",
   onRefresh,
+  isAgentOpen = false,
+  onToggleAgent,
 }) => {
   return (
-    <header className="h-10 border-b border-ide-border bg-ide-header flex items-center justify-between px-3 text-xs select-none z-10">
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-1.5 font-bold tracking-tight text-indigo-400">
-          <Terminal className="w-4 h-4 text-indigo-500" />
-          <span>RemoteIDE</span>
-        </div>
+    <header className="h-9 border-b border-ide-border bg-[#18181b] flex items-center justify-between px-3 text-xs select-none z-10 shrink-0">
+      {/* Left: Logo without text (icon removed) + project name */}
+      <div className="flex items-center gap-2.5">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="RemoteIDE" className="h-5 w-5 object-contain select-none" />
         <span className="text-zinc-600">/</span>
-        <span className="font-medium text-zinc-200">{projectName}</span>
+        <span className="font-medium text-zinc-300 text-xs truncate max-w-xs">{projectName}</span>
       </div>
 
-      <div className="flex items-center gap-3">
-        <div className="flex items-center gap-2 bg-zinc-900/80 px-2 py-0.5 rounded border border-zinc-800">
+      {/* Right: Host info, Connection, Refresh load icon, Coding Agent open icon */}
+      <div className="flex items-center gap-2">
+        <div className="flex items-center gap-1.5 bg-zinc-900/90 px-2 py-0.5 rounded border border-zinc-800 text-[11px] text-zinc-400 font-mono">
           <Laptop className="w-3.5 h-3.5 text-zinc-400" />
-          <span className="text-zinc-300 font-mono text-[11px]">{hostName}</span>
+          <span>{hostName}</span>
         </div>
 
         <StatusIndicator status={connectionStatus} />
 
+        {/* Load / Refresh connection icon */}
         {onRefresh && (
           <Button
             variant="ghost"
             size="icon"
             onClick={onRefresh}
-            title="Refresh Connection"
-            className="h-6 w-6 text-zinc-400 hover:text-zinc-100"
+            title="Refresh Host Connection"
+            className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
             <RefreshCw className="w-3.5 h-3.5" />
+          </Button>
+        )}
+
+        {/* Coding Agent open icon beside the load icon */}
+        {onToggleAgent && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onToggleAgent}
+            title={isAgentOpen ? "Close Coding Agent" : "Open Coding Agent (Cmd+Shift+A)"}
+            className={`h-6 w-6 transition-colors ${
+              isAgentOpen
+                ? "text-indigo-400 bg-indigo-950/60 hover:bg-indigo-900/50"
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+            }`}
+          >
+            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
           </Button>
         )}
       </div>

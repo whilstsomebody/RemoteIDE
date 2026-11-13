@@ -20,6 +20,7 @@ export interface TabBarProps {
   isMarkdownPreview?: boolean;
   onToggleMarkdownPreview?: () => void;
   showSplitButton?: boolean;
+  onNewUntitledFile?: () => void;
 }
 
 export const TabBar: React.FC<TabBarProps> = ({
@@ -32,6 +33,7 @@ export const TabBar: React.FC<TabBarProps> = ({
   isMarkdownPreview = false,
   onToggleMarkdownPreview,
   showSplitButton = true,
+  onNewUntitledFile,
 }) => {
   const getTabIcon = (path: string) => {
     if (
@@ -53,7 +55,11 @@ export const TabBar: React.FC<TabBarProps> = ({
   return (
     <div className="h-9 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between select-none shrink-0 overflow-x-auto text-xs">
       {/* Tabs List */}
-      <div className="flex items-center h-full overflow-x-auto no-scrollbar">
+      <div
+        onDoubleClick={onNewUntitledFile}
+        className="flex-1 flex items-center h-full overflow-x-auto no-scrollbar"
+        title="Double-click to create new untitled file"
+      >
         {tabs.map((tab) => {
           const isActive = tab.path === activeTab;
           const filename = tab.path.split("/").pop() || tab.path;
@@ -62,6 +68,7 @@ export const TabBar: React.FC<TabBarProps> = ({
             <div
               key={tab.path}
               onClick={() => onSelectTab(tab.path)}
+              onDoubleClick={(e) => e.stopPropagation()}
               className={cn(
                 "group flex items-center gap-2 px-3 h-full border-r border-zinc-800 cursor-pointer text-xs font-mono transition-colors min-w-[120px] max-w-[200px]",
                 isActive

@@ -26,7 +26,8 @@ export interface SidebarProps {
   files: FileNode[];
   selectedPath: string | null;
   onSelectWorkspace: (id: string) => void;
-  onRegisterWorkspace: (name: string, path: string) => Promise<void>;
+  onOpenFolderModal: () => void;
+  onCloneRepoModal: () => void;
   onRemoveWorkspace: (id: string) => Promise<void>;
   onSelectFile: (path: string, line?: number) => void;
   onOpenToSide?: (path: string) => void;
@@ -52,7 +53,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
   files,
   selectedPath,
   onSelectWorkspace,
-  onRegisterWorkspace,
+  onOpenFolderModal,
+  onCloneRepoModal,
   onRemoveWorkspace,
   onSelectFile,
   onOpenToSide,
@@ -129,7 +131,8 @@ export const Sidebar: React.FC<SidebarProps> = ({
               workspaces={workspaces}
               activeWorkspace={activeWorkspace}
               onSelectWorkspace={onSelectWorkspace}
-              onRegisterWorkspace={onRegisterWorkspace}
+              onOpenFolderModal={onOpenFolderModal}
+              onCloneRepoModal={onCloneRepoModal}
               onRemoveWorkspace={onRemoveWorkspace}
               hostId={hostId}
               hostName={hostName}

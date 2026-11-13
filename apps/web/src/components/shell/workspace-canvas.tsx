@@ -1,106 +1,65 @@
 "use client";
 
 import React from "react";
-import { Terminal, Shield, CheckCircle2, Server, Database, Radio } from "lucide-react";
-import { Card, CardHeader, CardTitle, CardContent, Badge } from "@remote-ide/ui";
 
 export interface WorkspaceCanvasProps {
-  gatewayUrl?: string;
+  hasOpenFolder?: boolean;
+  onOpenFolder?: () => void;
+  onCloneRepo?: () => void;
+  onNewUntitledFile?: () => void;
   agentUrl?: string;
 }
 
-export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({
-  gatewayUrl = "http://localhost:4000",
-  agentUrl = "http://localhost:4001",
-}) => {
+export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({ onNewUntitledFile }) => {
   return (
-    <main className="flex-1 bg-ide-bg flex flex-col overflow-auto p-6">
-      <div className="max-w-4xl mx-auto w-full space-y-6">
-        <div>
-          <h1 className="text-xl font-bold tracking-tight text-zinc-100 flex items-center gap-2">
-            <Terminal className="w-5 h-5 text-indigo-400" />
-            RemoteIDE Foundation (Phase 0)
+    <main
+      onDoubleClick={onNewUntitledFile}
+      className="flex-1 bg-[#1e1e1e] flex flex-col items-center justify-center p-6 select-none overflow-hidden relative cursor-default"
+      title="Double-click to create a new untitled file"
+    >
+      {/* Center 40% area containing the logo, RemoteIDE title, and subtle shortcuts */}
+      <div className="w-full max-w-md flex flex-col items-center text-center space-y-6">
+        {/* Logo covering the center visual focal point */}
+        <div className="flex flex-col items-center space-y-3">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="RemoteIDE Logo"
+            className="w-28 h-28 md:w-32 md:h-32 object-contain select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(255,255,255,0.06)]"
+          />
+          <h1 className="text-2xl md:text-3xl font-semibold tracking-wider text-zinc-100 font-sans">
+            RemoteIDE
           </h1>
-          <p className="text-xs text-zinc-400 mt-1">
-            Local-first browser development environment architecture initialized.
+          <p className="text-xs text-zinc-400 font-sans tracking-normal">
+            Local-First Browser Remote Development
           </p>
         </div>
 
-        <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-zinc-300">Gateway API</CardTitle>
-              <Radio className="w-4 h-4 text-indigo-400" />
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              <div className="text-lg font-bold text-zinc-100">Fastify REST & WS</div>
-              <p className="text-[11px] text-zinc-400 font-mono truncate">{gatewayUrl}/api/v1</p>
-              <Badge variant="success" className="text-[10px]">
-                Standard Envelopes
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-zinc-300">Host Agent</CardTitle>
-              <Server className="w-4 h-4 text-emerald-400" />
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              <div className="text-lg font-bold text-zinc-100">Host Authority</div>
-              <p className="text-[11px] text-zinc-400 font-mono truncate">{agentUrl}/api/v1</p>
-              <Badge variant="success" className="text-[10px]">
-                SQLite Journal Ready
-              </Badge>
-            </CardContent>
-          </Card>
-
-          <Card>
-            <CardHeader className="flex flex-row items-center justify-between pb-2">
-              <CardTitle className="text-xs font-medium text-zinc-300">Infrastructure</CardTitle>
-              <Database className="w-4 h-4 text-amber-400" />
-            </CardHeader>
-            <CardContent className="space-y-1.5">
-              <div className="text-lg font-bold text-zinc-100">PostgreSQL / Kafka</div>
-              <p className="text-[11px] text-zinc-400">Kafka KRaft + Redis + Drizzle</p>
-              <Badge variant="default" className="text-[10px]">
-                Docker Compose
-              </Badge>
-            </CardContent>
-          </Card>
+        {/* Subtle VS Code Keyboard Shortcuts Watermark */}
+        <div className="pt-2 border-t border-zinc-800/80 w-full max-w-xs space-y-2 text-[11px] text-zinc-400 font-sans">
+          <div className="flex items-center justify-between">
+            <span>Show All Commands</span>
+            <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-300">
+              ⌘K
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Go to File</span>
+            <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-300">
+              ⌘P
+            </kbd>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>New File</span>
+            <span className="text-zinc-400 text-[10px]">Double-click anywhere</span>
+          </div>
+          <div className="flex items-center justify-between">
+            <span>Toggle Terminal</span>
+            <kbd className="px-1.5 py-0.5 bg-zinc-900 border border-zinc-800 rounded font-mono text-[10px] text-zinc-300">
+              ⌘J
+            </kbd>
+          </div>
         </div>
-
-        <Card>
-          <CardHeader>
-            <CardTitle className="text-sm font-semibold flex items-center gap-2">
-              <Shield className="w-4 h-4 text-indigo-400" />
-              Core Architecture Guarantees
-            </CardTitle>
-          </CardHeader>
-          <CardContent className="space-y-2 text-xs text-zinc-300">
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-              <span>
-                <strong>Filesystem Authority:</strong> The host agent holds exclusive authority over
-                files, terminal PTYs, and processes. No remote device bypasses the host agent.
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-              <span>
-                <strong>Contract Enforcement:</strong> All HTTP and WebSocket communications use
-                strict Zod-validated envelopes with correlation IDs and protocol versions.
-              </span>
-            </div>
-            <div className="flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-emerald-400 mt-0.5 shrink-0" />
-              <span>
-                <strong>Zero Mocking:</strong> Services run real HTTP, WebSocket, database schemas,
-                and background event listeners.
-              </span>
-            </div>
-          </CardContent>
-        </Card>
       </div>
     </main>
   );

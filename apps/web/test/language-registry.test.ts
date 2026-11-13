@@ -74,4 +74,3 @@ describe("Language Registry", () => {
     expect(all).toEqual(LANGUAGE_REGISTRY);
   });
 });
-

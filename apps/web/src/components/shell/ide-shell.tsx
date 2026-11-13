@@ -10,6 +10,9 @@ import { CommandPalette } from "./command-palette";
 import { ConflictDialog } from "../editor/conflict-dialog";
 import { EditorPane, FileBuffer } from "../editor/editor-pane";
 import { WorkspaceCanvas } from "./workspace-canvas";
+import { OpenFolderModal } from "../workspace/open-folder-modal";
+import { CloneRepoModal } from "../workspace/clone-repo-modal";
+import { AgentPanel } from "../agent/agent-panel";
 import { Workspace, FileNode } from "@remote-ide/shared";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
@@ -61,6 +64,13 @@ export const IdeShell: React.FC = () => {
   // 5. Dialogs
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
+
+  // 6. Coding Agent & Modals State
+  const [isAgentOpen, setIsAgentOpen] = useState<boolean>(false);
+  const [agentWidth, setAgentWidth] = useState<number>(360);
+  const [isOpenFolderModalOpen, setIsOpenFolderModalOpen] = useState<boolean>(false);
+  const [isCloneRepoModalOpen, setIsCloneRepoModalOpen] = useState<boolean>(false);
+  const [untitledCount, setUntitledCount] = useState<number>(1);
 
   // Helper: Append log entry
   const addLog = useCallback(
@@ -272,6 +282,32 @@ export const IdeShell: React.FC = () => {
     },
     [activeWorkspace, buffers, addLog]
   );
+
+  // Create a new untitled in-memory text file (VS Code style)
+  const handleCreateUntitledFile = useCallback(() => {
+    const filename = `Untitled-${untitledCount}.txt`;
+    setUntitledCount((prev) => prev + 1);
+
+    const newBuffer: FileBuffer = {
+      path: filename,
+      content: "",
+      savedContent: "",
+      isDirty: true,
+      eTag: "",
+      mtime: Date.now(),
+      isBinary: false,
+      encoding: "utf-8",
+      size: 0,
+    };
+
+    setBuffers((prev) => ({
+      ...prev,
+      [filename]: newBuffer,
+    }));
+    setPrimaryTabs((prev) => (prev.includes(filename) ? prev : [...prev, filename]));
+    setPrimaryActiveTab(filename);
+    addLog(`Created new file ${filename}`, "info", "Editor");
+  }, [untitledCount, addLog]);
 
   // Close tab in specified pane
   const closeTab = useCallback(
@@ -582,12 +618,25 @@ export const IdeShell: React.FC = () => {
       } else if (isMod && e.key.toLowerCase() === "j") {
         e.preventDefault();
         updateUiLayout({ bottomPanelOpen: !uiLayout.bottomPanelOpen });
+      } else if (isMod && e.shiftKey && e.key.toLowerCase() === "a") {
+        e.preventDefault();
+        setIsAgentOpen((prev) => !prev);
+      } else if (isMod && e.key.toLowerCase() === "n") {
+        e.preventDefault();
+        handleCreateUntitledFile();
       }
     };
 
     window.addEventListener("keydown", handleKeyDown);
     return () => window.removeEventListener("keydown", handleKeyDown);
-  }, [primaryActiveTab, saveFile, saveAll, uiLayout.isSplit, uiLayout.bottomPanelOpen]);
+  }, [
+    primaryActiveTab,
+    saveFile,
+    saveAll,
+    uiLayout.isSplit,
+    uiLayout.bottomPanelOpen,
+    handleCreateUntitledFile,
+  ]);
 
   // Filesystem CRUD handlers
   const handleCreateItem = async (
@@ -786,6 +835,8 @@ export const IdeShell: React.FC = () => {
           void fetchWorkspaces();
           void fetchFiles();
         }}
+        isAgentOpen={isAgentOpen}
+        onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
       />
 
       {/* Main Middle Layout */}
@@ -811,7 +862,8 @@ export const IdeShell: React.FC = () => {
           files={files}
           selectedPath={primaryActiveTab}
           onSelectWorkspace={handleSelectWorkspace}
-          onRegisterWorkspace={handleRegisterWorkspace}
+          onOpenFolderModal={() => setIsOpenFolderModalOpen(true)}
+          onCloneRepoModal={() => setIsCloneRepoModalOpen(true)}
           onRemoveWorkspace={handleRemoveWorkspace}
           onSelectFile={(path) => void openFile(path, "primary")}
           onOpenToSide={(path) => {
@@ -829,7 +881,7 @@ export const IdeShell: React.FC = () => {
         {/* Center Editor Area (Single or Split) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {primaryTabs.length === 0 && !uiLayout.isSplit ? (
-            <WorkspaceCanvas agentUrl={AGENT_BASE_URL} />
+            <WorkspaceCanvas onNewUntitledFile={handleCreateUntitledFile} />
           ) : (
             <div className="flex-1 flex overflow-hidden">
               {/* Primary Editor Pane */}
@@ -851,6 +903,7 @@ export const IdeShell: React.FC = () => {
                 onSplitEditor={() => updateUiLayout({ isSplit: !uiLayout.isSplit })}
                 isSplit={uiLayout.isSplit}
                 showSplitButton={true}
+                onNewUntitledFile={handleCreateUntitledFile}
               />
 
               {/* Secondary Editor Pane (Split View) */}
@@ -872,6 +925,7 @@ export const IdeShell: React.FC = () => {
                   onSplitEditor={() => updateUiLayout({ isSplit: false })}
                   isSplit={true}
                   showSplitButton={false}
+                  onNewUntitledFile={handleCreateUntitledFile}
                 />
               )}
             </div>
@@ -893,6 +947,18 @@ export const IdeShell: React.FC = () => {
             }}
           />
         </div>
+
+        {/* Coding Agent Sidebar (VS Code style right panel) */}
+        <AgentPanel
+          isOpen={isAgentOpen}
+          onClose={() => setIsAgentOpen(false)}
+          width={agentWidth}
+          onWidthChange={setAgentWidth}
+          activeFilePath={primaryActiveTab}
+          cursorLine={cursorPos.line}
+          workspaceName={activeWorkspace ? activeWorkspace.name : "RemoteIDE"}
+          hostName={hostName}
+        />
       </div>
 
       {/* Bottom Status Bar */}
@@ -944,6 +1010,27 @@ export const IdeShell: React.FC = () => {
         onOverwriteHost={handleOverwriteHost}
         onReloadFromHost={handleReloadFromHost}
         onCancel={() => setConflictPath(null)}
+      />
+
+      {/* Open Folder Modal */}
+      <OpenFolderModal
+        isOpen={isOpenFolderModalOpen}
+        onClose={() => setIsOpenFolderModalOpen(false)}
+        onOpenFolder={async (name, path) => {
+          await handleRegisterWorkspace(name, path);
+        }}
+        defaultPath={activeWorkspace?.folders?.[0]?.path}
+      />
+
+      {/* Clone Repository Modal */}
+      <CloneRepoModal
+        isOpen={isCloneRepoModalOpen}
+        onClose={() => setIsCloneRepoModalOpen(false)}
+        onCloneRepo={async (repoUrl, targetName) => {
+          const targetPath = `/Users/aman/Documents/Project/${targetName}`;
+          await handleRegisterWorkspace(targetName, targetPath);
+          addLog(`Cloned repository "${targetName}" from ${repoUrl}`, "success", "Git");
+        }}
       />
     </div>
   );

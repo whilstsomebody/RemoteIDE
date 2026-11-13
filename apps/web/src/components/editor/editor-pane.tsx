@@ -11,7 +11,7 @@ import { ImageViewer } from "../viewers/image-viewer";
 import { BinaryViewer } from "../viewers/binary-viewer";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import { EditorSettings } from "../../lib/storage/settings-storage";
-import { FileCode, Loader2 } from "lucide-react";
+import { Loader2 } from "lucide-react";
 
 export interface FileBuffer {
   path: string;
@@ -45,6 +45,7 @@ export interface EditorPaneProps {
   onSplitEditor?: () => void;
   isSplit?: boolean;
   showSplitButton?: boolean;
+  onNewUntitledFile?: () => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -65,6 +66,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   onSplitEditor,
   isSplit = false,
   showSplitButton = true,
+  onNewUntitledFile,
 }) => {
   const [markdownPreviewModes, setMarkdownPreviewModes] = useState<Record<string, boolean>>({});
 
@@ -91,7 +93,7 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   };
 
   return (
-    <div className="flex-1 flex flex-col h-full bg-ide-bg overflow-hidden border-r border-zinc-800/80">
+    <div className="flex-1 flex flex-col h-full bg-[#1e1e1e] overflow-hidden border-r border-zinc-800/80">
       {/* Tabs */}
       <TabBar
         tabs={tabItems}
@@ -106,13 +108,17 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         isMarkdownPreview={isMarkdownPreview}
         onToggleMarkdownPreview={toggleMarkdownPreview}
         showSplitButton={showSplitButton}
+        onNewUntitledFile={onNewUntitledFile}
       />
 
       {/* Breadcrumbs */}
       {activeTab && <Breadcrumbs path={activeTab} />}
 
       {/* Editor Body */}
-      <div className="flex-1 overflow-hidden relative flex flex-col">
+      <div
+        onDoubleClick={!activeBuffer ? onNewUntitledFile : undefined}
+        className="flex-1 overflow-hidden relative flex flex-col bg-[#1e1e1e]"
+      >
         {isLoading && (
           <div className="flex-1 flex items-center justify-center text-xs text-zinc-500 gap-2">
             <Loader2 className="w-4 h-4 animate-spin text-indigo-400" />
@@ -120,17 +126,26 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           </div>
         )}
 
+        {/* Clean Center Logo & Watermark when empty (covering ~40% of the area at the center) */}
         {!isLoading && !activeBuffer && (
-          <div className="flex-1 flex flex-col items-center justify-center text-xs text-zinc-500 p-8 space-y-3">
-            <FileCode className="w-10 h-10 text-zinc-700" />
-            <p className="text-zinc-400 font-medium">No open file in this editor pane</p>
-            <p className="text-zinc-500 text-[11px]">
-              Select a file from the explorer on the left or press{" "}
-              <kbd className="px-1.5 py-0.5 font-mono text-[10px] bg-zinc-900 border border-zinc-800 rounded text-zinc-300">
-                Cmd+K
-              </kbd>{" "}
-              to open files.
-            </p>
+          <div
+            className="flex-1 flex flex-col items-center justify-center p-8 select-none"
+            title="Double-click anywhere to create a new text file"
+          >
+            <div className="w-full max-w-sm flex flex-col items-center text-center space-y-4">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src="/logo.png"
+                alt="RemoteIDE Logo"
+                className="w-24 h-24 md:w-28 md:h-28 object-contain select-none pointer-events-none drop-shadow-[0_10px_20px_rgba(255,255,255,0.06)]"
+              />
+              <h1 className="text-2xl font-semibold tracking-wider text-zinc-200 font-sans">
+                RemoteIDE
+              </h1>
+              <p className="text-xs text-zinc-400 font-sans">
+                Double-click to create a new untitled file
+              </p>
+            </div>
           </div>
         )}
 
