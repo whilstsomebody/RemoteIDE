@@ -37,7 +37,18 @@ import { MobileTerminalView } from "../mobile/mobile-terminal-view";
 import { MobileGitView } from "../mobile/mobile-git-view";
 import { TabletLayout } from "../tablet/tablet-layout";
 import { DeviceHandoffModal } from "../handoff/device-handoff-modal";
-import { Workspace, FileNode, UserRole, CatchupSummary, HandoffPayload } from "@remote-ide/shared";
+import { CollabClient } from "../../lib/collab/collab-client";
+import {
+  Workspace,
+  FileNode,
+  UserRole,
+  CatchupSummary,
+  HandoffPayload,
+  CollabParticipant,
+  CollabConflictStatus,
+  CollabRole,
+} from "@remote-ide/shared";
+import * as Y from "yjs";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
   SettingsStorage,
@@ -162,6 +173,14 @@ export const IdeShell: React.FC = () => {
   const [unreadCatchupCount, setUnreadCatchupCount] = useState<number>(0);
   const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
 
+  // Collaborative Editing (Phase 11)
+  const [collabParticipants, setCollabParticipants] = useState<CollabParticipant[]>([]);
+  const [collabConflict, setCollabConflict] = useState<CollabConflictStatus | null>(null);
+  const [followingUserId, setFollowingUserId] = useState<string | null>(null);
+  const [collabDoc, setCollabDoc] = useState<Y.Doc | null>(null);
+  const collabClientRef = useRef<CollabClient | null>(null);
+  const wsRef = useRef<WebSocket | null>(null);
+
   // Responsive Viewport, PWA, and Connection Recovery (Phase 10)
   const viewport = useViewport();
   const pwa = usePwa();
@@ -184,6 +203,8 @@ export const IdeShell: React.FC = () => {
     currentUserRole === UserRole.OPERATOR ||
     currentUserRole === UserRole.DEVELOPER;
 
+  const isOwner =
+    isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole;
   const isReadOnly = currentUserRole === UserRole.VIEWER;
 
   // Helper: Append log entry
@@ -465,16 +486,24 @@ export const IdeShell: React.FC = () => {
       try {
         const wsUrl = `${authenticatedWebSocketUrl(GATEWAY_WS_URL)}&deviceId=${encodeURIComponent(deviceId)}`;
         ws = new WebSocket(wsUrl);
+        wsRef.current = ws;
 
         ws.onopen = () => {
+          wsRef.current = ws;
           setConnectionStatus("connected");
           addLog("Connected to distributed event synchronization relay", "info", "Sync");
           void fetchCatchupSummary(true);
+          if (collabClientRef.current && ws) {
+            collabClientRef.current.attachWebSocket(ws);
+          }
         };
 
         ws.onmessage = (event) => {
           try {
             const data = JSON.parse(event.data);
+            if (typeof data.type === "string" && data.type.startsWith("collab:")) {
+              collabClientRef.current?.handleWsMessage(data.type, data.payload);
+            }
             if (data.type === "workspace.event" && data.payload) {
               const eventPayload = data.payload;
               if (eventPayload.revision) {
@@ -516,6 +545,7 @@ export const IdeShell: React.FC = () => {
         };
 
         ws.onclose = (event) => {
+          wsRef.current = null;
           setConnectionStatus("disconnected");
           if (event.code === 4401) {
             addLog("Remote session expired or revoked", "error", "Auth");
@@ -524,6 +554,7 @@ export const IdeShell: React.FC = () => {
           }
         };
       } catch {
+        wsRef.current = null;
         if (!isDisposed) {
           reconnectTimer = setTimeout(connectWs, 5000);
         }
@@ -534,12 +565,52 @@ export const IdeShell: React.FC = () => {
 
     return () => {
       isDisposed = true;
+      wsRef.current = null;
       if (reconnectTimer) clearTimeout(reconnectTimer);
       if (ws) {
         ws.close();
       }
     };
   }, [activeWorkspace, fetchFiles, addLog, deviceId, fetchCatchupSummary]);
+
+  // 8. Active Document Collaborative Editing Session (Phase 11)
+  useEffect(() => {
+    if (!primaryActiveTab || !activeWorkspace) {
+      if (collabClientRef.current) {
+        collabClientRef.current.destroy();
+        collabClientRef.current = null;
+        setCollabDoc(null);
+        setCollabParticipants([]);
+        setCollabConflict(null);
+      }
+      return;
+    }
+
+    const client = new CollabClient({
+      workspaceId: activeWorkspace.id,
+      filePath: primaryActiveTab,
+      currentUserId: deviceId,
+      currentUserName: hostName || "Collaborator",
+      role: (isOwner ? "owner" : isReadOnly ? "viewer" : "editor") as CollabRole,
+      ws: wsRef.current,
+      onParticipantsChange: (p) => setCollabParticipants(p),
+      onConflictChange: (c) => setCollabConflict(c),
+      onFollowCursor: (_userId, line, _col) => {
+        addLog(`Following collaborator cursor to line ${line}`, "info", "Collab");
+      },
+    });
+
+    collabClientRef.current = client;
+    setCollabDoc(client.doc);
+
+    return () => {
+      client.destroy();
+      collabClientRef.current = null;
+      setCollabDoc(null);
+      setCollabParticipants([]);
+      setCollabConflict(null);
+    };
+  }, [primaryActiveTab, activeWorkspace, deviceId, hostName, isOwner, isReadOnly, addLog]);
 
   // Open file into specified pane (defaults to primary)
   const openFile = useCallback(
@@ -1696,7 +1767,10 @@ export const IdeShell: React.FC = () => {
                 onSelectTab={(path) => setPrimaryActiveTab(path)}
                 onCloseTab={(path) => closeTab(path, "primary")}
                 onUpdateContent={updateBufferContent}
-                onCursorChange={(line, col, selLen) => setCursorPos({ line, col, selLen })}
+                onCursorChange={(line, col, selLen) => {
+                  setCursorPos({ line, col, selLen });
+                  collabClientRef.current?.updateCursor(line, col, selLen);
+                }}
                 onSaveFile={saveFile}
                 onSaveAll={saveAll}
                 onSplitEditor={() => updateUiLayout({ isSplit: !uiLayout.isSplit })}
@@ -1707,6 +1781,35 @@ export const IdeShell: React.FC = () => {
                 onNavigateDefinition={(targetPath, line) =>
                   void openFile(targetPath, "primary", line)
                 }
+                collabDoc={collabDoc || undefined}
+                collabParticipants={collabParticipants}
+                currentUserId={deviceId}
+                currentRole={(isOwner ? "owner" : isReadOnly ? "viewer" : "editor") as CollabRole}
+                collabConflict={collabConflict}
+                followingUserId={followingUserId}
+                onFollowUser={(targetId) => {
+                  setFollowingUserId(targetId);
+                  collabClientRef.current?.followParticipant(targetId);
+                }}
+                onAssignRole={(targetId, role) => collabClientRef.current?.assignRole(targetId, role)}
+                onKickParticipant={(targetId) => collabClientRef.current?.kickParticipant(targetId)}
+                onRequestEditControl={() => {
+                  addLog("Requested edit control from session owner", "info", "Collab");
+                }}
+                onResolveConflict={(res) => {
+                  if (activeWorkspace && primaryActiveTab) {
+                    void gatewayFetch(
+                      `/api/v1/workspaces/${activeWorkspace.id}/collab/resolve-conflict`,
+                      {
+                        method: "POST",
+                        body: JSON.stringify({ path: primaryActiveTab, resolution: res }),
+                      }
+                    ).then(() => {
+                      setCollabConflict(null);
+                      void fetchFiles();
+                    });
+                  }
+                }}
               />
 
               {/* Secondary Editor Pane (Split View) */}

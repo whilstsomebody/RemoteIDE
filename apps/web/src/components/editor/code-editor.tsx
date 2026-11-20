@@ -15,7 +15,9 @@ import {
   executeGoToDefinition,
   executeRename,
 } from "../../lib/editor/lsp-extension";
-import { LspDiagnostic } from "@remote-ide/shared";
+import { LspDiagnostic, CollabParticipant } from "@remote-ide/shared";
+import * as Y from "yjs";
+import { buildYjsCollabExtension } from "../../lib/collab/yjs-collab-extension";
 
 export interface CodeEditorProps {
   doc: string;
@@ -34,6 +36,9 @@ export interface CodeEditorProps {
   workspaceId?: string;
   onDiagnostics?: (diags: LspDiagnostic[]) => void;
   onNavigateDefinition?: (path: string, line: number, col: number) => void;
+  collabDoc?: Y.Doc;
+  collabParticipants?: CollabParticipant[];
+  currentUserId?: string;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -53,17 +58,21 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   workspaceId = "default",
   onDiagnostics,
   onNavigateDefinition,
+  collabDoc,
+  collabParticipants,
+  currentUserId,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
   const compartmentsRef = useRef<EditorCompartments | null>(null);
 
-  // Store latest callbacks in refs to avoid recreating editor on callback reference change
+  // Store latest callbacks and collab props in refs to avoid recreating editor on callback reference change
   const callbacksRef = useRef({
     onChange,
     onCursorChange,
     onSave,
     onSaveAll,
+    collabParticipants,
   });
 
   useEffect(() => {
@@ -72,6 +81,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       onCursorChange,
       onSave,
       onSaveAll,
+      collabParticipants,
     };
   });
 
@@ -150,6 +160,22 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
       },
     ]);
 
+    const collabExtensions: any[] = [];
+    if (collabDoc) {
+      const yText = collabDoc.getText("contents");
+      if (yText.toString().length === 0 && doc.length > 0) {
+        yText.insert(0, doc);
+      }
+      collabExtensions.push(
+        ...buildYjsCollabExtension({
+          doc: collabDoc,
+          yText,
+          getParticipants: () => callbacksRef.current.collabParticipants || [],
+          currentUserId: currentUserId || "local",
+        })
+      );
+    }
+
     const extensions = buildEditorExtensions(
       {
         theme,
@@ -162,7 +188,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           callbacksRef.current.onCursorChange?.(line, col, selLen),
         onSave: () => callbacksRef.current.onSave?.(),
         onSaveAll: () => callbacksRef.current.onSaveAll?.(),
-        extraExtensions: [...lspExtensions, lspKeymaps],
+        extraExtensions: [...lspExtensions, lspKeymaps, ...collabExtensions],
       },
       compartments
     );

@@ -50,6 +50,24 @@ export enum WsMessageType {
   // Cross-Device Handoff
   HANDOFF_AVAILABLE = "handoff:available",
   HANDOFF_ACCEPTED = "handoff:accepted",
+
+  // Collaborative Editing (Phase 11)
+  COLLAB_JOIN = "collab:join",
+  COLLAB_JOINED = "collab:joined",
+  COLLAB_LEAVE = "collab:leave",
+  COLLAB_SYNC_STEP1 = "collab:sync_step1",
+  COLLAB_SYNC_STEP2 = "collab:sync_step2",
+  COLLAB_UPDATE = "collab:update",
+  COLLAB_AWARENESS = "collab:awareness",
+  COLLAB_ROLE_REQUEST = "collab:role_request",
+  COLLAB_ROLE_ASSIGNED = "collab:role_assigned",
+  COLLAB_KICK = "collab:kick",
+  COLLAB_EXTERNAL_CHANGE = "collab:external_change",
+  COLLAB_CONFLICT_RESOLVED = "collab:conflict_resolved",
+  COLLAB_COMMENT_ADD = "collab:comment_add",
+  COLLAB_COMMENT_LIST = "collab:comment_list",
+  COLLAB_PROPOSAL_ADD = "collab:proposal_add",
+  COLLAB_PROPOSAL_ACTION = "collab:proposal_action",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

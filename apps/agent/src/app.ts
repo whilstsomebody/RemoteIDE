@@ -74,10 +74,12 @@ import {
   DatabaseExplorerService,
   databaseExplorerService as defaultDatabaseExplorerService,
 } from "./services/database/database-explorer.service.js";
+import { CollabDocManagerService } from "./services/collab/collab-doc-manager.service.js";
 import { hostMetricsRoutes } from "./routes/host-metrics.js";
 import { dockerRoutes } from "./routes/docker.js";
 import { devopsRoutes } from "./routes/devops.js";
 import { databaseRoutes } from "./routes/database.js";
+import { collabRoutes } from "./routes/collab.js";
 import { SyncClientService } from "./services/sync-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
@@ -112,6 +114,7 @@ export interface AgentContext {
   dockerService: DockerService;
   devopsService: DevOpsService;
   databaseService: DatabaseExplorerService;
+  collabService: CollabDocManagerService;
   syncClient: SyncClientService;
   terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
@@ -135,6 +138,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   const workspaceService = new WorkspaceService(journalPath, opts.allowedPaths);
   const watcherService = new WatcherService(journal);
   const fsService = new FilesystemService(workspaceService, journal, { watcherService });
+  const collabService = new CollabDocManagerService(fsService, watcherService);
   const syncClient = new SyncClientService({
     gatewayHttpUrl: process.env.GATEWAY_HTTP_URL || "http://localhost:4000",
     hostId: identity.getHostId(),
@@ -197,6 +201,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(dockerRoutes, { dockerService: defaultDockerService });
   await app.register(devopsRoutes, { devopsService: defaultDevOpsService });
   await app.register(databaseRoutes, { databaseService: defaultDatabaseExplorerService });
+  await app.register(collabRoutes, { collabService });
 
   // Connect host metrics dependencies and start sampling
   defaultHostMetricsService.setDependencies({
@@ -209,6 +214,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
 
   app.addHook("onClose", async () => {
     defaultHostMetricsService.stopSampling();
+    await collabService.flushAll();
   });
 
   // Terminal WebSocket server for direct local connections
@@ -250,6 +256,7 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     dockerService: defaultDockerService,
     devopsService: defaultDevOpsService,
     databaseService: defaultDatabaseExplorerService,
+    collabService,
     syncClient,
     terminalWsServer,
     tunnelTransport,

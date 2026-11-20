@@ -9,10 +9,12 @@ import {
   TunnelMessageType,
   UserRole,
   DevicePresenceState,
+  CollabRole,
 } from "@remote-ide/shared";
 import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 import { catchupService } from "../services/catchup.service.js";
+import { collabRelayService } from "../services/collab-relay.service.js";
 
 export const wsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/ws", { websocket: true }, (socket, req) => {
@@ -178,6 +180,122 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
             }
             break;
 
+          // Collaborative Editing (Phase 11)
+          case WsMessageType.COLLAB_JOIN: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath) {
+              const res = collabRelayService.join(
+                socket,
+                {
+                  workspaceId: p.workspaceId,
+                  filePath: p.filePath,
+                  clientStateVector: p.clientStateVector,
+                },
+                {
+                  id: session.id,
+                  userId: session.userId,
+                  role: (session.role as CollabRole) || "editor",
+                  deviceName: session.deviceName,
+                }
+              );
+              socket.send(
+                JSON.stringify(
+                  createWsMessage(
+                    WsMessageType.COLLAB_JOINED,
+                    {
+                      workspaceId: p.workspaceId,
+                      filePath: p.filePath,
+                      participant: res.participant,
+                      syncUpdateBase64: res.syncUpdateBase64,
+                      participants: res.participants,
+                      conflictStatus: res.conflictStatus,
+                    },
+                    { correlationId: msg.id }
+                  )
+                )
+              );
+            }
+            break;
+          }
+
+          case WsMessageType.COLLAB_LEAVE: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath) {
+              collabRelayService.handleLeave(socket, p.workspaceId, p.filePath);
+            }
+            break;
+          }
+
+          case WsMessageType.COLLAB_UPDATE: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath && p.update) {
+              try {
+                collabRelayService.handleUpdate(
+                  socket,
+                  { workspaceId: p.workspaceId, filePath: p.filePath, update: p.update },
+                  { role: (session.role as CollabRole) || "editor", userId: session.userId }
+                );
+              } catch {
+                // Handled in service with socket error message
+              }
+            }
+            break;
+          }
+
+          case WsMessageType.COLLAB_AWARENESS: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath) {
+              collabRelayService.handleAwareness(socket, {
+                workspaceId: p.workspaceId,
+                filePath: p.filePath,
+                cursor: p.cursor,
+                followingParticipantId: p.followingParticipantId,
+              });
+            }
+            break;
+          }
+
+          case WsMessageType.COLLAB_ROLE_ASSIGNED: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath && p.targetUserId && p.newRole) {
+              try {
+                collabRelayService.handleRoleAssign(
+                  socket,
+                  {
+                    workspaceId: p.workspaceId,
+                    filePath: p.filePath,
+                    targetUserId: p.targetUserId,
+                    newRole: p.newRole,
+                  },
+                  { role: (session.role as CollabRole) || "editor" }
+                );
+              } catch {
+                // Handled in service
+              }
+            }
+            break;
+          }
+
+          case WsMessageType.COLLAB_KICK: {
+            const p = msg.payload as any;
+            if (p && p.workspaceId && p.filePath && p.targetUserId) {
+              try {
+                collabRelayService.handleKick(
+                  socket,
+                  {
+                    workspaceId: p.workspaceId,
+                    filePath: p.filePath,
+                    targetUserId: p.targetUserId,
+                  },
+                  { role: (session.role as CollabRole) || "editor" }
+                );
+              } catch {
+                // Handled in service
+              }
+            }
+            break;
+          }
+
           default:
             socket.send(
               JSON.stringify(
@@ -205,6 +323,7 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     socket.on("close", () => {
+      collabRelayService.handleDisconnect(socket);
       catchupService.recordPresence({
         deviceId: activeDeviceId,
         state: DevicePresenceState.DISCONNECTED,

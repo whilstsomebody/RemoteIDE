@@ -38,6 +38,16 @@ export enum DomainEventType {
   FS_FILE_CHANGED = "remoteide.fs.file_changed",
   TERMINAL_ACTIVITY = "remoteide.terminal.activity",
   AUDIT_LOG_RECORDED = "remoteide.audit.logged",
+
+  // Collaborative editing milestones (Phase 11)
+  COLLAB_SESSION_STARTED = "remoteide.collab.session_started",
+  COLLAB_PARTICIPANT_JOINED = "remoteide.collab.participant_joined",
+  COLLAB_PARTICIPANT_LEFT = "remoteide.collab.participant_left",
+  COLLAB_ROLE_CHANGED = "remoteide.collab.role_changed",
+  COLLAB_DOC_PERSISTED = "remoteide.collab.doc_persisted",
+  COLLAB_EXTERNAL_CONFLICT = "remoteide.collab.external_conflict",
+  COLLAB_CONFLICT_RESOLVED = "remoteide.collab.conflict_resolved",
+  COLLAB_COMMENT_ADDED = "remoteide.collab.comment_added",
 }
 
 export function createEventEnvelope<T>(

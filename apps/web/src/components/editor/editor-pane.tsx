@@ -3,6 +3,15 @@
 import React, { useState } from "react";
 import { TabBar, TabItem } from "./tab-bar";
 import { Breadcrumbs } from "./breadcrumbs";
+import {
+  CollabParticipant,
+  CollabRole,
+  CollabConflictStatus,
+  CollabComment,
+  CollabProposedChange,
+} from "@remote-ide/shared";
+import { CollabParticipantsPanel } from "../collab/collab-participants-panel";
+import * as Y from "yjs";
 import { CodeEditor } from "./code-editor";
 import { MarkdownViewer } from "../viewers/markdown-viewer";
 import { JsonViewer } from "../viewers/json-viewer";
@@ -49,6 +58,22 @@ export interface EditorPaneProps {
   onNewUntitledFile?: () => void;
   onDiagnostics?: (diags: any[]) => void;
   onNavigateDefinition?: (path: string, line: number, col: number) => void;
+  // Collaboration props
+  collabDoc?: Y.Doc;
+  collabParticipants?: CollabParticipant[];
+  currentUserId?: string;
+  currentRole?: CollabRole;
+  collabConflict?: CollabConflictStatus | null;
+  collabComments?: CollabComment[];
+  collabProposals?: CollabProposedChange[];
+  followingUserId?: string | null;
+  onFollowUser?: (userId: string | null) => void;
+  onAssignRole?: (targetUserId: string, newRole: CollabRole) => void;
+  onKickParticipant?: (targetUserId: string) => void;
+  onRequestEditControl?: () => void;
+  onResolveConflict?: (resolution: "reload_disk" | "force_crdt" | "merge") => void;
+  onAddComment?: (line: number, text: string) => void;
+  onApplyProposal?: (proposalId: string) => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -73,6 +98,21 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   onNewUntitledFile,
   onDiagnostics,
   onNavigateDefinition,
+  collabDoc,
+  collabParticipants,
+  currentUserId,
+  currentRole = "editor",
+  collabConflict = null,
+  collabComments,
+  collabProposals,
+  followingUserId = null,
+  onFollowUser,
+  onAssignRole,
+  onKickParticipant,
+  onRequestEditControl,
+  onResolveConflict,
+  onAddComment,
+  onApplyProposal,
 }) => {
   const [markdownPreviewModes, setMarkdownPreviewModes] = useState<Record<string, boolean>>({});
 
@@ -127,6 +167,27 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
             </span>
           )}
         </div>
+      )}
+
+      {/* Real-Time Collaboration Header & Conflict Banner */}
+      {activeTab && collabParticipants && collabParticipants.length > 0 && onFollowUser && (
+        <CollabParticipantsPanel
+          participants={collabParticipants}
+          currentUserId={currentUserId || "local"}
+          currentRole={currentRole}
+          filePath={activeTab}
+          followingUserId={followingUserId}
+          conflictStatus={collabConflict}
+          comments={collabComments}
+          proposals={collabProposals}
+          onFollowUser={onFollowUser}
+          onAssignRole={onAssignRole}
+          onKickParticipant={onKickParticipant}
+          onRequestEditControl={onRequestEditControl}
+          onResolveConflict={onResolveConflict}
+          onAddComment={onAddComment}
+          onApplyProposal={onApplyProposal}
+        />
       )}
 
       {/* Editor Body */}
@@ -233,6 +294,9 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
                     workspaceId={activeWorkspaceId || "default"}
                     onDiagnostics={onDiagnostics}
                     onNavigateDefinition={onNavigateDefinition}
+                    collabDoc={collabDoc}
+                    collabParticipants={collabParticipants}
+                    currentUserId={currentUserId}
                   />
                 </div>
               </div>
