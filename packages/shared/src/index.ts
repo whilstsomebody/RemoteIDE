@@ -16,6 +16,7 @@ export * from "./contracts/git.js";
 export * from "./contracts/process.js";
 export * from "./contracts/preview.js";
 export * from "./contracts/api-client.js";
+export * from "./contracts/catchup.js";
 
 // Utils
 export * from "./utils/id.js";

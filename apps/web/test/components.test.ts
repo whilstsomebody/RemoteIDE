@@ -23,8 +23,14 @@ import { ProcessPanel } from "../src/components/processes/process-panel";
 import { PortsPanel } from "../src/components/preview/ports-panel";
 import { PreviewTab } from "../src/components/preview/preview-tab";
 import { ApiClientPanel } from "../src/components/api-client/api-client-panel";
+import { CatchupModal } from "../src/components/catchup/catchup-modal";
+import { DiffViewerModal } from "../src/components/catchup/diff-viewer-modal";
 
 describe("IDE Components & Viewers Export Integrity", () => {
+  it("exports Catch-Up and Diff Viewer modals", () => {
+    expect(CatchupModal).toBeDefined();
+    expect(DiffViewerModal).toBeDefined();
+  });
   it("exports Git, Process, Preview, and API Client components", () => {
     expect(SourceControlPanel).toBeDefined();
     expect(GitDiffModal).toBeDefined();

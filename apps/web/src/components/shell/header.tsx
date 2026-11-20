@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound } from "lucide-react";
+import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound, Clock } from "lucide-react";
 import { Button, StatusIndicator } from "@remote-ide/ui";
 
 export interface HeaderProps {
@@ -15,6 +15,8 @@ export interface HeaderProps {
   onOpenSessions?: () => void;
   onOpenAuth?: () => void;
   isOwner?: boolean;
+  onOpenCatchup?: () => void;
+  unreadCatchupCount?: number;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -28,6 +30,8 @@ export const Header: React.FC<HeaderProps> = ({
   onOpenSessions,
   onOpenAuth,
   isOwner = false,
+  onOpenCatchup,
+  unreadCatchupCount = 0,
 }) => {
   return (
     <header className="h-9 border-b border-ide-border bg-[#18181b] flex items-center justify-between px-3 text-xs select-none z-10 shrink-0">
@@ -47,6 +51,34 @@ export const Header: React.FC<HeaderProps> = ({
         </div>
 
         <StatusIndicator status={connectionStatus} />
+
+        {/* While You Were Away Catch-Up indicator & modal opener */}
+        {onOpenCatchup && (
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={onOpenCatchup}
+            title={
+              unreadCatchupCount > 0
+                ? `While You Were Away (${unreadCatchupCount} unread changes)`
+                : "While You Were Away (Catch-Up Changelog)"
+            }
+            className={`h-6 px-2 text-xs flex items-center gap-1.5 transition-colors ${
+              unreadCatchupCount > 0
+                ? "bg-indigo-950/70 border border-indigo-700/80 text-indigo-200 hover:bg-indigo-900"
+                : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
+            }`}
+          >
+            <Clock
+              className={`w-3.5 h-3.5 ${unreadCatchupCount > 0 ? "text-indigo-400 animate-pulse" : "text-zinc-400"}`}
+            />
+            {unreadCatchupCount > 0 && (
+              <span className="font-semibold text-[10px] text-indigo-300">
+                {unreadCatchupCount} new
+              </span>
+            )}
+          </Button>
+        )}
 
         {/* Share Workspace link generator */}
         {onOpenShare && (

@@ -1,6 +1,11 @@
 "use client";
 
-import { gatewayFetch, GATEWAY_URL, GATEWAY_WS_URL, authenticatedWebSocketUrl } from "../../lib/api/client";
+import {
+  gatewayFetch,
+  GATEWAY_URL,
+  GATEWAY_WS_URL,
+  authenticatedWebSocketUrl,
+} from "../../lib/api/client";
 
 import React, { useState, useEffect, useCallback, useRef } from "react";
 import { Header } from "./header";
@@ -18,7 +23,9 @@ import { AgentPanel } from "../agent/agent-panel";
 import { ShareLinkModal } from "../sharing/share-link-modal";
 import { SessionDashboardModal } from "../sharing/session-dashboard-modal";
 import { OwnerAuthModal } from "../auth/owner-auth-modal";
-import { Workspace, FileNode, UserRole } from "@remote-ide/shared";
+import { CatchupModal } from "../catchup/catchup-modal";
+import { DiffViewerModal } from "../catchup/diff-viewer-modal";
+import { Workspace, FileNode, UserRole, CatchupSummary } from "@remote-ide/shared";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
   SettingsStorage,
@@ -62,11 +69,15 @@ export const IdeShell: React.FC = () => {
 
   const workspaceIdRef = useRef<string | null>(null);
   const savingPaths = useRef(new Set<string>());
-  const sessionToRestore = useRef<ReturnType<typeof SettingsStorage.getWorkspaceSession> | null>(null);
+  const sessionToRestore = useRef<ReturnType<typeof SettingsStorage.getWorkspaceSession> | null>(
+    null
+  );
   const setActiveWorkspace = useCallback((workspace: Workspace | null) => {
     if (workspaceIdRef.current !== (workspace?.id ?? null)) {
       workspaceIdRef.current = workspace?.id ?? null;
-      sessionToRestore.current = workspace ? SettingsStorage.getWorkspaceSession(workspace.id) : null;
+      sessionToRestore.current = workspace
+        ? SettingsStorage.getWorkspaceSession(workspace.id)
+        : null;
       setBuffers({});
       setLoadingPaths(new Set());
       setPrimaryTabs([]);
@@ -115,6 +126,23 @@ export const IdeShell: React.FC = () => {
   });
   const [untitledCount, setUntitledCount] = useState<number>(1);
   const [_workspaceRevision, setWorkspaceRevision] = useState<number>(0);
+
+  // Catch-Up & Device Revision Tracking
+  const [deviceId] = useState<string>(() => {
+    if (typeof window !== "undefined") {
+      let id = localStorage.getItem("remote_ide_device_id");
+      if (!id) {
+        id = "dev_" + Math.random().toString(36).slice(2) + Date.now().toString(36);
+        localStorage.setItem("remote_ide_device_id", id);
+      }
+      return id;
+    }
+    return "dev_default";
+  });
+  const [catchupSummary, setCatchupSummary] = useState<CatchupSummary | null>(null);
+  const [isCatchupModalOpen, setIsCatchupModalOpen] = useState<boolean>(false);
+  const [unreadCatchupCount, setUnreadCatchupCount] = useState<number>(0);
+  const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
 
   // Derive granular role-based capabilities
   const canCreateShareLink =
@@ -270,12 +298,108 @@ export const IdeShell: React.FC = () => {
     void fetchWorkspaces();
   }, [checkAgentHealth, fetchWorkspaces]);
 
+  // Catch-Up Changelog queries & explicit user acknowledgement
+  const fetchCatchupSummary = useCallback(
+    async (autoOpen = true) => {
+      if (!activeWorkspace) return;
+      try {
+        const res = await gatewayFetch(
+          `/api/v1/catchup/summary?workspaceId=${encodeURIComponent(
+            activeWorkspace.id
+          )}&deviceId=${encodeURIComponent(deviceId)}&workspaceName=${encodeURIComponent(
+            activeWorkspace.name
+          )}`
+        );
+        if (!res.ok) return;
+        const body = await res.json();
+        if (body.success && body.data) {
+          const summary: CatchupSummary = body.data;
+          if (summary.totalEvents > 0 || summary.historyExpired) {
+            setCatchupSummary(summary);
+            setUnreadCatchupCount(summary.totalEvents);
+            if (autoOpen) {
+              setIsCatchupModalOpen(true);
+            }
+          } else {
+            setCatchupSummary(null);
+            setUnreadCatchupCount(0);
+          }
+        }
+      } catch {
+        // Network or gateway offline
+      }
+    },
+    [activeWorkspace, deviceId]
+  );
+
+  const handleAcknowledgeCatchup = useCallback(async () => {
+    if (!catchupSummary || !activeWorkspace) return;
+    try {
+      const res = await gatewayFetch("/api/v1/catchup/ack", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          deliveryId: catchupSummary.deliveryId,
+          workspaceId: activeWorkspace.id,
+          deviceId,
+        }),
+      });
+      if (res.ok) {
+        setUnreadCatchupCount(0);
+        setCatchupSummary(null);
+        addLog("Catch-up changelog acknowledged", "info", "CatchUp");
+      }
+    } catch {
+      // Offline
+    }
+  }, [catchupSummary, activeWorkspace, deviceId, addLog]);
+
+  // Inactivity & Tab Visibility / Focus Detection
+  useEffect(() => {
+    if (!activeWorkspace) return;
+
+    // Initial check when active workspace loads
+    void fetchCatchupSummary(true);
+
+    const handleVisibilityChange = () => {
+      if (document.visibilityState === "visible") {
+        void fetchCatchupSummary(true);
+        void gatewayFetch("/api/v1/catchup/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deviceId,
+            workspaceId: activeWorkspace.id,
+            state: "active",
+          }),
+        }).catch(() => {});
+      } else {
+        void gatewayFetch("/api/v1/catchup/presence", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            deviceId,
+            workspaceId: activeWorkspace.id,
+            state: "background",
+          }),
+        }).catch(() => {});
+      }
+    };
+
+    document.addEventListener("visibilitychange", handleVisibilityChange);
+    window.addEventListener("focus", handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener("visibilitychange", handleVisibilityChange);
+      window.removeEventListener("focus", handleVisibilityChange);
+    };
+  }, [activeWorkspace, fetchCatchupSummary, deviceId]);
+
   // When active workspace changes
   useEffect(() => {
     if (activeWorkspace) {
       void fetchFiles();
       addLog(`Connected to workspace "${activeWorkspace.name}"`, "success", "Workspace");
-
     }
   }, [activeWorkspace, fetchFiles, addLog]);
 
@@ -288,11 +412,13 @@ export const IdeShell: React.FC = () => {
     const connectWs = () => {
       if (isDisposed) return;
       try {
-        ws = new WebSocket(authenticatedWebSocketUrl(GATEWAY_WS_URL));
+        const wsUrl = `${authenticatedWebSocketUrl(GATEWAY_WS_URL)}&deviceId=${encodeURIComponent(deviceId)}`;
+        ws = new WebSocket(wsUrl);
 
         ws.onopen = () => {
           setConnectionStatus("connected");
           addLog("Connected to distributed event synchronization relay", "info", "Sync");
+          void fetchCatchupSummary(true);
         };
 
         ws.onmessage = (event) => {
@@ -302,6 +428,17 @@ export const IdeShell: React.FC = () => {
               const eventPayload = data.payload;
               if (eventPayload.revision) {
                 setWorkspaceRevision(eventPayload.revision);
+                if (ws && ws.readyState === WebSocket.OPEN && activeWorkspace) {
+                  ws.send(
+                    JSON.stringify({
+                      type: "device:sync_cursor",
+                      payload: {
+                        workspaceId: activeWorkspace.id,
+                        revision: eventPayload.revision,
+                      },
+                    })
+                  );
+                }
               }
 
               // Auto-refresh file tree when file changes occur
@@ -422,7 +559,9 @@ export const IdeShell: React.FC = () => {
           savedContent: readData.content,
           isDirty,
           eTag: isDirty && savedDraft ? savedDraft.originalETag : readData.eTag,
-          hasExternalConflict: Boolean(isDirty && savedDraft && savedDraft.originalETag !== readData.eTag),
+          hasExternalConflict: Boolean(
+            isDirty && savedDraft && savedDraft.originalETag !== readData.eTag
+          ),
           mtime: statData.mtime,
           isBinary: readData.isBinary,
           encoding: readData.encoding,
@@ -624,7 +763,8 @@ export const IdeShell: React.FC = () => {
           const current = prev[path];
           if (!current || workspaceIdRef.current !== activeWorkspace.id) return prev;
           const updated = applySaveResult(current, buffer, updatedETag, updatedMtime);
-          if (updated.isDirty) DraftStorage.saveDraft(activeWorkspace.id, path, updated.content, updatedETag);
+          if (updated.isDirty)
+            DraftStorage.saveDraft(activeWorkspace.id, path, updated.content, updatedETag);
           else DraftStorage.removeDraft(activeWorkspace.id, path);
           return { ...prev, [path]: updated };
         });
@@ -705,7 +845,14 @@ export const IdeShell: React.FC = () => {
                   const readBody = await readRes.json();
                   setBuffers((prev) => {
                     const current = prev[p];
-                    if (!current || cancelled || current.isDirty || current.eTag !== buffer.eTag || workspaceIdRef.current !== activeWorkspace.id) return prev;
+                    if (
+                      !current ||
+                      cancelled ||
+                      current.isDirty ||
+                      current.eTag !== buffer.eTag ||
+                      workspaceIdRef.current !== activeWorkspace.id
+                    )
+                      return prev;
                     return {
                       ...prev,
                       [p]: {
@@ -742,7 +889,10 @@ export const IdeShell: React.FC = () => {
       }
     }, 5000);
 
-    return () => { cancelled = true; clearInterval(interval); };
+    return () => {
+      cancelled = true;
+      clearInterval(interval);
+    };
   }, [activeWorkspace, primaryTabs, secondaryTabs, buffers, addLog]);
 
   // Autosave delay effect
@@ -1035,6 +1185,8 @@ export const IdeShell: React.FC = () => {
             : undefined
         }
         isOwner={isOwnerAuthenticated}
+        onOpenCatchup={() => setIsCatchupModalOpen(true)}
+        unreadCatchupCount={unreadCatchupCount}
       />
 
       {/* Main Middle Layout */}
@@ -1282,6 +1434,28 @@ export const IdeShell: React.FC = () => {
           addLog(`Authenticated as Host Owner (${user?.email || "Owner"}).`, "success", "Auth");
         }}
       />
+
+      {/* While You Were Away - Per-Device Catch-Up Modal */}
+      <CatchupModal
+        isOpen={isCatchupModalOpen}
+        onClose={() => setIsCatchupModalOpen(false)}
+        summary={catchupSummary}
+        onAcknowledge={handleAcknowledgeCatchup}
+        onViewDiff={(filePath) => setDiffFilePath(filePath)}
+        onOpenFile={(filePath) => void openFile(filePath, "primary")}
+      />
+
+      {/* Authorized Text File Diff Viewer Modal */}
+      {diffFilePath && activeWorkspace && (
+        <DiffViewerModal
+          isOpen={diffFilePath !== null}
+          onClose={() => setDiffFilePath(null)}
+          workspaceId={activeWorkspace.id}
+          filePath={diffFilePath}
+          fromRevision={catchupSummary?.fromRevision}
+          toRevision={catchupSummary?.toRevision}
+        />
+      )}
     </div>
   );
 };

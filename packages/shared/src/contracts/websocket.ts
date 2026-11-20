@@ -33,6 +33,10 @@ export enum WsMessageType {
   STREAM_START = "stream:start",
   STREAM_DATA = "stream:data",
   STREAM_END = "stream:end",
+
+  // Device & Catchup sync
+  DEVICE_PRESENCE = "device:presence",
+  DEVICE_SYNC_CURSOR = "device:sync_cursor",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

@@ -8,9 +8,11 @@ import {
   type WsEnvelope,
   TunnelMessageType,
   UserRole,
+  DevicePresenceState,
 } from "@remote-ide/shared";
 import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
+import { catchupService } from "../services/catchup.service.js";
 
 export const wsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/ws", { websocket: true }, (socket, req) => {
@@ -26,8 +28,7 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     let session = token ? authService.getSessionByToken(token) : null;
 
     if (!session) {
-      const isLoopback =
-        isLocalRequest(req);
+      const isLoopback = isLocalRequest(req);
 
       if (!token && isLoopback && !authService.isOwnerBootstrapped()) {
         session = {
@@ -66,6 +67,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
       role: session.role,
       expiresAt: session.expiresAt,
     });
+
+    const activeDeviceId = query.deviceId || session.deviceName || "default-device";
+    catchupService.recordPresence({ deviceId: activeDeviceId, state: DevicePresenceState.ACTIVE });
 
     // Send connection greeting
     socket.send(
@@ -149,6 +153,31 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
             );
             break;
 
+          case WsMessageType.DEVICE_PRESENCE:
+            if (msg.payload && typeof msg.payload === "object" && (msg.payload as any).state) {
+              catchupService.recordPresence({
+                deviceId: activeDeviceId,
+                workspaceId: (msg.payload as any).workspaceId,
+                state: (msg.payload as any).state,
+              });
+            }
+            break;
+
+          case WsMessageType.DEVICE_SYNC_CURSOR:
+            if (
+              msg.payload &&
+              typeof msg.payload === "object" &&
+              typeof (msg.payload as any).revision === "number" &&
+              (msg.payload as any).workspaceId
+            ) {
+              catchupService.updateSyncCursor(
+                activeDeviceId,
+                (msg.payload as any).workspaceId,
+                (msg.payload as any).revision
+              );
+            }
+            break;
+
           default:
             socket.send(
               JSON.stringify(
@@ -176,7 +205,14 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     });
 
     socket.on("close", () => {
-      fastify.log.info({ requestId: req.requestId }, "WebSocket connection closed");
+      catchupService.recordPresence({
+        deviceId: activeDeviceId,
+        state: DevicePresenceState.DISCONNECTED,
+      });
+      fastify.log.info(
+        { requestId: req.requestId, deviceId: activeDeviceId },
+        "WebSocket connection closed"
+      );
     });
   });
 
@@ -197,8 +233,7 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Allow loopback owner before bootstrap for local dev
       if (!session && !token) {
-        const isLoopback =
-          isLocalRequest(req);
+        const isLoopback = isLocalRequest(req);
 
         if (!token && isLoopback && !authService.isOwnerBootstrapped()) {
           session = {
@@ -230,7 +265,11 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
         return;
       }
 
-      tunnelRelayService.registerClientSocket(session.id, socket, { allowedWorkspaceIds: session.allowedWorkspaceIds, role: session.role, expiresAt: session.expiresAt });
+      tunnelRelayService.registerClientSocket(session.id, socket, {
+        allowedWorkspaceIds: session.allowedWorkspaceIds,
+        role: session.role,
+        expiresAt: session.expiresAt,
+      });
 
       const hostId = session.hostId || "local-host-agent";
 
@@ -255,7 +294,10 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
       // Forward client input and window resize frames to host agent over tunnel
       socket.on("message", (raw: Buffer | string) => {
-        if ((token && !authService.getSessionByToken(token)) || Date.parse(session.expiresAt) <= Date.now()) {
+        if (
+          (token && !authService.getSessionByToken(token)) ||
+          Date.parse(session.expiresAt) <= Date.now()
+        ) {
           socket.close(4401, "Session expired or revoked");
           return;
         }
@@ -295,7 +337,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
       socket.on("close", () => {
         unsubscribe();
         if (!tunnelRelayService.hasTerminalSubscribers(sessionId)) {
-          tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_CLOSE, { sessionId });
+          tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_CLOSE, {
+            sessionId,
+          });
         }
       });
     }

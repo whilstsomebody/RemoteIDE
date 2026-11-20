@@ -290,6 +290,57 @@ export class OutboxService {
     };
   }
 
+  public getCurrentRevision(workspaceId: string): number {
+    return this.memoryRevisions.get(workspaceId) || 0;
+  }
+
+  public getOldestRevision(workspaceId: string): number {
+    let oldest = 0;
+    for (const ev of this.memoryEvents.values()) {
+      if (ev.workspaceId === workspaceId) {
+        if (oldest === 0 || ev.revision < oldest) {
+          oldest = ev.revision;
+        }
+      }
+    }
+    return oldest;
+  }
+
+  public getEventsInRange(
+    workspaceId: string,
+    fromRevision: number,
+    toRevision: number,
+    limit = 2000
+  ): WorkspaceEventRecord[] {
+    return Array.from(this.memoryEvents.values())
+      .filter(
+        (e) =>
+          e.workspaceId === workspaceId && e.revision >= fromRevision && e.revision <= toRevision
+      )
+      .sort((a, b) => a.revision - b.revision)
+      .slice(0, limit);
+  }
+
+  public pruneWorkspaceEventsOlderThan(
+    workspaceId: string,
+    olderThanDate: string
+  ): { prunedCount: number; oldestRemainingRevision: number } {
+    let prunedCount = 0;
+    for (const [id, ev] of this.memoryEvents.entries()) {
+      if (ev.workspaceId === workspaceId && ev.createdAt < olderThanDate) {
+        this.memoryEvents.delete(id);
+        prunedCount++;
+      }
+    }
+    if (prunedCount > 0) {
+      this.persist();
+    }
+    return {
+      prunedCount,
+      oldestRemainingRevision: this.getOldestRevision(workspaceId),
+    };
+  }
+
   public getOutboxStats(): { pendingCount: number; publishedCount: number; failedCount: number } {
     let pendingCount = 0;
     let publishedCount = 0;

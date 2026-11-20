@@ -12,6 +12,7 @@ import { shareLinkRoutes } from "./routes/share-links.js";
 import { tunnelRoutes } from "./routes/tunnel.js";
 import { proxyRoutes } from "./routes/proxy.js";
 import { syncRoutes } from "./routes/sync.js";
+import { catchupRoutes } from "./routes/catchup.js";
 import { redisService } from "./services/redis.service.js";
 import { kafkaService } from "./services/kafka.service.js";
 import { outboxService } from "./services/outbox.service.js";
@@ -73,7 +74,13 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
       const url = new URL(origin);
       allowed ||= url.protocol === "http:" && ["localhost", "127.0.0.1"].includes(url.hostname);
     } catch {}
-    if (!allowed) return reply.code(403).send({ success: false, error: { code: "FORBIDDEN", message: "Browser origin is not allowed" } });
+    if (!allowed)
+      return reply
+        .code(403)
+        .send({
+          success: false,
+          error: { code: "FORBIDDEN", message: "Browser origin is not allowed" },
+        });
   });
   await app.register(websocket);
   await app.register(requestIdPlugin);
@@ -88,6 +95,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(tunnelRoutes);
   await app.register(proxyRoutes);
   await app.register(syncRoutes);
+  await app.register(catchupRoutes);
 
   // Background Outbox Worker & Distributed Fan-Out
   outboxService.start(500);
