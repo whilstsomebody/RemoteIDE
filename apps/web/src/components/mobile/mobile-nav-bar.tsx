@@ -78,3 +78,4 @@ export const MobileNavBar: React.FC<MobileNavBarProps> = ({
     </nav>
   );
 };
+

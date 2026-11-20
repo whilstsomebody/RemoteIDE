@@ -58,7 +58,6 @@ export const TabBar: React.FC<TabBarProps> = ({
       <div
         onDoubleClick={onNewUntitledFile}
         className="flex-1 flex items-center h-full overflow-x-auto no-scrollbar"
-        title="Double-click to create new untitled file"
       >
         {tabs.map((tab) => {
           const isActive = tab.path === activeTab;

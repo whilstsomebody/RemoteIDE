@@ -145,7 +145,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         {!isLoading && !activeBuffer && (
           <div
             className="flex-1 flex flex-col items-center justify-center p-8 select-none"
-            title="Double-click anywhere to create a new text file"
           >
             <div className="w-full max-w-sm flex flex-col items-center text-center space-y-4">
               {/* eslint-disable-next-line @next/next/no-img-element */}

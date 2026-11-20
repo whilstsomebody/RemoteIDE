@@ -53,3 +53,4 @@ export const MobileTerminalView: React.FC<MobileTerminalViewProps> = ({
     </div>
   );
 };
+

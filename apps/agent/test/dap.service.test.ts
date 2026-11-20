@@ -48,6 +48,7 @@ console.log("CALCULATION_RESULT:", result);
       type: "node",
       program: testScript,
       stopOnEntry: true,
+      args: []
     });
 
     expect(session.id).toBeDefined();
@@ -116,6 +117,7 @@ console.log("CALCULATION_RESULT:", result);
       sessionId: session.id,
       expression: "x * y",
       frameId: 0,
+      context: "hover"
     });
     expect(evalResult.result).toBe("200");
 
@@ -136,6 +138,7 @@ console.log("CALCULATION_RESULT:", result);
       type: "node",
       program: testScript,
       stopOnEntry: true,
+      args: []
     });
 
     const s2 = await dap.launch({
@@ -144,6 +147,7 @@ console.log("CALCULATION_RESULT:", result);
       type: "node",
       program: testScript,
       stopOnEntry: true,
+      args: []
     });
 
     expect(s1.id).toBe(s2.id);

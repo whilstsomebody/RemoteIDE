@@ -15,7 +15,6 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({ onNewUntitledF
     <main
       onDoubleClick={onNewUntitledFile}
       className="flex-1 bg-[#1e1e1e] flex flex-col items-center justify-center p-6 select-none overflow-hidden relative cursor-default"
-      title="Double-click to create a new untitled file"
     >
       {/* Center 40% area containing the logo, RemoteIDE title, and subtle shortcuts */}
       <div className="w-full max-w-md flex flex-col items-center text-center space-y-6">
