@@ -42,6 +42,10 @@ export enum WsMessageType {
   LSP_NOTIFICATION = "lsp:notification",
   DEBUG_EVENT = "debug:event",
   TEST_EVENT = "test:event",
+
+  // DevOps & Host Monitoring
+  METRICS_UPDATE = "metrics:update",
+  HOST_ALERT = "host:alert",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

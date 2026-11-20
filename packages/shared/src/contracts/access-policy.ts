@@ -33,6 +33,17 @@ export function requiredRequestPermission(method: string, url: string, body?: un
   if (resource === "problems") return Permission.FS_READ;
   if (resource === "api-client") return Permission.TASK_EXECUTE;
   if (resource === "jobs") return read ? Permission.FS_READ : Permission.TASK_EXECUTE;
+  if (resource === "host") return Permission.HOST_METRICS_READ;
+  if (resource === "docker") {
+    if (action === "exec") return Permission.DOCKER_EXEC;
+    return read ? Permission.DOCKER_READ : Permission.DOCKER_CONTROL;
+  }
+  if (resource === "devops") return read ? Permission.DEVOPS_READ : Permission.DEVOPS_CONTROL;
+  if (resource === "database") {
+    if (action === "query") return Permission.DATABASE_QUERY;
+    if (read || action === "test") return Permission.DATABASE_READ;
+    return Permission.DATABASE_QUERY;
+  }
   if (method === "DELETE") return Permission.FS_DELETE;
   return read ? Permission.FS_READ : Permission.FS_WRITE;
 }

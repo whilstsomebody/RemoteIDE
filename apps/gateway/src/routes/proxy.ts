@@ -251,4 +251,8 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.all("/api/v1/debug*", handleProxy);
   fastify.all("/api/v1/tests*", handleProxy);
   fastify.all("/api/v1/problems*", handleProxy);
+  fastify.all("/api/v1/host*", handleProxy);
+  fastify.all("/api/v1/docker*", handleProxy);
+  fastify.all("/api/v1/devops*", handleProxy);
+  fastify.all("/api/v1/database*", handleProxy);
 };

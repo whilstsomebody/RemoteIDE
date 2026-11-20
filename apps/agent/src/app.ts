@@ -58,6 +58,26 @@ import {
   ProblemsService,
   problemsService as defaultProblemsService,
 } from "./services/problems/problems.service.js";
+import {
+  HostMetricsService,
+  hostMetricsService as defaultHostMetricsService,
+} from "./services/host/host-metrics.service.js";
+import {
+  DockerService,
+  dockerService as defaultDockerService,
+} from "./services/docker/docker.service.js";
+import {
+  DevOpsService,
+  devOpsService as defaultDevOpsService,
+} from "./services/devops/devops.service.js";
+import {
+  DatabaseExplorerService,
+  databaseExplorerService as defaultDatabaseExplorerService,
+} from "./services/database/database-explorer.service.js";
+import { hostMetricsRoutes } from "./routes/host-metrics.js";
+import { dockerRoutes } from "./routes/docker.js";
+import { devopsRoutes } from "./routes/devops.js";
+import { databaseRoutes } from "./routes/database.js";
 import { SyncClientService } from "./services/sync-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
@@ -88,6 +108,10 @@ export interface AgentContext {
   dapService: DapManagerService;
   testService: TestRunnerService;
   problemsService: ProblemsService;
+  hostMetricsService: HostMetricsService;
+  dockerService: DockerService;
+  devopsService: DevOpsService;
+  databaseService: DatabaseExplorerService;
   syncClient: SyncClientService;
   terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
@@ -169,6 +193,23 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(debugRoutes, { dapService: defaultDapManagerService });
   await app.register(testRoutes, { testService: defaultTestRunnerService });
   await app.register(problemsRoutes, { problemsService: defaultProblemsService });
+  await app.register(hostMetricsRoutes, { hostMetricsService: defaultHostMetricsService });
+  await app.register(dockerRoutes, { dockerService: defaultDockerService });
+  await app.register(devopsRoutes, { devopsService: defaultDevOpsService });
+  await app.register(databaseRoutes, { databaseService: defaultDatabaseExplorerService });
+
+  // Connect host metrics dependencies and start sampling
+  defaultHostMetricsService.setDependencies({
+    processManager: defaultProcessManagerService,
+    terminalService: defaultTerminalService,
+    workspaceService,
+    jobManager: defaultJobManagerService,
+  });
+  defaultHostMetricsService.startSampling();
+
+  app.addHook("onClose", async () => {
+    defaultHostMetricsService.stopSampling();
+  });
 
   // Terminal WebSocket server for direct local connections
   const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
@@ -205,6 +246,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     dapService: defaultDapManagerService,
     testService: defaultTestRunnerService,
     problemsService: defaultProblemsService,
+    hostMetricsService: defaultHostMetricsService,
+    dockerService: defaultDockerService,
+    devopsService: defaultDevOpsService,
+    databaseService: defaultDatabaseExplorerService,
     syncClient,
     terminalWsServer,
     tunnelTransport,

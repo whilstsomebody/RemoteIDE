@@ -14,6 +14,8 @@ import { EditorSettings } from "../../lib/storage/settings-storage";
 import { DebuggerPanel } from "../debug/debugger-panel";
 import { TestExplorerPanel } from "../testing/test-explorer-panel";
 import { LanguageSupportPanel } from "../lsp/language-support-panel";
+import { DevopsPanel } from "../devops/devops-panel";
+import { DatabaseExplorerPanel } from "../database/database-explorer-panel";
 
 export interface SidebarProps {
   activeTab: ActivityTab | null;
@@ -203,6 +205,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
             workspaceId={activeWorkspace?.id || "default"}
           />
         )}
+
+        {activeTab === "devops" && <DevopsPanel agentUrl={agentUrl} />}
+
+        {activeTab === "database" && <DatabaseExplorerPanel agentUrl={agentUrl} />}
 
         {activeTab === "settings" && (
           <SettingsPanel settings={editorSettings} onUpdateSettings={onUpdateEditorSettings} />

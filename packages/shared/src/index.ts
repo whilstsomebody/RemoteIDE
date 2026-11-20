@@ -21,6 +21,10 @@ export * from "./contracts/lsp.js";
 export * from "./contracts/debug.js";
 export * from "./contracts/testing.js";
 export * from "./contracts/problems.js";
+export * from "./contracts/metrics.js";
+export * from "./contracts/docker.js";
+export * from "./contracts/devops.js";
+export * from "./contracts/database.js";
 
 // Utils
 export * from "./utils/id.js";

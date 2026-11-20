@@ -13,6 +13,8 @@ import {
   Bug,
   FlaskConical,
   Code2,
+  Activity,
+  Database,
 } from "lucide-react";
 import { cn } from "@remote-ide/ui";
 
@@ -23,6 +25,8 @@ export type ActivityTab =
   | "debug"
   | "testing"
   | "languages"
+  | "devops"
+  | "database"
   | "apiclient"
   | "preview"
   | "terminal"
@@ -52,6 +56,8 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
     { id: "debug", label: "Run & Debug", icon: Bug },
     { id: "testing", label: "Testing", icon: FlaskConical },
     { id: "languages", label: "Language Support", icon: Code2 },
+    { id: "devops", label: "DevOps & Monitoring", icon: Activity },
+    { id: "database", label: "Database Explorer", icon: Database },
     { id: "apiclient", label: "API Client", icon: Send },
     { id: "preview", label: "App Preview", icon: Globe },
     { id: "terminal", label: "Terminal", icon: Terminal },

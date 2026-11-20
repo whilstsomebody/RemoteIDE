@@ -20,6 +20,10 @@ export interface StatusBarProps {
   onToggleBottomPanel?: () => void;
   bottomPanelOpen?: boolean;
   problemCount?: number;
+  cpuUsagePercent?: number;
+  memoryUsagePercent?: number;
+  batteryPercent?: number | null;
+  isCharging?: boolean | null;
 }
 
 export const StatusBar: React.FC<StatusBarProps> = ({
@@ -38,6 +42,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({
   onToggleBottomPanel,
   bottomPanelOpen = false,
   problemCount = 0,
+  cpuUsagePercent,
+  memoryUsagePercent,
+  batteryPercent,
+  isCharging,
 }) => {
   return (
     <footer className="h-6 bg-ide-status border-t border-ide-border flex items-center justify-between px-3 text-[11px] text-zinc-400 select-none z-30 font-mono shrink-0">
@@ -52,6 +60,28 @@ export const StatusBar: React.FC<StatusBarProps> = ({
           <Check className="w-3.5 h-3.5" />
           <span>Host Synced</span>
         </div>
+
+        {cpuUsagePercent !== undefined && (
+          <div className="flex items-center gap-1.5 text-zinc-300" title="Host CPU & RAM Usage">
+            <span className="text-indigo-400">CPU:</span>
+            <span>{cpuUsagePercent}%</span>
+            {memoryUsagePercent !== undefined && (
+              <>
+                <span className="text-zinc-600">|</span>
+                <span className="text-emerald-400">RAM:</span>
+                <span>{memoryUsagePercent}%</span>
+              </>
+            )}
+            {batteryPercent != null && (
+              <>
+                <span className="text-zinc-600">|</span>
+                <span className={isCharging ? "text-emerald-400" : "text-zinc-300"}>
+                  {batteryPercent}%
+                </span>
+              </>
+            )}
+          </div>
+        )}
 
         {onToggleBottomPanel && (
           <button

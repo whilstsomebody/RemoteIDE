@@ -91,6 +91,12 @@ export const IdeShell: React.FC = () => {
   // 3. Status Bar & Cursor Position
   const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, selLen: 0 });
   const [autosaveStatus, setAutosaveStatus] = useState<"saving" | "saved" | "idle">("idle");
+  const [hostMetrics, setHostMetrics] = useState<{
+    cpuPercent: number;
+    memoryPercent: number;
+    batteryPercent: number | null;
+    isCharging: boolean | null;
+  } | null>(null);
 
   // 4. Bottom Panel & Output Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
@@ -296,6 +302,29 @@ export const IdeShell: React.FC = () => {
   useEffect(() => {
     void checkAgentHealth();
     void fetchWorkspaces();
+
+    const fetchMetrics = async () => {
+      try {
+        const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/host/metrics`);
+        if (res.ok) {
+          const body = await res.json();
+          if (body.data) {
+            setHostMetrics({
+              cpuPercent: body.data.cpu?.usagePercent ?? 0,
+              memoryPercent: body.data.memory?.usedPercent ?? 0,
+              batteryPercent: body.data.battery?.percent ?? null,
+              isCharging: body.data.battery?.isCharging ?? null,
+            });
+          }
+        }
+      } catch {
+        // Offline
+      }
+    };
+
+    void fetchMetrics();
+    const metricsInterval = setInterval(fetchMetrics, 10000);
+    return () => clearInterval(metricsInterval);
   }, [checkAgentHealth, fetchWorkspaces]);
 
   // Catch-Up Changelog queries & explicit user acknowledgement
@@ -1373,6 +1402,10 @@ export const IdeShell: React.FC = () => {
         onToggleBottomPanel={() => updateUiLayout({ bottomPanelOpen: !uiLayout.bottomPanelOpen })}
         bottomPanelOpen={uiLayout.bottomPanelOpen}
         problemCount={problems.length}
+        cpuUsagePercent={hostMetrics?.cpuPercent}
+        memoryUsagePercent={hostMetrics?.memoryPercent}
+        batteryPercent={hostMetrics?.batteryPercent}
+        isCharging={hostMetrics?.isCharging}
       />
 
       {/* Command Palette Modal (Cmd+K / Cmd+P) */}
