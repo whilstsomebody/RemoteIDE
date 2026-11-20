@@ -2,7 +2,7 @@
 
 import React from "react";
 import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound, Clock } from "lucide-react";
-import { Button, StatusIndicator } from "@remote-ide/ui";
+import { Button, StatusIndicator, cn } from "@remote-ide/ui";
 
 export interface HeaderProps {
   projectName?: string;
@@ -63,17 +63,16 @@ export const Header: React.FC<HeaderProps> = ({
                 ? `While You Were Away (${unreadCatchupCount} unread changes)`
                 : "While You Were Away (Catch-Up Changelog)"
             }
-            className={`h-6 px-2 text-xs flex items-center gap-1.5 transition-colors ${
+            className={cn(
+              "h-6 px-2 text-xs flex items-center gap-1.5 transition-colors",
               unreadCatchupCount > 0
-                ? "bg-indigo-950/70 border border-indigo-700/80 text-indigo-200 hover:bg-indigo-900"
+                ? "bg-zinc-800 border border-zinc-700 text-zinc-200 hover:bg-zinc-700"
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
-            }`}
+            )}
           >
-            <Clock
-              className={`w-3.5 h-3.5 ${unreadCatchupCount > 0 ? "text-indigo-400 animate-pulse" : "text-zinc-400"}`}
-            />
+            <Clock className="w-3.5 h-3.5" />
             {unreadCatchupCount > 0 && (
-              <span className="font-semibold text-[10px] text-indigo-300">
+              <span className="font-semibold text-[10px] text-zinc-300">
                 {unreadCatchupCount} new
               </span>
             )}
@@ -89,7 +88,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Share Access (Temporary Links & Permissions)"
             className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
-            <Share2 className="w-3.5 h-3.5 text-sky-400" />
+            <Share2 className="w-3.5 h-3.5" />
           </Button>
         )}
 
@@ -102,7 +101,7 @@ export const Header: React.FC<HeaderProps> = ({
             title="Session Control & Security Audit Dashboard"
             className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
-            <Shield className="w-3.5 h-3.5 text-emerald-400" />
+            <Shield className="w-3.5 h-3.5" />
           </Button>
         )}
 
@@ -115,7 +114,7 @@ export const Header: React.FC<HeaderProps> = ({
             title={isOwner ? "Owner Account Profile" : "Initialize / Sign In as Host Owner"}
             className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
-            <KeyRound className={`w-3.5 h-3.5 ${isOwner ? "text-amber-400" : "text-zinc-400"}`} />
+            <KeyRound className="w-3.5 h-3.5" />
           </Button>
         )}
 
@@ -139,13 +138,14 @@ export const Header: React.FC<HeaderProps> = ({
             size="icon"
             onClick={onToggleAgent}
             title={isAgentOpen ? "Close Coding Agent" : "Open Coding Agent (Cmd+Shift+A)"}
-            className={`h-6 w-6 transition-colors ${
+            className={cn(
+              "h-6 w-6 transition-colors",
               isAgentOpen
-                ? "text-indigo-400 bg-indigo-950/60 hover:bg-indigo-900/50"
+                ? "text-zinc-100 bg-zinc-800 hover:bg-zinc-700"
                 : "text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800"
-            }`}
+            )}
           >
-            <Sparkles className="w-3.5 h-3.5 text-indigo-400" />
+            <Sparkles className="w-3.5 h-3.5" />
           </Button>
         )}
       </div>

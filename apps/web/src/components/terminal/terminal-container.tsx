@@ -240,7 +240,7 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
       <div className="flex-1 w-full h-full overflow-hidden flex">
         {sessions.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500">
-            <Cpu className="w-10 h-10 text-indigo-400/50 mb-3" />
+            <Cpu className="w-10 h-10 text-zinc-600 mb-3" />
             <p className="text-xs font-medium text-zinc-300">No Active Terminal Sessions</p>
             <p className="text-[11px] text-zinc-500 max-w-sm mt-1">
               Interactive terminal sessions run natively on your host machine and persist across
@@ -248,7 +248,7 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
             </p>
             <button
               onClick={() => void handleCreateTerminal()}
-              className="mt-4 px-3 py-1.5 rounded-md bg-indigo-600 hover:bg-indigo-500 text-white text-xs font-medium flex items-center gap-1.5 shadow transition-colors"
+              className="mt-4 px-3 py-1.5 rounded-md bg-zinc-800 hover:bg-zinc-700 text-zinc-100 border border-zinc-700 text-xs font-medium flex items-center gap-1.5 transition-colors"
             >
               <Plus className="w-3.5 h-3.5" />
               Launch Host Terminal

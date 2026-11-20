@@ -119,7 +119,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       {/* Resizer Handle */}
       <div
         onMouseDown={handleMouseDown}
-        className="h-1 bg-transparent hover:bg-indigo-500/80 cursor-row-resize transition-colors absolute top-0 left-0 right-0 z-30"
+        className="h-1 bg-transparent hover:bg-zinc-600 cursor-row-resize transition-colors absolute top-0 left-0 right-0 z-30"
       />
 
       {/* Panel Header & Tabs */}
@@ -134,7 +134,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <TerminalIcon className="w-3.5 h-3.5 text-indigo-400" />
+            <TerminalIcon className="w-3.5 h-3.5" />
             <span>Terminal</span>
           </button>
 
@@ -147,7 +147,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Activity className="w-3.5 h-3.5 text-sky-400" />
+            <Activity className="w-3.5 h-3.5" />
             <span>Tasks</span>
           </button>
 
@@ -160,7 +160,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Layers className="w-3.5 h-3.5 text-violet-400" />
+            <Layers className="w-3.5 h-3.5" />
             <span>Processes</span>
           </button>
 
@@ -173,7 +173,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Globe className="w-3.5 h-3.5 text-teal-400" />
+            <Globe className="w-3.5 h-3.5" />
             <span>Ports</span>
           </button>
 
@@ -186,7 +186,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <ExternalLink className="w-3.5 h-3.5 text-emerald-400" />
+            <ExternalLink className="w-3.5 h-3.5" />
             <span>Preview</span>
           </button>
 
@@ -199,7 +199,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <Send className="w-3.5 h-3.5 text-indigo-400" />
+            <Send className="w-3.5 h-3.5" />
             <span>API Client</span>
           </button>
 
@@ -212,7 +212,7 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <FileText className="w-3.5 h-3.5 text-amber-400" />
+            <FileText className="w-3.5 h-3.5" />
             <span>Output</span>
             {logs.length > 0 && (
               <span className="px-1.5 py-0.2 rounded-full bg-zinc-800 text-[10px] text-zinc-400">
@@ -230,10 +230,10 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
                 : "text-zinc-400 hover:text-zinc-200"
             )}
           >
-            <AlertCircle className="w-3.5 h-3.5 text-rose-400" />
+            <AlertCircle className="w-3.5 h-3.5" />
             <span>Problems</span>
             {problems.length > 0 && (
-              <span className="px-1.5 py-0.2 rounded-full bg-rose-950 text-rose-300 text-[10px] border border-rose-800/60 font-semibold">
+              <span className="px-1.5 py-0.2 rounded-full bg-zinc-800 text-zinc-300 text-[10px] border border-zinc-700/60 font-medium">
                 {problems.length}
               </span>
             )}
