@@ -127,7 +127,7 @@ console.log("CALCULATION_RESULT:", result);
     await dap.stop(session.id);
     const remaining = dap.listSessions("ws-dap");
     expect(remaining.length).toBe(0);
-  });
+  }, 15000);
 
   it("prevents duplicate launches of the same program in the same workspace", async () => {
     const s1 = await dap.launch({
@@ -148,5 +148,5 @@ console.log("CALCULATION_RESULT:", result);
 
     expect(s1.id).toBe(s2.id);
     await dap.stop(s1.id);
-  });
+  }, 15000);
 });

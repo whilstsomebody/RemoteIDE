@@ -46,6 +46,10 @@ export enum WsMessageType {
   // DevOps & Host Monitoring
   METRICS_UPDATE = "metrics:update",
   HOST_ALERT = "host:alert",
+
+  // Cross-Device Handoff
+  HANDOFF_AVAILABLE = "handoff:available",
+  HANDOFF_ACCEPTED = "handoff:accepted",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

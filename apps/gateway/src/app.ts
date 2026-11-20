@@ -13,6 +13,7 @@ import { tunnelRoutes } from "./routes/tunnel.js";
 import { proxyRoutes } from "./routes/proxy.js";
 import { syncRoutes } from "./routes/sync.js";
 import { catchupRoutes } from "./routes/catchup.js";
+import { handoffRoutes } from "./routes/handoff.js";
 import { redisService } from "./services/redis.service.js";
 import { kafkaService } from "./services/kafka.service.js";
 import { outboxService } from "./services/outbox.service.js";
@@ -93,6 +94,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(authRoutes);
   await app.register(shareLinkRoutes);
   await app.register(tunnelRoutes);
+  await app.register(handoffRoutes);
   await app.register(proxyRoutes);
   await app.register(syncRoutes);
   await app.register(catchupRoutes);

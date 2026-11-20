@@ -129,8 +129,8 @@ export class DapManagerService {
 
     this.sessions.set(sessionId, record);
 
-    // Spawn node with inspector break
-    const child = spawn(process.execPath, [`--inspect-brk=${port}`, resolvedProgram, ...args], {
+    // Spawn node with inspector break bound explicitly to 127.0.0.1
+    const child = spawn(process.execPath, [`--inspect-brk=127.0.0.1:${port}`, resolvedProgram, ...args], {
       cwd: cwd || path.dirname(resolvedProgram),
       env: { ...process.env, ...env },
       stdio: ["pipe", "pipe", "pipe"],
@@ -212,7 +212,7 @@ export class DapManagerService {
   ): Promise<void> {
     // Wait for inspector endpoint to become available
     let wsUrl: string | null = null;
-    for (let attempt = 0; attempt < 20; attempt++) {
+    for (let attempt = 0; attempt < 60; attempt++) {
       try {
         wsUrl = await this.queryInspectorWsUrl(port);
         if (wsUrl) break;

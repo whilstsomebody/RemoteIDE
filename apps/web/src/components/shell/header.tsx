@@ -1,7 +1,7 @@
 "use client";
 
 import React from "react";
-import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound, Clock } from "lucide-react";
+import { Laptop, RefreshCw, Sparkles, Share2, Shield, KeyRound, Clock, Smartphone } from "lucide-react";
 import { Button, StatusIndicator, cn } from "@remote-ide/ui";
 
 export interface HeaderProps {
@@ -17,6 +17,7 @@ export interface HeaderProps {
   isOwner?: boolean;
   onOpenCatchup?: () => void;
   unreadCatchupCount?: number;
+  onOpenHandoff?: () => void;
 }
 
 export const Header: React.FC<HeaderProps> = ({
@@ -32,6 +33,7 @@ export const Header: React.FC<HeaderProps> = ({
   isOwner = false,
   onOpenCatchup,
   unreadCatchupCount = 0,
+  onOpenHandoff,
 }) => {
   return (
     <header className="h-9 border-b border-ide-border bg-[#18181b] flex items-center justify-between px-3 text-xs select-none z-10 shrink-0">
@@ -89,6 +91,19 @@ export const Header: React.FC<HeaderProps> = ({
             className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
           >
             <Share2 className="w-3.5 h-3.5" />
+          </Button>
+        )}
+
+        {/* Continue on Another Device (Handoff) */}
+        {onOpenHandoff && (
+          <Button
+            variant="ghost"
+            size="icon"
+            onClick={onOpenHandoff}
+            title="Continue on Another Device"
+            className="h-6 w-6 text-zinc-400 hover:text-zinc-100 hover:bg-zinc-800 transition-colors"
+          >
+            <Smartphone className="w-3.5 h-3.5" />
           </Button>
         )}
 

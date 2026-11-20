@@ -25,7 +25,19 @@ import { SessionDashboardModal } from "../sharing/session-dashboard-modal";
 import { OwnerAuthModal } from "../auth/owner-auth-modal";
 import { CatchupModal } from "../catchup/catchup-modal";
 import { DiffViewerModal } from "../catchup/diff-viewer-modal";
-import { Workspace, FileNode, UserRole, CatchupSummary } from "@remote-ide/shared";
+import { TerminalContainer } from "../terminal/terminal-container";
+import { useViewport } from "../../lib/hooks/use-viewport";
+import { usePwa } from "../../lib/pwa/pwa-manager";
+import { ConnectionRecoveryManager } from "../../lib/network/connection-recovery";
+import { MobileNavBar, MobileTab } from "../mobile/mobile-nav-bar";
+import { MobileKeyboardToolbar } from "../mobile/mobile-keyboard-toolbar";
+import { MobileHeader } from "../mobile/mobile-header";
+import { MobileFileExplorer } from "../mobile/mobile-file-explorer";
+import { MobileTerminalView } from "../mobile/mobile-terminal-view";
+import { MobileGitView } from "../mobile/mobile-git-view";
+import { TabletLayout } from "../tablet/tablet-layout";
+import { DeviceHandoffModal } from "../handoff/device-handoff-modal";
+import { Workspace, FileNode, UserRole, CatchupSummary, HandoffPayload } from "@remote-ide/shared";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
 import {
   SettingsStorage,
@@ -149,6 +161,16 @@ export const IdeShell: React.FC = () => {
   const [isCatchupModalOpen, setIsCatchupModalOpen] = useState<boolean>(false);
   const [unreadCatchupCount, setUnreadCatchupCount] = useState<number>(0);
   const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
+
+  // Responsive Viewport, PWA, and Connection Recovery (Phase 10)
+  const viewport = useViewport();
+  const pwa = usePwa();
+  const [mobileTab, setMobileTab] = useState<MobileTab>("editor");
+  const [isHandoffModalOpen, setIsHandoffModalOpen] = useState(false);
+  const [pendingHandoffBanner, setPendingHandoffBanner] = useState<{ id: string } | null>(null);
+  const recoveryManager = useRef(
+    new ConnectionRecoveryManager({ initialDelayMs: 1000, maxDelayMs: 30000, jitter: true })
+  );
 
   // Derive granular role-based capabilities
   const canCreateShareLink =
@@ -1212,6 +1234,103 @@ export const IdeShell: React.FC = () => {
     }
   };
 
+  // Check URL query parameters for handoff snapshot
+  useEffect(() => {
+    if (typeof window === "undefined") return;
+    const urlParams = new URLSearchParams(window.location.search);
+    const handoffId = urlParams.get("handoff");
+    if (handoffId) {
+      setPendingHandoffBanner({ id: handoffId });
+    }
+  }, []);
+
+  // Automatic connection recovery with exponential backoff & jitter
+  useEffect(() => {
+    const recovery = recoveryManager.current;
+    if (connectionStatus === "disconnected") {
+      recovery.scheduleReconnect(async () => {
+        await checkAgentHealth();
+        if (activeWorkspace) {
+          await fetchFiles();
+          void fetchCatchupSummary(true);
+        }
+      });
+    } else if (connectionStatus === "connected") {
+      recovery.reset();
+    }
+    return () => {
+      recovery.cancelScheduled();
+    };
+  }, [connectionStatus, checkAgentHealth, activeWorkspace, fetchFiles, fetchCatchupSummary]);
+
+  // Mobile symbol toolbar insertion handlers
+  const handleInsertSymbol = (symbol: string) => {
+    if (!primaryActiveTab || isReadOnly) return;
+    const buf = buffers[primaryActiveTab];
+    if (!buf) return;
+    updateBufferContent(primaryActiveTab, buf.content + symbol);
+  };
+
+  const handleIndent = () => {
+    if (!primaryActiveTab || isReadOnly) return;
+    const buf = buffers[primaryActiveTab];
+    if (!buf) return;
+    updateBufferContent(primaryActiveTab, buf.content + "  ");
+  };
+
+  const handleOutdent = () => {
+    if (!primaryActiveTab || isReadOnly) return;
+    const buf = buffers[primaryActiveTab];
+    if (!buf) return;
+    if (buf.content.endsWith("  ")) {
+      updateBufferContent(primaryActiveTab, buf.content.slice(0, -2));
+    }
+  };
+
+  const handleConsumeHandoff = useCallback(
+    async (handoffId: string) => {
+      try {
+        const res = await gatewayFetch(`${GATEWAY_HTTP_URL}/api/v1/handoff/${handoffId}/consume`, {
+          method: "POST",
+          credentials: "include",
+        });
+        const data = await res.json();
+        if (!res.ok || !data.success) {
+          throw new Error(data.error?.message || "Failed to consume handoff");
+        }
+        const handoff: HandoffPayload = data.data;
+        const { layout } = handoff;
+
+        if (layout.openFilePaths && layout.openFilePaths.length > 0) {
+          for (const filePath of layout.openFilePaths) {
+            void openFile(filePath, "primary");
+          }
+        }
+
+        if (layout.activeFilePath) {
+          const line = layout.cursorPosition?.line;
+          void openFile(layout.activeFilePath, "primary", line);
+        }
+
+        addLog(
+          `Session resumed from device handoff (${handoff.sourceDeviceName || "remote device"}).`,
+          "success",
+          "Handoff"
+        );
+        setPendingHandoffBanner(null);
+
+        if (typeof window !== "undefined") {
+          const url = new URL(window.location.href);
+          url.searchParams.delete("handoff");
+          window.history.replaceState({}, document.title, url.toString());
+        }
+      } catch (err: any) {
+        addLog(`Handoff error: ${err.message}`, "error", "Handoff");
+      }
+    },
+    [addLog, openFile]
+  );
+
   const activeBuffer = primaryActiveTab ? buffers[primaryActiveTab] : null;
   const activeLanguage = primaryActiveTab
     ? getLanguageDefinition(primaryActiveTab).name
@@ -1219,29 +1338,289 @@ export const IdeShell: React.FC = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-ide-bg text-zinc-100 select-none overflow-hidden font-sans">
-      {/* Top Header */}
-      <Header
-        projectName={activeWorkspace ? activeWorkspace.name : "RemoteIDE Workspace"}
-        connectionStatus={connectionStatus}
-        hostName={hostName}
-        onRefresh={() => {
-          void checkAgentHealth();
-          void fetchWorkspaces();
-          void fetchFiles();
-        }}
-        isAgentOpen={isAgentOpen}
-        onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
-        onOpenShare={canCreateShareLink ? () => setIsShareModalOpen(true) : undefined}
-        onOpenSessions={canViewSessions ? () => setIsSessionDashboardOpen(true) : undefined}
-        onOpenAuth={
-          isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole
-            ? () => setIsAuthModalOpen(true)
-            : undefined
-        }
-        isOwner={isOwnerAuthenticated}
-        onOpenCatchup={() => setIsCatchupModalOpen(true)}
-        unreadCatchupCount={unreadCatchupCount}
-      />
+      {/* 1. Phone Experience Layout */}
+      {viewport.isPhone ? (
+        <>
+          <MobileHeader
+            projectName={activeWorkspace ? activeWorkspace.name : "RemoteIDE"}
+            connectionStatus={connectionStatus}
+            isOnline={pwa.isOnline}
+            isInstallable={pwa.isInstallable}
+            onInstallPwa={pwa.promptInstall}
+            onOpenHandoff={() => setIsHandoffModalOpen(true)}
+          />
+
+          {pendingHandoffBanner && (
+            <div className="bg-zinc-800 border-b border-zinc-700 px-3 py-2 flex items-center justify-between text-xs z-30 shrink-0">
+              <span className="text-zinc-200 font-mono">Workspace handoff available!</span>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleConsumeHandoff(pendingHandoffBanner.id)}
+                  className="px-2.5 py-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-100 rounded text-[11px] font-mono font-medium"
+                >
+                  Resume Here
+                </button>
+                <button
+                  onClick={() => setPendingHandoffBanner(null)}
+                  className="text-zinc-400 hover:text-zinc-200 text-[11px]"
+                >
+                  Dismiss
+                </button>
+              </div>
+            </div>
+          )}
+
+          <div className="flex-1 flex flex-col overflow-hidden relative">
+            {mobileTab === "files" && (
+              <MobileFileExplorer
+                files={files}
+                activeFilePath={primaryActiveTab}
+                onOpenFile={(path) => {
+                  void openFile(path, "primary");
+                  setMobileTab("editor");
+                }}
+                onCreateFile={isReadOnly ? undefined : (parent, name) => handleCreateItem(parent, name, "file")}
+                onCreateFolder={isReadOnly ? undefined : (parent, name) => handleCreateItem(parent, name, "directory")}
+                onDeleteFile={isReadOnly ? undefined : (path) => handleDeleteItem(path)}
+              />
+            )}
+
+            {mobileTab === "editor" && (
+              <div className="flex-1 flex flex-col overflow-hidden">
+                <div className="flex-1 overflow-hidden">
+                  {primaryTabs.length === 0 ? (
+                    <WorkspaceCanvas onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile} />
+                  ) : (
+                    <EditorPane
+                      paneId="primary"
+                      tabs={primaryTabs}
+                      activeTab={primaryActiveTab}
+                      buffers={buffers}
+                      loadingPaths={loadingPaths}
+                      settings={editorSettings}
+                      agentUrl={AGENT_BASE_URL}
+                      activeWorkspaceId={activeWorkspace ? activeWorkspace.id : null}
+                      readOnly={isReadOnly}
+                      onSelectTab={(path) => setPrimaryActiveTab(path)}
+                      onCloseTab={(path) => closeTab(path, "primary")}
+                      onUpdateContent={updateBufferContent}
+                      onCursorChange={(line, col, selLen) => setCursorPos({ line, col, selLen })}
+                      onSaveFile={saveFile}
+                      onSaveAll={saveAll}
+                      showSplitButton={false}
+                      onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+                      onDiagnostics={(diags) => handleDiagnostics(primaryActiveTab || "", diags)}
+                      onNavigateDefinition={(targetPath, line) =>
+                        void openFile(targetPath, "primary", line)
+                      }
+                    />
+                  )}
+                </div>
+                <MobileKeyboardToolbar
+                  onInsertSymbol={handleInsertSymbol}
+                  onIndent={handleIndent}
+                  onOutdent={handleOutdent}
+                  onSave={() => {
+                    if (primaryActiveTab) void saveFile(primaryActiveTab);
+                  }}
+                  isDirty={activeBuffer?.isDirty}
+                  onOpenQuickLauncher={() => setIsCommandPaletteOpen(true)}
+                />
+              </div>
+            )}
+
+            {mobileTab === "terminal" && (
+              <MobileTerminalView gatewayUrl={GATEWAY_URL} />
+            )}
+
+            {mobileTab === "git" && (
+              <MobileGitView
+                gatewayUrl={GATEWAY_URL}
+                workspacePath={activeWorkspace?.folders?.[0]?.path}
+                onRefreshWorkspace={fetchFiles}
+              />
+            )}
+
+            {mobileTab === "dashboard" && (
+              <div className="flex-1 overflow-y-auto p-4 space-y-4 text-xs font-mono">
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                  <h3 className="font-semibold text-zinc-200 mb-2">Host Overview</h3>
+                  <div className="space-y-1 text-zinc-400">
+                    <div>Host: {hostName} ({platform})</div>
+                    <div>Status: {connectionStatus}</div>
+                    <div>CPU: {hostMetrics?.cpuPercent ? `${hostMetrics.cpuPercent}%` : "N/A"}</div>
+                    <div>Memory: {hostMetrics?.memoryPercent ? `${hostMetrics.memoryPercent}%` : "N/A"}</div>
+                    <div>Battery: {hostMetrics?.batteryPercent !== null && hostMetrics?.batteryPercent !== undefined ? `${hostMetrics.batteryPercent}%` : "N/A"}</div>
+                  </div>
+                </div>
+                <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-3">
+                  <h3 className="font-semibold text-zinc-200 mb-2">Problems ({problems.length})</h3>
+                  {problems.length === 0 ? (
+                    <div className="text-zinc-500">No problems detected</div>
+                  ) : (
+                    <div className="space-y-1">
+                      {problems.map((p) => (
+                        <div key={p.id} className="text-rose-400">{p.message}</div>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+
+          <MobileNavBar
+            activeTab={mobileTab}
+            onSelectTab={setMobileTab}
+            hasDirtyFiles={activeBuffer?.isDirty}
+            activeFileName={primaryActiveTab}
+          />
+        </>
+      ) : viewport.isTablet ? (
+        /* 2. Tablet Experience Layout */
+        <>
+          <Header
+            projectName={activeWorkspace ? activeWorkspace.name : "RemoteIDE Workspace"}
+            connectionStatus={connectionStatus}
+            hostName={hostName}
+            onRefresh={() => {
+              void checkAgentHealth();
+              void fetchWorkspaces();
+              void fetchFiles();
+            }}
+            isAgentOpen={isAgentOpen}
+            onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
+            onOpenShare={canCreateShareLink ? () => setIsShareModalOpen(true) : undefined}
+            onOpenSessions={canViewSessions ? () => setIsSessionDashboardOpen(true) : undefined}
+            onOpenAuth={
+              isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole
+                ? () => setIsAuthModalOpen(true)
+                : undefined
+            }
+            isOwner={isOwnerAuthenticated}
+            onOpenCatchup={() => setIsCatchupModalOpen(true)}
+            unreadCatchupCount={unreadCatchupCount}
+            onOpenHandoff={() => setIsHandoffModalOpen(true)}
+          />
+
+          <TabletLayout
+            isPortrait={viewport.isPortrait}
+            onSave={() => {
+              if (primaryActiveTab) void saveFile(primaryActiveTab);
+            }}
+            onQuickOpen={() => setIsCommandPaletteOpen(true)}
+            onCommandPalette={() => setIsCommandPaletteOpen(true)}
+            sidebarContent={
+              <Sidebar
+                activeTab={activeTab}
+                width={250}
+                onWidthChange={() => {}}
+                hostStatus={connectionStatus}
+                hostId={hostId}
+                hostName={hostName}
+                platform={platform}
+                agentUrl={AGENT_BASE_URL}
+                workspaces={workspaces}
+                activeWorkspace={activeWorkspace}
+                files={files}
+                selectedPath={primaryActiveTab}
+                onSelectWorkspace={handleSelectWorkspace}
+                onOpenFolderModal={() => {
+                  if (!isReadOnly) setIsOpenFolderModalOpen(true);
+                }}
+                onCloneRepoModal={() => {
+                  if (!isReadOnly) setIsCloneRepoModalOpen(true);
+                }}
+                onRemoveWorkspace={handleRemoveWorkspace}
+                onSelectFile={(path, line) => void openFile(path, "primary", line)}
+                onOpenToSide={(path) => {
+                  updateUiLayout({ isSplit: true });
+                  void openFile(path, "secondary");
+                }}
+                onRefreshFiles={fetchFiles}
+                onCreateItem={isReadOnly ? undefined : handleCreateItem}
+                onRenameItem={isReadOnly ? undefined : handleRenameItem}
+                onDeleteFile={isReadOnly ? undefined : handleDeleteItem}
+                editorSettings={editorSettings}
+                onUpdateEditorSettings={updateEditorSettings}
+              />
+            }
+            editorContent={
+              primaryTabs.length === 0 ? (
+                <WorkspaceCanvas onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile} />
+              ) : (
+                <EditorPane
+                  paneId="primary"
+                  tabs={primaryTabs}
+                  activeTab={primaryActiveTab}
+                  buffers={buffers}
+                  loadingPaths={loadingPaths}
+                  settings={editorSettings}
+                  agentUrl={AGENT_BASE_URL}
+                  activeWorkspaceId={activeWorkspace ? activeWorkspace.id : null}
+                  readOnly={isReadOnly}
+                  onSelectTab={(path) => setPrimaryActiveTab(path)}
+                  onCloseTab={(path) => closeTab(path, "primary")}
+                  onUpdateContent={updateBufferContent}
+                  onCursorChange={(line, col, selLen) => setCursorPos({ line, col, selLen })}
+                  onSaveFile={saveFile}
+                  onSaveAll={saveAll}
+                  showSplitButton={false}
+                  onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+                  onDiagnostics={(diags) => handleDiagnostics(primaryActiveTab || "", diags)}
+                  onNavigateDefinition={(targetPath, line) =>
+                    void openFile(targetPath, "primary", line)
+                  }
+                />
+              )
+            }
+            terminalContent={<TerminalContainer gatewayUrl={GATEWAY_URL} />}
+          />
+
+          <StatusBar
+            branch={activeWorkspace ? activeWorkspace.name.toLowerCase().replace(/\s+/g, "-") : "main"}
+            cursorLine={cursorPos.line}
+            cursorCol={cursorPos.col}
+            selectionLength={cursorPos.selLen}
+            language={activeLanguage}
+            tabSize={editorSettings.tabSize}
+            isDirty={activeBuffer?.isDirty}
+            autosaveStatus={autosaveStatus}
+            onToggleBottomPanel={() => updateUiLayout({ bottomPanelOpen: !uiLayout.bottomPanelOpen })}
+            bottomPanelOpen={uiLayout.bottomPanelOpen}
+            problemCount={problems.length}
+            cpuUsagePercent={hostMetrics?.cpuPercent}
+            memoryUsagePercent={hostMetrics?.memoryPercent}
+            batteryPercent={hostMetrics?.batteryPercent}
+            isCharging={hostMetrics?.isCharging}
+          />
+        </>
+      ) : (
+        /* 3. Desktop Experience Layout */
+        <>
+          <Header
+            projectName={activeWorkspace ? activeWorkspace.name : "RemoteIDE Workspace"}
+            connectionStatus={connectionStatus}
+            hostName={hostName}
+            onRefresh={() => {
+              void checkAgentHealth();
+              void fetchWorkspaces();
+              void fetchFiles();
+            }}
+            isAgentOpen={isAgentOpen}
+            onToggleAgent={() => setIsAgentOpen((prev) => !prev)}
+            onOpenShare={canCreateShareLink ? () => setIsShareModalOpen(true) : undefined}
+            onOpenSessions={canViewSessions ? () => setIsSessionDashboardOpen(true) : undefined}
+            onOpenAuth={
+              isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole
+                ? () => setIsAuthModalOpen(true)
+                : undefined
+            }
+            isOwner={isOwnerAuthenticated}
+            onOpenCatchup={() => setIsCatchupModalOpen(true)}
+            unreadCatchupCount={unreadCatchupCount}
+            onOpenHandoff={() => setIsHandoffModalOpen(true)}
+          />
 
       {/* Main Middle Layout */}
       <div className="flex-1 flex overflow-hidden">
@@ -1407,6 +1786,8 @@ export const IdeShell: React.FC = () => {
         batteryPercent={hostMetrics?.batteryPercent}
         isCharging={hostMetrics?.isCharging}
       />
+        </>
+      )}
 
       {/* Command Palette Modal (Cmd+K / Cmd+P) */}
       <CommandPalette
@@ -1519,6 +1900,17 @@ export const IdeShell: React.FC = () => {
           toRevision={catchupSummary?.toRevision}
         />
       )}
+
+      {/* Cross-Device Handoff Modal */}
+      <DeviceHandoffModal
+        isOpen={isHandoffModalOpen}
+        onClose={() => setIsHandoffModalOpen(false)}
+        gatewayUrl={GATEWAY_HTTP_URL}
+        currentWorkspaceId={activeWorkspace?.id}
+        activeFilePath={primaryActiveTab}
+        cursorPosition={{ line: cursorPos.line, col: cursorPos.col }}
+        openFiles={primaryTabs}
+      />
     </div>
   );
 };

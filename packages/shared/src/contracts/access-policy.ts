@@ -44,6 +44,7 @@ export function requiredRequestPermission(method: string, url: string, body?: un
     if (read || action === "test") return Permission.DATABASE_READ;
     return Permission.DATABASE_QUERY;
   }
+  if (resource === "handoff" || resource === "devices") return Permission.FS_READ;
   if (method === "DELETE") return Permission.FS_DELETE;
   return read ? Permission.FS_READ : Permission.FS_WRITE;
 }
