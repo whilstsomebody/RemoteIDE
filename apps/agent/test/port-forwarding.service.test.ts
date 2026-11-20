@@ -7,16 +7,26 @@ describe("Phase 5 - Port Forwarding & Preview Service", () => {
 
   it("enforces valid port range between 1024 and 65535", () => {
     // Rejects system port (<1024)
-    expect(() => service.forwardPort({ port: 80 })).toThrow(AppError);
-    expect(() => service.forwardPort({ port: 443 })).toThrow(AppError);
+    expect(() => service.forwardPort({ port: 80, label: "test", protocol: "http" })).toThrow(
+      AppError
+    );
+    expect(() => service.forwardPort({ port: 443, label: "test", protocol: "http" })).toThrow(
+      AppError
+    );
 
     // Rejects out of range port (>65535)
-    expect(() => service.forwardPort({ port: 70000 })).toThrow(AppError);
+    expect(() => service.forwardPort({ port: 70000, label: "test", protocol: "http" })).toThrow(
+      AppError
+    );
   });
 
   it("blocks reserved internal database/infrastructure ports", () => {
-    expect(() => service.forwardPort({ port: 5432 })).toThrow(AppError);
-    expect(() => service.forwardPort({ port: 6379 })).toThrow(AppError);
+    expect(() => service.forwardPort({ port: 5432, label: "test", protocol: "http" })).toThrow(
+      AppError
+    );
+    expect(() => service.forwardPort({ port: 6379, label: "test", protocol: "http" })).toThrow(
+      AppError
+    );
   });
 
   it("forwards, toggles, and unfowards valid development ports", () => {

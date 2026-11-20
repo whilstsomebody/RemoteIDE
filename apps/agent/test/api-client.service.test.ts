@@ -23,6 +23,7 @@ describe("Phase 5 - Built-in HTTP / API Client Service", () => {
         params: [],
         bodyType: "none",
         authType: "none",
+        authAddTo: "header",
         timeoutMs: 5000,
       })
     ).rejects.toThrow(AppError);

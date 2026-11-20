@@ -60,7 +60,7 @@ describe("WorkspaceService", () => {
     fs.mkdirSync(dirA);
     fs.mkdirSync(dirB);
 
-    const _wsA = workspaceService.registerWorkspace("Project A", [dirA]);
+    workspaceService.registerWorkspace("Project A", [dirA]);
     const wsB = workspaceService.registerWorkspace("Project B", [dirB]);
 
     const list = workspaceService.listWorkspaces();
@@ -81,14 +81,20 @@ describe("WorkspaceService", () => {
   it("enforces configured project roots after resolving symlinks", () => {
     const allowed = path.join(tmpDir, "allowed");
     const outside = path.join(tmpDir, "outside");
-    fs.mkdirSync(allowed); fs.mkdirSync(outside);
+    fs.mkdirSync(allowed);
+    fs.mkdirSync(outside);
     fs.symlinkSync(outside, path.join(allowed, "escape"));
     const restricted = new WorkspaceService(":memory:", [allowed]);
     try {
-      expect(() => restricted.registerWorkspace("Outside", [outside])).toThrow("outside configured project roots");
-      expect(() => restricted.registerWorkspace("Escape", [path.join(allowed, "escape")])).toThrow("outside configured project roots");
+      expect(() => restricted.registerWorkspace("Outside", [outside])).toThrow(
+        "outside configured project roots"
+      );
+      expect(() => restricted.registerWorkspace("Escape", [path.join(allowed, "escape")])).toThrow(
+        "outside configured project roots"
+      );
       expect(restricted.registerWorkspace("Allowed", [allowed]).folders).toHaveLength(1);
-    } finally { restricted.close(); }
+    } finally {
+      restricted.close();
+    }
   });
-
 });

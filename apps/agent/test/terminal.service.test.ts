@@ -24,6 +24,7 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
       {
         cols: 80,
         rows: 24,
+        useTmux: false,
       },
       "owner-123"
     );
@@ -69,6 +70,7 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
       {
         cols: 80,
         rows: 24,
+        useTmux: false,
       },
       "owner-123"
     );
@@ -94,7 +96,10 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
 
   it("resizes PTY window dimensions without crashing", async () => {
     service = new TerminalService();
-    const session = await service.createTerminal({ cols: 80, rows: 24 }, "owner-123");
+    const session = await service.createTerminal(
+      { cols: 80, rows: 24, useTmux: false },
+      "owner-123"
+    );
 
     service.resizeTerminal(session.id, 120, 40);
     const updated = service.getTerminal(session.id);
@@ -106,10 +111,12 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
 
   it("enforces concurrent PTY limit", async () => {
     service = new TerminalService({ maxConcurrentSessions: 2 });
-    const s1 = await service.createTerminal({}, "owner-123");
-    const s2 = await service.createTerminal({}, "owner-123");
+    const s1 = await service.createTerminal({ cols: 80, rows: 24, useTmux: false }, "owner-123");
+    const s2 = await service.createTerminal({ cols: 80, rows: 24, useTmux: false }, "owner-123");
 
-    await expect(service.createTerminal({}, "owner-123")).rejects.toThrow(AppError);
+    await expect(
+      service.createTerminal({ cols: 80, rows: 24, useTmux: false }, "owner-123")
+    ).rejects.toThrow(AppError);
 
     await service.closeTerminal(s1.id);
     await service.closeTerminal(s2.id);
@@ -117,7 +124,10 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
 
   it("terminates shell process cleanly on close", async () => {
     service = new TerminalService();
-    const session = await service.createTerminal({}, "owner-123");
+    const session = await service.createTerminal(
+      { cols: 80, rows: 24, useTmux: false },
+      "owner-123"
+    );
     expect(service.listTerminals().length).toBe(1);
 
     await service.closeTerminal(session.id);

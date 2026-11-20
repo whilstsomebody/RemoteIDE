@@ -12,7 +12,10 @@ import {
   ProcessChangelogItem,
   SessionChangelogItem,
   WorkspaceEventType,
+  DurableWorkspaceEvent,
 } from "@remote-ide/shared";
+
+export type CompactableEvent = WorkspaceEventRecord | DurableWorkspaceEvent;
 
 interface FileLifecycleState {
   originalPath: string;
@@ -32,7 +35,7 @@ export class EventCompactor {
    */
   public static compact(
     params:
-      | WorkspaceEventRecord[]
+      | CompactableEvent[]
       | {
           deliveryId: string;
           workspaceId: string;
@@ -40,7 +43,7 @@ export class EventCompactor {
           deviceId: string;
           fromRevision: number;
           toRevision: number;
-          events: WorkspaceEventRecord[];
+          events: CompactableEvent[];
           allowedPrefixes?: string[]; // Allowed directory paths for security scoping
           historyExpired?: boolean;
         }
@@ -66,7 +69,7 @@ export class EventCompactor {
 
     // 1. Deduplicate by event ID and sort strictly by revision ascending
     const seenEventIds = new Set<string>();
-    const uniqueEvents: WorkspaceEventRecord[] = [];
+    const uniqueEvents: CompactableEvent[] = [];
 
     for (const ev of rawEvents) {
       if (!ev.id || seenEventIds.has(ev.id)) continue;
@@ -102,7 +105,10 @@ export class EventCompactor {
     let latestTime: string | null = null;
 
     for (const ev of uniqueEvents) {
-      const ts = ev.createdAt || new Date().toISOString();
+      const ts =
+        ("createdAt" in ev && ev.createdAt) ||
+        ("timestamp" in ev && ev.timestamp) ||
+        new Date().toISOString();
       if (!earliestTime || ts < earliestTime) earliestTime = ts;
       if (!latestTime || ts > latestTime) latestTime = ts;
 

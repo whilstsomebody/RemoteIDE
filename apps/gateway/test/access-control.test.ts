@@ -195,6 +195,7 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       ipAddress: "192.168.1.50",
       userAgent: "Safari",
       isOwner: false,
+      durationSeconds: 3600,
     });
 
     const viewerRes = await app.inject({
@@ -219,6 +220,7 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       ipAddress: "192.168.1.51",
       userAgent: "Chrome",
       isOwner: false,
+      durationSeconds: 3600,
     });
 
     const editorRes = await app.inject({
@@ -265,6 +267,7 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
             ipAddress: "127.0.0.1",
             userAgent: "Test",
             isOwner: false,
+            durationSeconds: 3600,
           }).sessionToken
         }`,
       },

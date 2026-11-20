@@ -20,6 +20,8 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
       {
         name: "Test Echo Job",
         command: "echo 'BACKGROUND_JOB_OUTPUT'",
+        args: [],
+        timeoutMs: 30000,
       },
       "owner-1"
     );
@@ -67,6 +69,8 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
       {
         name: "Sleep Job",
         command: "sleep 10",
+        args: [],
+        timeoutMs: 30000,
       },
       "owner-1"
     );
@@ -87,6 +91,8 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
       {
         name: "Retryable Task",
         command: "echo RETRIED_TASK",
+        args: [],
+        timeoutMs: 30000,
       },
       "owner-1"
     );
@@ -106,6 +112,8 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
       {
         name: "Job 1",
         command: "sleep 0.5",
+        args: [],
+        timeoutMs: 30000,
       },
       "owner-1"
     );
@@ -114,6 +122,8 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
       {
         name: "Job 2",
         command: "echo Queued",
+        args: [],
+        timeoutMs: 30000,
       },
       "owner-1"
     );

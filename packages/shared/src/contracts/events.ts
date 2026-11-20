@@ -143,6 +143,22 @@ export interface DurableEvent<T = Record<string, unknown>> {
   correlationId?: string | null;
 }
 
+export interface DurableWorkspaceEvent<T = Record<string, unknown>> {
+  id: string;
+  workspaceId: string;
+  revision: number;
+  eventType: string;
+  actorId: string;
+  timestamp: string;
+  payload: T;
+  hostId?: string;
+  schemaVersion?: number;
+  createdAt?: string;
+  deviceId?: string;
+  sessionId?: string;
+  correlationId?: string;
+}
+
 export function createDurableEvent<T extends Record<string, unknown>>(
   params: Omit<DurableEvent<T>, "id" | "version" | "timestamp"> & {
     id?: string;

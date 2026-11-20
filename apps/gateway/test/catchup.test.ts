@@ -381,7 +381,7 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         deviceId: "dev_phone_b",
         workspaceId,
       });
-      expect(ackResult.success).toBe(true);
+      expect(ackResult.acknowledged).toBe(true);
       expect(ackResult.acknowledgedRevision).toBe(35);
 
       // Verify cursor is strictly at 35
@@ -502,14 +502,14 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         deviceId: "dev_idem",
         workspaceId,
       });
-      expect(firstAck.success).toBe(true);
+      expect(firstAck.acknowledged).toBe(true);
 
       const secondAck = catchupService.acknowledgeChangelog({
         deliveryId: summary.deliveryId,
         deviceId: "dev_idem",
         workspaceId,
       });
-      expect(secondAck.success).toBe(true);
+      expect(secondAck.acknowledged).toBe(true);
       expect(secondAck.acknowledgedRevision).toBe(firstAck.acknowledgedRevision);
     });
 
@@ -572,7 +572,7 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       }
 
       // Manually set oldest revision to 50
-      outbox.pruneWorkspaceEventsOlderThan(workspaceId, new Date("2099-01-01")); // or test history boundary
+      outbox.pruneWorkspaceEventsOlderThan(workspaceId, new Date("2099-01-01").toISOString()); // or test history boundary
 
       const summary = catchupService.generateCatchupSummary({
         deviceId: "dev_old",

@@ -193,6 +193,7 @@ export type CatchupAckDto = z.infer<typeof CatchupAckDtoSchema>;
 
 export const CatchupAckResultSchema = z.object({
   acknowledged: z.boolean(),
+  success: z.boolean().optional(),
   deliveryId: z.string(),
   acknowledgedRevision: z.number().int().nonnegative(),
   currentRevision: z.number().int().nonnegative(),

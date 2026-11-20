@@ -323,11 +323,12 @@ export class OutboxService {
 
   public pruneWorkspaceEventsOlderThan(
     workspaceId: string,
-    olderThanDate: string
+    olderThanDate: string | Date
   ): { prunedCount: number; oldestRemainingRevision: number } {
+    const dateStr = typeof olderThanDate === "string" ? olderThanDate : olderThanDate.toISOString();
     let prunedCount = 0;
     for (const [id, ev] of this.memoryEvents.entries()) {
-      if (ev.workspaceId === workspaceId && ev.createdAt < olderThanDate) {
+      if (ev.workspaceId === workspaceId && ev.createdAt < dateStr) {
         this.memoryEvents.delete(id);
         prunedCount++;
       }
