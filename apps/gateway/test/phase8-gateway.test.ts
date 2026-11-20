@@ -1,7 +1,7 @@
 import { describe, it, expect } from "vitest";
 import { buildApp } from "../src/app.js";
 import { authService } from "../src/services/auth.service.js";
-import { UserRole, Permission, ROLE_PERMISSIONS } from "@remote-ide/shared";
+import { UserRole, ROLE_PERMISSIONS } from "@remote-ide/shared";
 
 describe("Phase 8 — Gateway LSP, Debugging, and Test Integration", () => {
   it("enforces separate permissions: denies debug execution to Viewer and Editor roles", async () => {

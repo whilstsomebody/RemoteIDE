@@ -58,3 +58,4 @@ describe("Phase 8 — Problems and Diagnostics Service", () => {
     expect(queryRes.items[0]!.filePath).toBe("src/utils.ts");
   });
 });
+

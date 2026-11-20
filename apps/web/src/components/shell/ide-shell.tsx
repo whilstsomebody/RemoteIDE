@@ -488,11 +488,11 @@ export const IdeShell: React.FC = () => {
         ws.close();
       }
     };
-  }, [activeWorkspace, fetchFiles, addLog]);
+  }, [activeWorkspace, fetchFiles, addLog, deviceId, fetchCatchupSummary]);
 
   // Open file into specified pane (defaults to primary)
   const openFile = useCallback(
-    async (path: string, pane: "primary" | "secondary" = "primary", _targetLine?: number) => {
+    async (path: string, pane: "primary" | "secondary" = "primary", targetLine?: number) => {
       if (!activeWorkspace || workspaceIdRef.current !== activeWorkspace.id) return;
 
       // Ensure tab is added to the specified pane
@@ -502,6 +502,10 @@ export const IdeShell: React.FC = () => {
       } else {
         setSecondaryTabs((prev) => (prev.includes(path) ? prev : [...prev, path]));
         setSecondaryActiveTab(path);
+      }
+
+      if (targetLine !== undefined) {
+        setCursorPos({ line: targetLine, col: 1, selLen: 0 });
       }
 
       // Check if buffer is already loaded in memory
@@ -715,6 +719,27 @@ export const IdeShell: React.FC = () => {
     },
     [activeWorkspace, isReadOnly]
   );
+
+  const handleDiagnostics = useCallback((filePath: string, diags: any[]) => {
+    if (!filePath) return;
+    setProblems((prev) => {
+      const withoutCurrent = prev.filter((p) => p.filePath !== filePath);
+      const mapped = (diags || []).map((d, i) => ({
+        id: `${filePath}-${d.from || i}-${i}`,
+        filePath,
+        line: d.line || 1,
+        col: d.col || 1,
+        message: d.message,
+        severity:
+          d.severity === "error"
+            ? ("error" as const)
+            : d.severity === "warning"
+              ? ("warning" as const)
+              : ("info" as const),
+      }));
+      return [...withoutCurrent, ...mapped];
+    });
+  }, []);
 
   // Save file to host agent atomically
   const saveFile = useCallback(
@@ -1270,6 +1295,7 @@ export const IdeShell: React.FC = () => {
                 isSplit={uiLayout.isSplit}
                 showSplitButton={true}
                 onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+                onDiagnostics={(diags) => handleDiagnostics(primaryActiveTab || "", diags)}
                 onNavigateDefinition={(targetPath, line) =>
                   void openFile(targetPath, "primary", line)
                 }
@@ -1296,6 +1322,7 @@ export const IdeShell: React.FC = () => {
                   isSplit={true}
                   showSplitButton={false}
                   onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+                  onDiagnostics={(diags) => handleDiagnostics(secondaryActiveTab || "", diags)}
                 />
               )}
             </div>

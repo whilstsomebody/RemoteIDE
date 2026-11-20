@@ -86,3 +86,4 @@ export const TestRunResultSchema = z.object({
   coverage: CoverageSummarySchema.optional(),
 });
 export type TestRunResult = z.infer<typeof TestRunResultSchema>;
+

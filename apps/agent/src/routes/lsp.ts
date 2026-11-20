@@ -214,3 +214,4 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(edits);
   });
 };
+

@@ -138,7 +138,7 @@ export class TestRunnerService {
     };
 
     // Determine command & args based on framework in workspace
-    let command = "pnpm";
+    const command = "pnpm";
     let args: string[] = ["test"];
 
     if (failedOnly && this.lastRunResults.has(workspaceId)) {

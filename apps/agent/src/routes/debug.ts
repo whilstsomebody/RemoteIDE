@@ -140,3 +140,4 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ terminated: true, id: request.params.id });
   });
 };
+
