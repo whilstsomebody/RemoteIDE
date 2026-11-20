@@ -1,7 +1,7 @@
 "use client";
 
 import React, { useEffect, useRef, useMemo } from "react";
-import { EditorView } from "@codemirror/view";
+import { EditorView, keymap } from "@codemirror/view";
 import { EditorState } from "@codemirror/state";
 import {
   createEditorCompartments,
@@ -10,6 +10,12 @@ import {
 } from "../../lib/editor/codemirror-extensions";
 import { LanguageDefinition } from "../../lib/editor/language-registry";
 import { EditorThemeId, getEditorThemeExtension } from "../../lib/editor/themes";
+import {
+  buildLspExtensions,
+  executeGoToDefinition,
+  executeRename,
+} from "../../lib/editor/lsp-extension";
+import { LspDiagnostic } from "@remote-ide/shared";
 
 export interface CodeEditorProps {
   doc: string;
@@ -24,6 +30,10 @@ export interface CodeEditorProps {
   onCursorChange?: (line: number, col: number, selectionLength: number) => void;
   onSave?: () => void;
   onSaveAll?: () => void;
+  gatewayUrl?: string;
+  workspaceId?: string;
+  onDiagnostics?: (diags: LspDiagnostic[]) => void;
+  onNavigateDefinition?: (path: string, line: number, col: number) => void;
 }
 
 export const CodeEditor: React.FC<CodeEditorProps> = ({
@@ -39,6 +49,10 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
   onCursorChange,
   onSave,
   onSaveAll,
+  gatewayUrl,
+  workspaceId = "default",
+  onDiagnostics,
+  onNavigateDefinition,
 }) => {
   const containerRef = useRef<HTMLDivElement>(null);
   const viewRef = useRef<EditorView | null>(null);
@@ -68,6 +82,74 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     const compartments = createEditorCompartments();
     compartmentsRef.current = compartments;
 
+    const isLspSupported = /\.(ts|tsx|js|jsx|mjs|cjs|py|rs|go|c|cpp|h|hpp|java|cs)$/i.test(path);
+    const lspExtensions = isLspSupported
+      ? buildLspExtensions({
+          gatewayUrl,
+          workspaceId,
+          filePath: path,
+          languageId: language.id,
+          onDiagnostics,
+          onNavigateDefinition,
+        })
+      : [];
+
+    const lspKeymaps = keymap.of([
+      {
+        key: "F12",
+        run: (v) => {
+          const pos = v.state.selection.main.head;
+          const line = v.state.doc.lineAt(pos);
+          const lineNum = line.number;
+          const colNum = pos - line.from + 1;
+          executeGoToDefinition(gatewayUrl || "", workspaceId, path, lineNum, colNum).then(
+            (loc) => {
+              if (loc && onNavigateDefinition) {
+                onNavigateDefinition(loc.path, loc.line, loc.col);
+              }
+            }
+          );
+          return true;
+        },
+      },
+      {
+        key: "F2",
+        run: (v) => {
+          const pos = v.state.selection.main.head;
+          const line = v.state.doc.lineAt(pos);
+          const lineNum = line.number;
+          const colNum = pos - line.from + 1;
+          const newName = window.prompt("Rename symbol across workspace to:");
+          if (newName && newName.trim()) {
+            executeRename(
+              gatewayUrl || "",
+              workspaceId,
+              path,
+              lineNum,
+              colNum,
+              newName.trim()
+            ).then((changes) => {
+              if (changes && changes[path]) {
+                const edits = changes[path]!;
+                for (const edit of edits) {
+                  try {
+                    const startLine = v.state.doc.line(edit.range.start.line + 1);
+                    const from = startLine.from + edit.range.start.character;
+                    const endLine = v.state.doc.line(edit.range.end.line + 1);
+                    const to = endLine.from + edit.range.end.character;
+                    v.dispatch({ changes: { from, to, insert: edit.newText } });
+                  } catch {
+                    // Ignore
+                  }
+                }
+              }
+            });
+          }
+          return true;
+        },
+      },
+    ]);
+
     const extensions = buildEditorExtensions(
       {
         theme,
@@ -80,6 +162,7 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
           callbacksRef.current.onCursorChange?.(line, col, selLen),
         onSave: () => callbacksRef.current.onSave?.(),
         onSaveAll: () => callbacksRef.current.onSaveAll?.(),
+        extraExtensions: [...lspExtensions, lspKeymaps],
       },
       compartments
     );

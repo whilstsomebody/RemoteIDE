@@ -1,11 +1,33 @@
 "use client";
 
 import React from "react";
-import { Files, Search, Terminal, Settings, Server, GitBranch, Send, Globe } from "lucide-react";
+import {
+  Files,
+  Search,
+  Terminal,
+  Settings,
+  Server,
+  GitBranch,
+  Send,
+  Globe,
+  Bug,
+  FlaskConical,
+  Code2,
+} from "lucide-react";
 import { cn } from "@remote-ide/ui";
 
 export type ActivityTab =
-  "files" | "search" | "git" | "apiclient" | "preview" | "terminal" | "agent" | "settings";
+  | "files"
+  | "search"
+  | "git"
+  | "debug"
+  | "testing"
+  | "languages"
+  | "apiclient"
+  | "preview"
+  | "terminal"
+  | "agent"
+  | "settings";
 
 export interface ActivityBarProps {
   activeTab: ActivityTab | null;
@@ -27,6 +49,9 @@ export const ActivityBar: React.FC<ActivityBarProps> = ({
     { id: "files", label: "Explorer", icon: Files },
     { id: "search", label: "Search Workspace", icon: Search },
     { id: "git", label: "Source Control", icon: GitBranch, badge: gitBadgeCount },
+    { id: "debug", label: "Run & Debug", icon: Bug },
+    { id: "testing", label: "Testing", icon: FlaskConical },
+    { id: "languages", label: "Language Support", icon: Code2 },
     { id: "apiclient", label: "API Client", icon: Send },
     { id: "preview", label: "App Preview", icon: Globe },
     { id: "terminal", label: "Terminal", icon: Terminal },

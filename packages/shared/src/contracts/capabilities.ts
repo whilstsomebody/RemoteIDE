@@ -26,6 +26,10 @@ export enum Permission {
   PROCESS_CONTROL = "process:control",
   PORT_FORWARD = "port:forward",
   PREVIEW_ACCESS = "preview:access",
+  LSP_ACCESS = "lsp:access",
+  DEBUG_ACCESS = "debug:access",
+  DEBUG_EXECUTE = "debug:execute",
+  TEST_EXECUTE = "test:execute",
 
   // Legacy aliases
   TERMINAL_READ = "terminal:read",
@@ -52,6 +56,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROCESS_CONTROL,
     Permission.PORT_FORWARD,
     Permission.PREVIEW_ACCESS,
+    Permission.LSP_ACCESS,
+    Permission.DEBUG_ACCESS,
+    Permission.DEBUG_EXECUTE,
+    Permission.TEST_EXECUTE,
     Permission.TERMINAL_READ,
     Permission.TERMINAL_WRITE,
     Permission.PROCESS_SPAWN,
@@ -72,6 +80,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.PROCESS_CONTROL,
     Permission.PORT_FORWARD,
     Permission.PREVIEW_ACCESS,
+    Permission.LSP_ACCESS,
+    Permission.DEBUG_ACCESS,
+    Permission.DEBUG_EXECUTE,
+    Permission.TEST_EXECUTE,
     Permission.PROCESS_SPAWN,
     Permission.PROCESS_KILL,
   ],
@@ -87,6 +99,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.TASK_EXECUTE,
     Permission.PROCESS_CONTROL,
     Permission.PREVIEW_ACCESS,
+    Permission.LSP_ACCESS,
+    Permission.DEBUG_ACCESS,
+    Permission.DEBUG_EXECUTE,
+    Permission.TEST_EXECUTE,
   ],
   [UserRole.EDITOR]: [
     Permission.FS_READ,
@@ -95,8 +111,10 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GIT_OPERATION,
     Permission.GIT_READ,
     Permission.GIT_WRITE,
+    Permission.LSP_ACCESS,
+    Permission.TEST_EXECUTE,
   ],
-  [UserRole.VIEWER]: [Permission.FS_READ, Permission.GIT_READ],
+  [UserRole.VIEWER]: [Permission.FS_READ, Permission.GIT_READ, Permission.LSP_ACCESS],
 };
 
 export const HostAgentCapabilitiesSchema = z.object({

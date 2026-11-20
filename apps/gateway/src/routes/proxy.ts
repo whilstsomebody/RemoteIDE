@@ -32,8 +32,7 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
 
     if (!session) {
       if (!token) {
-        const isLoopback =
-          isLocalRequest(req);
+        const isLoopback = isLocalRequest(req);
 
         if (isLoopback && !authService.isOwnerBootstrapped()) {
           // Fallback local unauthenticated session for initial onboarding
@@ -58,6 +57,10 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
               Permission.PROCESS_CONTROL,
               Permission.PORT_FORWARD,
               Permission.PREVIEW_ACCESS,
+              Permission.LSP_ACCESS,
+              Permission.DEBUG_ACCESS,
+              Permission.DEBUG_EXECUTE,
+              Permission.TEST_EXECUTE,
             ],
             allowedWorkspaceIds: [],
             deviceName: "Local Host",
@@ -134,10 +137,19 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const segments = routeSegments(req.url);
-    if (segments[2] === "workspaces" &&
-        (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) &&
-        session.role !== UserRole.OWNER) {
-      return reply.status(403).send(createErrorEnvelope(ErrorCode.FORBIDDEN, "Only the owner can register or remove host workspaces"));
+    if (
+      segments[2] === "workspaces" &&
+      (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) &&
+      session.role !== UserRole.OWNER
+    ) {
+      return reply
+        .status(403)
+        .send(
+          createErrorEnvelope(
+            ErrorCode.FORBIDDEN,
+            "Only the owner can register or remove host workspaces"
+          )
+        );
     }
 
     // 3. Workspace scope boundary restriction
@@ -202,10 +214,13 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         reply.header("Content-Security-Policy", "sandbox allow-scripts allow-forms allow-popups");
         reply.header("Referrer-Policy", "no-referrer");
       }
-      return reply.status(response.statusCode).send(
-        response.bodyEncoding === "base64" && typeof response.body === "string"
-          ? Buffer.from(response.body, "base64") : response.body
-      );
+      return reply
+        .status(response.statusCode)
+        .send(
+          response.bodyEncoding === "base64" && typeof response.body === "string"
+            ? Buffer.from(response.body, "base64")
+            : response.body
+        );
     } catch (err: unknown) {
       if (err instanceof AppError) {
         return reply
@@ -232,4 +247,8 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.all("/api/v1/ports*", handleProxy);
   fastify.all("/api/v1/preview*", handleProxy);
   fastify.all("/api/v1/api-client*", handleProxy);
+  fastify.all("/api/v1/lsp*", handleProxy);
+  fastify.all("/api/v1/debug*", handleProxy);
+  fastify.all("/api/v1/tests*", handleProxy);
+  fastify.all("/api/v1/problems*", handleProxy);
 };

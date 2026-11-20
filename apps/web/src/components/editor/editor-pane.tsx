@@ -47,6 +47,8 @@ export interface EditorPaneProps {
   isSplit?: boolean;
   showSplitButton?: boolean;
   onNewUntitledFile?: () => void;
+  onDiagnostics?: (diags: any[]) => void;
+  onNavigateDefinition?: (path: string, line: number, col: number) => void;
 }
 
 export const EditorPane: React.FC<EditorPaneProps> = ({
@@ -69,6 +71,8 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
   isSplit = false,
   showSplitButton = true,
   onNewUntitledFile,
+  onDiagnostics,
+  onNavigateDefinition,
 }) => {
   const [markdownPreviewModes, setMarkdownPreviewModes] = useState<Record<string, boolean>>({});
 
@@ -226,6 +230,10 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
                       if (readOnly) return;
                       onSaveAll();
                     }}
+                    gatewayUrl={agentUrl}
+                    workspaceId={activeWorkspaceId || "default"}
+                    onDiagnostics={onDiagnostics}
+                    onNavigateDefinition={onNavigateDefinition}
                   />
                 </div>
               </div>

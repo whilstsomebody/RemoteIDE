@@ -12,6 +12,10 @@ import { gitRoutes } from "./routes/git.js";
 import { processRoutes } from "./routes/processes.js";
 import { portRoutes } from "./routes/ports.js";
 import { apiClientRoutes } from "./routes/api-client.js";
+import { lspRoutes } from "./routes/lsp.js";
+import { debugRoutes } from "./routes/debug.js";
+import { testRoutes } from "./routes/testing.js";
+import { problemsRoutes } from "./routes/problems.js";
 import { LocalJournalService } from "./services/local-journal.service.js";
 import { HostIdentityService } from "./services/host-identity.service.js";
 import { WorkspaceService } from "./services/workspace.service.js";
@@ -38,6 +42,22 @@ import {
   ApiClientService,
   apiClientService as defaultApiClientService,
 } from "./services/api-client.service.js";
+import {
+  LspManagerService,
+  lspManagerService as defaultLspManagerService,
+} from "./services/lsp/lsp-manager.service.js";
+import {
+  DapManagerService,
+  dapManagerService as defaultDapManagerService,
+} from "./services/debug/dap-manager.service.js";
+import {
+  TestRunnerService,
+  testRunnerService as defaultTestRunnerService,
+} from "./services/testing/test-runner.service.js";
+import {
+  ProblemsService,
+  problemsService as defaultProblemsService,
+} from "./services/problems/problems.service.js";
 import { SyncClientService } from "./services/sync-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
@@ -64,6 +84,10 @@ export interface AgentContext {
   processManagerService: ProcessManagerService;
   portForwardingService: PortForwardingService;
   apiClientService: ApiClientService;
+  lspService: LspManagerService;
+  dapService: DapManagerService;
+  testService: TestRunnerService;
+  problemsService: ProblemsService;
   syncClient: SyncClientService;
   terminalWsServer?: TerminalWsServer;
   tunnelTransport?: ITunnelTransport;
@@ -141,6 +165,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(processRoutes, { processManagerService: defaultProcessManagerService });
   await app.register(portRoutes, { portForwardingService: defaultPortForwardingService });
   await app.register(apiClientRoutes, { apiClientService: defaultApiClientService });
+  await app.register(lspRoutes, { lspService: defaultLspManagerService });
+  await app.register(debugRoutes, { dapService: defaultDapManagerService });
+  await app.register(testRoutes, { testService: defaultTestRunnerService });
+  await app.register(problemsRoutes, { problemsService: defaultProblemsService });
 
   // Terminal WebSocket server for direct local connections
   const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
@@ -173,6 +201,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     processManagerService: defaultProcessManagerService,
     portForwardingService: defaultPortForwardingService,
     apiClientService: defaultApiClientService,
+    lspService: defaultLspManagerService,
+    dapService: defaultDapManagerService,
+    testService: defaultTestRunnerService,
+    problemsService: defaultProblemsService,
     syncClient,
     terminalWsServer,
     tunnelTransport,

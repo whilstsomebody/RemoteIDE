@@ -1228,7 +1228,7 @@ export const IdeShell: React.FC = () => {
             if (!isReadOnly) setIsCloneRepoModalOpen(true);
           }}
           onRemoveWorkspace={handleRemoveWorkspace}
-          onSelectFile={(path) => void openFile(path, "primary")}
+          onSelectFile={(path, line) => void openFile(path, "primary", line)}
           onOpenToSide={(path) => {
             updateUiLayout({ isSplit: true });
             void openFile(path, "secondary");
@@ -1270,6 +1270,9 @@ export const IdeShell: React.FC = () => {
                 isSplit={uiLayout.isSplit}
                 showSplitButton={true}
                 onNewUntitledFile={isReadOnly ? undefined : handleCreateUntitledFile}
+                onNavigateDefinition={(targetPath, line) =>
+                  void openFile(targetPath, "primary", line)
+                }
               />
 
               {/* Secondary Editor Pane (Split View) */}

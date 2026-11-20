@@ -27,6 +27,10 @@ export function requiredRequestPermission(method: string, url: string, body?: un
   if (resource === "processes") return read ? Permission.FS_READ : Permission.PROCESS_CONTROL;
   if (resource === "ports") return read ? Permission.FS_READ : Permission.PORT_FORWARD;
   if (resource === "preview") return Permission.PREVIEW_ACCESS;
+  if (resource === "lsp") return Permission.LSP_ACCESS;
+  if (resource === "debug") return read ? Permission.DEBUG_ACCESS : Permission.DEBUG_EXECUTE;
+  if (resource === "tests") return read ? Permission.FS_READ : Permission.TEST_EXECUTE;
+  if (resource === "problems") return Permission.FS_READ;
   if (resource === "api-client") return Permission.TASK_EXECUTE;
   if (resource === "jobs") return read ? Permission.FS_READ : Permission.TASK_EXECUTE;
   if (method === "DELETE") return Permission.FS_DELETE;

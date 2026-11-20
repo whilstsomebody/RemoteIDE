@@ -37,6 +37,11 @@ export enum WsMessageType {
   // Device & Catchup sync
   DEVICE_PRESENCE = "device:presence",
   DEVICE_SYNC_CURSOR = "device:sync_cursor",
+
+  // LSP & Debugger streams
+  LSP_NOTIFICATION = "lsp:notification",
+  DEBUG_EVENT = "debug:event",
+  TEST_EVENT = "test:event",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

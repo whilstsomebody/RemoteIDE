@@ -22,6 +22,7 @@ import { ProcessPanel } from "../processes/process-panel";
 import { PortsPanel } from "../preview/ports-panel";
 import { PreviewTab } from "../preview/preview-tab";
 import { ApiClientPanel } from "../api-client/api-client-panel";
+import { ProblemsPanel } from "../problems/problems-panel";
 
 export type BottomPanelTab =
   "terminal" | "tasks" | "processes" | "ports" | "preview" | "apiclient" | "output" | "problems";
@@ -346,34 +347,30 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         )}
 
         {activeTab === "problems" && (
-          <div className="space-y-1">
-            {problems.length === 0 ? (
-              <div className="text-zinc-500 italic py-4 text-center">
-                No problems detected in open documents.
-              </div>
-            ) : (
-              problems.map((prob) => (
-                <div
-                  key={prob.id}
-                  onClick={() => onSelectProblem?.(prob)}
-                  className="flex items-center gap-2 px-2 py-1.5 rounded hover:bg-zinc-900 cursor-pointer transition-colors text-[11px]"
-                >
-                  <AlertCircle
-                    className={cn(
-                      "w-3.5 h-3.5 shrink-0",
-                      prob.severity === "error" ? "text-rose-400" : "text-amber-400"
-                    )}
-                  />
-                  <span className="text-zinc-400 font-medium shrink-0">{prob.filePath}</span>
-                  {prob.line !== undefined && (
-                    <span className="text-zinc-600 select-none">
-                      ({prob.line}:{prob.col || 1})
-                    </span>
-                  )}
-                  <span className="text-zinc-200 truncate flex-1">{prob.message}</span>
-                </div>
-              ))
-            )}
+          <div className="h-full w-full">
+            <ProblemsPanel
+              problems={problems.map((p) => ({
+                id: p.id,
+                workspaceId: "default",
+                filePath: p.filePath,
+                line: p.line || 1,
+                col: p.col || 1,
+                message: p.message,
+                severity: p.severity,
+                source: (p as any).source || "lsp",
+                code: (p as any).code,
+              }))}
+              onSelectProblem={(p) =>
+                onSelectProblem?.({
+                  id: p.id,
+                  filePath: p.filePath,
+                  line: p.line,
+                  col: p.col,
+                  message: p.message,
+                  severity: p.severity === "hint" ? "info" : p.severity,
+                })
+              }
+            />
           </div>
         )}
       </div>

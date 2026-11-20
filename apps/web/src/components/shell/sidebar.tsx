@@ -11,6 +11,9 @@ import { SearchPanel } from "../workspace/search-panel";
 import { SettingsPanel } from "./settings-panel";
 import { SourceControlPanel } from "../git/source-control-panel";
 import { EditorSettings } from "../../lib/storage/settings-storage";
+import { DebuggerPanel } from "../debug/debugger-panel";
+import { TestExplorerPanel } from "../testing/test-explorer-panel";
+import { LanguageSupportPanel } from "../lsp/language-support-panel";
 
 export interface SidebarProps {
   activeTab: ActivityTab | null;
@@ -172,6 +175,32 @@ export const Sidebar: React.FC<SidebarProps> = ({
             gatewayUrl={agentUrl}
             workspacePath={activeWorkspace?.folders?.[0]?.path}
             onRefreshWorkspace={onRefreshFiles}
+          />
+        )}
+
+        {activeTab === "debug" && (
+          <DebuggerPanel
+            gatewayUrl={agentUrl}
+            workspaceId={activeWorkspace?.id || "default"}
+            currentFilePath={selectedPath || ""}
+            onNavigateToFile={onSelectFile}
+          />
+        )}
+
+        {activeTab === "testing" && (
+          <TestExplorerPanel
+            gatewayUrl={agentUrl}
+            workspacePath={activeWorkspace?.folders?.[0]?.path}
+            workspaceId={activeWorkspace?.id || "default"}
+            onNavigateToFile={onSelectFile}
+          />
+        )}
+
+        {activeTab === "languages" && (
+          <LanguageSupportPanel
+            gatewayUrl={agentUrl}
+            workspacePath={activeWorkspace?.folders?.[0]?.path}
+            workspaceId={activeWorkspace?.id || "default"}
           />
         )}
 

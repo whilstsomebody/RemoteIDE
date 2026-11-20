@@ -17,6 +17,10 @@ export * from "./contracts/process.js";
 export * from "./contracts/preview.js";
 export * from "./contracts/api-client.js";
 export * from "./contracts/catchup.js";
+export * from "./contracts/lsp.js";
+export * from "./contracts/debug.js";
+export * from "./contracts/testing.js";
+export * from "./contracts/problems.js";
 
 // Utils
 export * from "./utils/id.js";

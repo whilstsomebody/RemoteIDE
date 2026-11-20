@@ -39,6 +39,7 @@ export interface EditorExtensionConfig {
   onCursorChange?: (line: number, col: number, selectionLength: number) => void;
   onSave?: () => void;
   onSaveAll?: () => void;
+  extraExtensions?: Extension[];
 }
 
 export interface EditorCompartments {
@@ -138,5 +139,7 @@ export function buildEditorExtensions(
       ...foldKeymap,
       ...completionKeymap,
     ]),
+
+    ...(config.extraExtensions || []),
   ];
 }
