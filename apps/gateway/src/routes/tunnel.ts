@@ -1,6 +1,6 @@
-import { authenticateAgent } from "../services/request-auth.js";
+import { authenticateAgent, authenticateClient } from "../services/request-auth.js";
 import { FastifyPluginAsync } from "fastify";
-import { createSuccessEnvelope, TunnelMessageType } from "@remote-ide/shared";
+import { createErrorEnvelope, createSuccessEnvelope, ErrorCode, TunnelMessageType } from "@remote-ide/shared";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 
 export const tunnelRoutes: FastifyPluginAsync = async (fastify) => {
@@ -50,8 +50,11 @@ export const tunnelRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // 2. Tunnel Status Query
-  fastify.get("/api/v1/tunnel/status", async (_req, reply) => {
+  // Capabilities expose host OS, shell and allowed paths, so this is not a public probe.
+  fastify.get("/api/v1/tunnel/status", async (req, reply) => {
+    if (!authenticateClient(req)) {
+      return reply.status(401).send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Authentication required"));
+    }
     const status = tunnelRelayService.getHostStatus("local-host-agent");
     return reply.send(createSuccessEnvelope(status));
   });

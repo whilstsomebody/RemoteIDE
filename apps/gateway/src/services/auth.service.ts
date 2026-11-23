@@ -22,7 +22,7 @@ import {
   AppError,
   ErrorCode,
 } from "@remote-ide/shared";
-import { hashPassword, verifyPassword } from "./crypto.js";
+import { hashPassword, verifyPassword, safeCompare } from "./crypto.js";
 import { auditService } from "./audit.service.js";
 import { tunnelRelayService } from "./tunnel-relay.service.js";
 
@@ -60,6 +60,8 @@ export interface StoredSession {
   lastActiveAt: string;
 }
 
+const MAX_MFA_ATTEMPTS_PER_TICKET = 5;
+
 export class AuthService {
   private users = new Map<string, StoredUser>(); // email -> StoredUser
   private sessions = new Map<string, StoredSession>(); // sessionId -> StoredSession
@@ -68,7 +70,7 @@ export class AuthService {
   private pendingMfaSetup = new Map<string, { secret: string; backupCodes: string[]; expiresAt: number }>();
   private pendingMfaTickets = new Map<
     string,
-    { userId: string; expiresAt: number; deviceName?: string; ipAddress: string; userAgent?: string }
+    { userId: string; expiresAt: number; deviceName?: string; ipAddress: string; userAgent?: string; attempts: number }
   >();
   private localSetupToken: string;
   private onSessionRevoked?: (sessionId: string) => void;
@@ -158,8 +160,7 @@ export class AuthService {
       );
     }
 
-    // 2. Validate setup token
-    if (params.localSetupToken !== this.localSetupToken) {
+    if (!safeCompare(params.localSetupToken, this.localSetupToken)) {
       auditService.record(AuditEventType.OWNER_BOOTSTRAP, "anonymous", {
         ipAddress: params.remoteIp,
         metadata: { status: "rejected_invalid_setup_token" },
@@ -266,13 +267,18 @@ export class AuthService {
     this.failedAttempts.delete(rateLimitKey);
 
     if (user.mfaEnabled) {
+      const now = Date.now();
+      for (const [id, t] of this.pendingMfaTickets) {
+        if (t.expiresAt < now) this.pendingMfaTickets.delete(id);
+      }
       const mfaTicket = `mfa_${generateSecureRandomToken(16)}`;
       this.pendingMfaTickets.set(mfaTicket, {
         userId: user.id,
-        expiresAt: Date.now() + 5 * 60 * 1000,
+        expiresAt: now + 5 * 60 * 1000,
         deviceName: params.deviceName,
         ipAddress: params.ipAddress,
         userAgent: params.userAgent,
+        attempts: 0,
       });
       return {
         mfaRequired: true,
@@ -525,6 +531,9 @@ export class AuthService {
     }
 
     if (!isTotpValid && !isBackupValid) {
+      // Cap guesses per ticket so the 6-digit TOTP space cannot be brute-forced within its lifetime.
+      ticket.attempts += 1;
+      if (ticket.attempts >= MAX_MFA_ATTEMPTS_PER_TICKET) this.pendingMfaTickets.delete(mfaTicket);
       throw new AppError(ErrorCode.UNAUTHORIZED, "Invalid MFA code or backup recovery code.");
     }
 

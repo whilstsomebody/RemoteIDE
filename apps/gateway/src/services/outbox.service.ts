@@ -313,6 +313,8 @@ export class OutboxService {
     for (const [id, ev] of this.memoryEvents.entries()) {
       if (ev.workspaceId === workspaceId && ev.createdAt < dateStr) {
         this.memoryEvents.delete(id);
+        // Published outbox rows are otherwise retained (and re-persisted) forever.
+        if (this.memoryOutbox.get(id)?.status === "published") this.memoryOutbox.delete(id);
         prunedCount++;
       }
     }

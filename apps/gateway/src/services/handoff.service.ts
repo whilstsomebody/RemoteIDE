@@ -26,6 +26,9 @@ export class HandoffService {
   }): HandoffPayload {
     const handoffId = generateId("hoff");
     const now = new Date();
+    for (const [id, h] of this.handoffs) {
+      if (new Date(h.expiresAt).getTime() <= now.getTime()) this.handoffs.delete(id);
+    }
     const expiresAt = new Date(now.getTime() + (params.dto.expiresInSeconds || 600) * 1000);
 
     const payload: StoredHandoff = {

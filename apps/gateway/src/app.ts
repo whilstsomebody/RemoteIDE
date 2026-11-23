@@ -24,6 +24,13 @@ import { telemetryService } from "./services/telemetry.service.js";
 import { rateLimiterService } from "./services/rate-limiter.service.js";
 import { REDIS_CHANNELS } from "@remote-ide/shared";
 
+const AUTH_RATE_LIMITED_ROUTES = new Set([
+  "/api/v1/auth/login",
+  "/api/v1/auth/bootstrap",
+  "/api/v1/auth/mfa/authenticate",
+  "/api/v1/share-links/redeem",
+]);
+
 export async function buildApp(opts: FastifyServerOptions = {}): Promise<FastifyInstance> {
   const app = fastify({
     disableRequestLogging: true,
@@ -89,7 +96,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     // Classify by the matched route pattern, not the raw URL: percent-encoded paths
     // (e.g. /auth/%6cogin) still route to the handler but would evade substring checks.
     const clientIp = req.ip || "127.0.0.1";
-    const isAuthEndpoint = req.url.includes("/auth/login") || req.url.includes("/auth/bootstrap") || req.url.includes("/share-links/redeem");
+    const routeUrl = req.routeOptions?.url;
+    const isAuthEndpoint = !!routeUrl && AUTH_RATE_LIMITED_ROUTES.has(routeUrl);
     const rule = isAuthEndpoint ? rateLimiterService.defaultRules.auth : rateLimiterService.defaultRules.api;
     const key = `${clientIp}:${isAuthEndpoint ? "auth" : "api"}`;
     const rateCheck = rateLimiterService.checkLimit(key, rule);
@@ -112,7 +120,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   app.addHook("onResponse", async (req, reply) => {
     const startTime = (req as any)._startTime || Date.now();
     const durationMs = Date.now() - startTime;
-    const route = req.routeOptions?.url || req.url.split("?")[0] || "/";
+    // Unmatched URLs share one label so arbitrary paths cannot grow the metrics map unbounded.
+    const route = req.routeOptions?.url || "unmatched";
     telemetryService.recordHttpRequest(req.method, route, reply.statusCode, durationMs);
   });
   await app.register(websocket);

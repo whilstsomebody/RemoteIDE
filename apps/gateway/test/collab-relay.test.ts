@@ -196,5 +196,32 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
 
     expect(room.participants.has(wsTarget)).toBe(false);
   });
-});
 
+  it("6. Demoted, kicked, or never-joined sockets cannot submit edits", () => {
+    const wsOwner = new MockWs() as any;
+    const wsTarget = new MockWs() as any;
+    const wsOutsider = new MockWs() as any;
+    const update = Buffer.from(Y.encodeStateAsUpdate(new Y.Doc())).toString("base64");
+
+    collabRelay.join(wsOwner, { workspaceId, filePath }, { id: "s-o", userId: "owner-1", role: "owner" });
+    collabRelay.join(wsTarget, { workspaceId, filePath }, { id: "s-t", userId: "target-1", role: "editor" });
+
+    collabRelay.handleRoleAssign(
+      wsOwner,
+      { workspaceId, filePath, targetUserId: "target-1", newRole: "viewer" },
+      { role: "owner" }
+    );
+    expect(() =>
+      collabRelay.handleUpdate(wsTarget, { workspaceId, filePath, update }, { role: "editor", userId: "target-1" })
+    ).toThrow(AppError);
+
+    collabRelay.handleKick(wsOwner, { workspaceId, filePath, targetUserId: "target-1" }, { role: "owner" });
+    expect(() =>
+      collabRelay.handleUpdate(wsTarget, { workspaceId, filePath, update }, { role: "editor", userId: "target-1" })
+    ).toThrow(AppError);
+
+    expect(() =>
+      collabRelay.handleUpdate(wsOutsider, { workspaceId, filePath, update }, { role: "editor", userId: "outsider" })
+    ).toThrow(AppError);
+  });
+});

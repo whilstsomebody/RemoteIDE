@@ -2,6 +2,8 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { buildApp } from "../src/app.js";
 import { authService } from "../src/services/auth.service.js";
 import { tunnelRelayService } from "../src/services/tunnel-relay.service.js";
+import { rateLimiterService } from "../src/services/rate-limiter.service.js";
+import { aiAssistantService } from "../src/services/ai-assistant.service.js";
 import { ROLE_PERMISSIONS, UserRole } from "@remote-ide/shared";
 import type { FastifyInstance } from "fastify";
 
@@ -46,6 +48,40 @@ describe("authorization regressions", () => {
   it("rejects untrusted origins before state-changing routes", async () => {
     const response = await app.inject({ method: "POST", url: "/api/v1/auth/logout", headers: { origin: "http://localhost:3000.attacker.example" } });
     expect(response.statusCode).toBe(403);
+  });
+  it("applies the auth rate limit to percent-encoded auth paths", async () => {
+    rateLimiterService.reset();
+    let last = 0;
+    for (let i = 0; i <= rateLimiterService.defaultRules.auth.limit; i++) {
+      last = (await app.inject({ method: "POST", url: "/api/v1/auth/%6cogin", remoteAddress: "198.51.100.7", payload: {} })).statusCode;
+    }
+    expect(last).toBe(429);
+    rateLimiterService.reset();
+  });
+  it("does not forward session credentials across the tunnel", async () => {
+    const sessionToken = token(UserRole.OWNER);
+    const forward = vi.spyOn(tunnelRelayService, "forwardRequest").mockResolvedValue({ correlationId: "rpc", statusCode: 200, body: {} });
+    await app.inject({ url: "/api/v1/workspaces", headers: { authorization: `Bearer ${sessionToken}`, cookie: `remoteide_session=${sessionToken}` } });
+    const headers = forward.mock.calls[0]![1].headers as Record<string, string>;
+    expect(headers.authorization).toBeUndefined();
+    expect(headers.cookie).toBeUndefined();
+    expect(headers["x-remoteide-role"]).toBe(UserRole.OWNER);
+  });
+  it("requires authentication for tunnel status", async () => {
+    const response = await app.inject({ url: "/api/v1/tunnel/status", remoteAddress: "203.0.113.1" });
+    expect(response.statusCode).toBe(401);
+  });
+  it("refuses to append prompts to another user's AI conversation", async () => {
+    aiAssistantService.setMockGenerator(async function* () { yield "ok"; });
+    try {
+      const conv = await aiAssistantService.createConversation("ws", "victim", "Private");
+      const events = [];
+      for await (const evt of aiAssistantService.streamPrompt(conv.id, "attacker", "inject")) events.push(evt);
+      expect(events[0]?.code).toBe("NOT_FOUND");
+      expect((await aiAssistantService.getConversation(conv.id, "victim"))?.messages).toHaveLength(0);
+    } finally {
+      aiAssistantService.setMockGenerator(null);
+    }
   });
   it("preserves binary proxy responses", async () => {
     const bytes = Buffer.from([0, 255, 128, 1]);

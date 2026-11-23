@@ -73,7 +73,10 @@ export class AiAssistantService {
         correlationId,
         payload,
       };
-      void kafkaService.publishEvent(KafkaTopic.WORKSPACE_EVENTS, event);
+      // Must observe the rejection: publishEvent throws when Kafka is down and fallback is off.
+      kafkaService.publishEvent(KafkaTopic.WORKSPACE_EVENTS, event).catch((err) => {
+        this.logger.warn({ err, type }, "Failed to publish AI milestone event");
+      });
     } catch {
       // Non-critical background event
     }
@@ -409,8 +412,8 @@ export class AiAssistantService {
   }
 
   public async deleteConversation(conversationId: string, userId: string): Promise<boolean> {
-    const mem = this.inMemoryConversations.get(conversationId);
-    if (mem && mem.userId !== userId) return false;
+    // Covers DB-only conversations too; the message delete below is not scoped by user.
+    if (!(await this.getConversation(conversationId, userId))) return false;
 
     this.inMemoryConversations.delete(conversationId);
     this.inMemoryMessages.delete(conversationId);
@@ -533,7 +536,17 @@ export class AiAssistantService {
         return;
       }
 
-      // 2. Save user message to DB
+      // Ownership must be checked before writing: addMessage is keyed only by conversationId.
+      if (!(await this.getConversation(conversationId, userId))) {
+        yield {
+          type: "error",
+          code: "NOT_FOUND",
+          error: "Conversation not found",
+          messageId: assistantMessageId,
+        };
+        return;
+      }
+
       await this.addMessage(conversationId, AiRole.USER, userPrompt, context);
 
       const historyData = await this.getConversation(conversationId, userId);

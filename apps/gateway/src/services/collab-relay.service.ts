@@ -34,6 +34,8 @@ export interface CollabRoom {
   conflictStatus?: CollabConflictStatus;
 }
 
+const COLLAB_ROLES: readonly CollabRole[] = ["owner", "editor", "viewer"];
+
 export class CollabRelayService {
   private rooms = new Map<string, CollabRoom>();
   private socketToRooms = new Map<WebSocket, Set<string>>();
@@ -167,7 +169,11 @@ export class CollabRelayService {
     payload: { workspaceId: string; filePath: string; update: string },
     session: { role: CollabRole; userId: string }
   ): { applied: boolean } {
-    if (session.role === "viewer") {
+    // Enforce the in-room role as well as the session role, so participants demoted or
+    // kicked by the document owner (or sockets that never joined) cannot keep writing.
+    const room = this.getRoom(payload.workspaceId, payload.filePath);
+    const participant = room?.participants.get(socket);
+    if (session.role === "viewer" || participant?.role === "viewer") {
       socket.send(
         JSON.stringify(
           createWsMessage(WsMessageType.ERROR, {
@@ -182,9 +188,11 @@ export class CollabRelayService {
       );
     }
 
-    const room = this.getRoom(payload.workspaceId, payload.filePath);
     if (!room) {
       throw new AppError(ErrorCode.BAD_REQUEST, "No active collaborative room for file");
+    }
+    if (!participant) {
+      throw new AppError(ErrorCode.FORBIDDEN, "Join the collaborative room before submitting edits");
     }
 
     const updateBytes = Buffer.from(payload.update, "base64");
@@ -269,6 +277,9 @@ export class CollabRelayService {
         )
       );
       throw new AppError(ErrorCode.FORBIDDEN, "Only the document owner can change roles");
+    }
+    if (!COLLAB_ROLES.includes(payload.newRole)) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "Invalid collaborative role");
     }
 
     const room = this.getRoom(payload.workspaceId, payload.filePath);
@@ -448,7 +459,11 @@ export class CollabRelayService {
         payload: data,
       };
 
-      void this.kafkaService.publishEvent(KafkaTopic.WORKSPACE_EVENTS, event);
+      // publishEvent rejects when Kafka is down and fallback is disabled; an unobserved
+      // rejection would crash the process.
+      this.kafkaService.publishEvent(KafkaTopic.WORKSPACE_EVENTS, event).catch((err) => {
+        logger.warn({ err, type }, "Failed to publish collaborative milestone to Kafka");
+      });
     } catch (err) {
       logger.warn({ err, type }, "Failed to publish collaborative milestone to Kafka");
     }

@@ -26,6 +26,7 @@ export interface StoredShareLink {
   expiresAt: string;
   oneTimeRedemption: boolean;
   pinHash?: string;
+  failedPinAttempts?: number;
   maxConcurrentSessions: number;
   usedCount: number;
   isRevoked: boolean;
@@ -34,6 +35,8 @@ export interface StoredShareLink {
   createdAt: string;
   lastUsedAt?: string;
 }
+
+const MAX_FAILED_PIN_ATTEMPTS = 5;
 
 export class ShareLinkService {
   private links = new Map<string, StoredShareLink>(); // id -> StoredShareLink
@@ -147,6 +150,14 @@ export class ShareLinkService {
     }
 
     if (link.pinHash) {
+      // Short numeric PINs are trivially enumerable; lock the link after repeated misses.
+      if ((link.failedPinAttempts ?? 0) >= MAX_FAILED_PIN_ATTEMPTS) {
+        throw new AppError(
+          ErrorCode.RATE_LIMITED,
+          "Too many invalid PIN attempts. This access link has been locked.",
+          { statusCode: 429 }
+        );
+      }
       if (!dto.pin) {
         throw new AppError(ErrorCode.UNAUTHORIZED, "This link requires a PIN/Passphrase", {
           statusCode: 401,
@@ -155,6 +166,8 @@ export class ShareLinkService {
       }
       const candidatePinHash = sha256Sync(`${dto.pin.trim()}:${tokenHash}`);
       if (!safeCompare(candidatePinHash, link.pinHash)) {
+        link.failedPinAttempts = (link.failedPinAttempts ?? 0) + 1;
+        this.persist();
         auditService.record(AuditEventType.SHARE_LINK_REDEEMED, "anonymous", {
           targetId: link.id,
           ipAddress,
@@ -177,6 +190,7 @@ export class ShareLinkService {
       );
     }
 
+    link.failedPinAttempts = 0;
     link.usedCount += 1;
     link.lastUsedAt = new Date().toISOString();
     this.persist();

@@ -93,8 +93,8 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       createSuccessEnvelope({
         isBootstrapped,
         isLocal: isLoopback,
-        // Only disclose local setup token if accessed directly from loopback
-        localSetupToken: isLoopback ? authService.getSetupToken() : undefined,
+        // Only disclose local setup token to direct loopback callers, and only while it is still usable
+        localSetupToken: isLoopback && !isBootstrapped ? authService.getSetupToken() : undefined,
       })
     );
   });
@@ -162,6 +162,13 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         ipAddress: req.ip,
         userAgent: req.headers["user-agent"],
       });
+
+      // MFA-enabled accounts get a short-lived ticket instead of a session; the second
+      // factor is completed via /auth/mfa/authenticate.
+      const mfa = result as unknown as { mfaRequired?: boolean; mfaTicket?: string };
+      if (mfa.mfaRequired) {
+        return reply.send(createSuccessEnvelope({ mfaRequired: true, mfaTicket: mfa.mfaTicket }));
+      }
 
       reply.header(
         "Set-Cookie",

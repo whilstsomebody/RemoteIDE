@@ -10,6 +10,7 @@ import {
   UserRole,
   DevicePresenceState,
   CollabRole,
+  SendAiPromptSchema,
 } from "@remote-ide/shared";
 import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
@@ -181,6 +182,21 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
           case WsMessageType.COLLAB_JOIN: {
             const p = msg.payload as any;
             if (p && p.workspaceId && p.filePath) {
+              if (
+                session.allowedWorkspaceIds.length > 0 &&
+                !session.allowedWorkspaceIds.includes(p.workspaceId)
+              ) {
+                socket.send(
+                  JSON.stringify(
+                    createWsMessage(
+                      WsMessageType.ERROR,
+                      { code: "FORBIDDEN", message: "Workspace access denied" },
+                      { correlationId: msg.id }
+                    )
+                  )
+                );
+                break;
+              }
               const res = collabRelayService.join(
                 socket,
                 {
@@ -294,8 +310,9 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
           }
 
           case WsMessageType.AI_PROMPT: {
-            const p = msg.payload as any;
-            if (p && p.conversationId && p.prompt) {
+            const parsed = SendAiPromptSchema.safeParse(msg.payload);
+            if (parsed.success) {
+              const p = parsed.data;
               const stream = aiAssistantService.streamPrompt(
                 p.conversationId,
                 session.userId,

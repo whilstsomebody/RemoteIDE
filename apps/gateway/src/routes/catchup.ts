@@ -12,6 +12,13 @@ import {
 import { catchupService } from "../services/catchup.service.js";
 import { authenticateClient } from "../services/request-auth.js";
 
+// Device IDs are client-chosen, so a registered device may only be read, re-registered
+// or have its cursors advanced by the user who registered it.
+function deviceOwnedByOther(deviceId: string, userId: string): boolean {
+  const device = catchupService.getDevice(deviceId);
+  return !!device && device.userId !== userId;
+}
+
 export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.post("/api/v1/catchup/device", async (req, reply) => {
     const session = authenticateClient(req);
@@ -26,6 +33,12 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
       return reply
         .status(400)
         .send(createErrorResponse(ErrorCode.VALIDATION_ERROR, parse.error.message));
+    }
+
+    if (deviceOwnedByOther(parse.data.deviceId, session.userId)) {
+      return reply
+        .status(403)
+        .send(createErrorResponse(ErrorCode.FORBIDDEN, "Device is registered to another user"));
     }
 
     const device = catchupService.registerDevice({
@@ -56,7 +69,7 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     }
 
     const device = catchupService.getDevice(query.deviceId);
-    if (!device) {
+    if (!device || device.userId !== session.userId) {
       return reply.status(404).send(createErrorResponse(ErrorCode.NOT_FOUND, "Device not found"));
     }
 
@@ -113,6 +126,10 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
         .send(createErrorResponse(ErrorCode.FORBIDDEN, "Workspace access denied"));
     }
 
+    if (deviceOwnedByOther(deviceId, session.userId)) {
+      return reply.status(403).send(createErrorResponse(ErrorCode.FORBIDDEN, "Device access denied"));
+    }
+
     try {
       const summary = catchupService.generateCatchup({
         deviceId,
@@ -150,6 +167,10 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
       return reply
         .status(403)
         .send(createErrorResponse(ErrorCode.FORBIDDEN, "Workspace access denied"));
+    }
+
+    if (deviceOwnedByOther(parse.data.deviceId, session.userId)) {
+      return reply.status(403).send(createErrorResponse(ErrorCode.FORBIDDEN, "Device access denied"));
     }
 
     const result = catchupService.acknowledgeCatchup(parse.data);

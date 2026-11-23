@@ -126,6 +126,22 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
 
     await app.close();
   });
+  it("locks a PIN-protected link after repeated wrong PINs", () => {
+    const { rawToken } = shareLinkService.createShareLink("owner", {
+      name: "PIN Lockout",
+      role: UserRole.VIEWER,
+      allowedWorkspaceIds: [],
+      expiresInSeconds: 3600,
+      oneTimeRedemption: false,
+      pin: "8492",
+      maxConcurrentSessions: 10,
+    });
+    for (let i = 0; i < 5; i++) {
+      expect(() => shareLinkService.redeemShareLink({ token: rawToken, pin: "0000" }, "203.0.113.9")).toThrow(/Invalid PIN/);
+    }
+    expect(() => shareLinkService.redeemShareLink({ token: rawToken, pin: "8492" }, "203.0.113.9")).toThrow(/locked/);
+  });
+
   it("counts concurrent sessions per link and never delegates owner access", async () => {
     const app = await buildApp({ logger: false });
     try {

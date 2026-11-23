@@ -15,6 +15,29 @@ import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 import { auditService } from "../services/audit.service.js";
 
+// The agent authorizes via authContext, so credentials never need to cross the tunnel.
+// content-length must be dropped because the body is re-serialized on the agent side and
+// a stale length makes the agent reject the request. host/origin were already validated
+// here; the agent only accepts loopback hosts and local UI origins, so forwarding the
+// public values would make it reject every proxied request behind a reverse proxy.
+const STRIPPED_FORWARD_HEADERS = new Set([
+  "authorization",
+  "cookie",
+  "content-length",
+  "transfer-encoding",
+  "connection",
+  "host",
+  "origin",
+]);
+
+function forwardableHeaders(headers: Record<string, string>): Record<string, string> {
+  const out: Record<string, string> = {};
+  for (const [k, v] of Object.entries(headers)) {
+    if (!STRIPPED_FORWARD_HEADERS.has(k.toLowerCase())) out[k] = v;
+  }
+  return out;
+}
+
 export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
   const handleProxy = async (req: FastifyRequest, reply: FastifyReply) => {
     const authHeader = req.headers.authorization;
@@ -181,7 +204,7 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         path: req.url,
         query: req.query as Record<string, string | string[]>,
         headers: {
-          ...(req.headers as Record<string, string>),
+          ...forwardableHeaders(req.headers as Record<string, string>),
           "x-remoteide-session-id": session.id,
           "x-remoteide-role": session.role,
         },
