@@ -140,7 +140,6 @@ export class AuthService {
     remoteIp: string;
     userAgent?: string;
   }): Promise<{ user: StoredUser; session: RemoteSession; sessionToken: string }> {
-    // 1. MUST only be called from loopback
     const isLoopback =
       params.remoteIp === "127.0.0.1" ||
       params.remoteIp === "::1" ||
@@ -170,7 +169,6 @@ export class AuthService {
       });
     }
 
-    // 3. Ensure not already bootstrapped
     if (this.isOwnerBootstrapped()) {
       throw new AppError(
         ErrorCode.BAD_REQUEST,
@@ -181,7 +179,6 @@ export class AuthService {
       );
     }
 
-    // 4. Create owner
     const passwordHash = await hashPassword(params.password);
     if (this.isOwnerBootstrapped()) {
       throw new AppError(ErrorCode.CONFLICT, "Owner account is already initialized", {
@@ -208,7 +205,6 @@ export class AuthService {
       metadata: { email: params.email },
     });
 
-    // 5. Create initial owner session
     const { session, sessionToken } = this.createSessionInternal({
       userId,
       hostId: "local-host-agent",
@@ -235,7 +231,6 @@ export class AuthService {
     const emailKey = params.email.toLowerCase();
     const rateLimitKey = `${params.ipAddress}:${emailKey}`;
 
-    // Rate limit check
     const rateLimit = this.failedAttempts.get(rateLimitKey);
     if (rateLimit && rateLimit.lockedUntil > Date.now()) {
       const waitSec = Math.ceil((rateLimit.lockedUntil - Date.now()) / 1000);
@@ -268,7 +263,6 @@ export class AuthService {
       throw new AppError(ErrorCode.UNAUTHORIZED, "Invalid email or password", { statusCode: 401 });
     }
 
-    // Success -> Clear rate limit
     this.failedAttempts.delete(rateLimitKey);
 
     if (user.mfaEnabled) {
@@ -372,10 +366,8 @@ export class AuthService {
     const stored = this.sessions.get(sessionId);
     if (!stored) return null;
 
-    // Check revocation
     if (stored.isRevoked) return null;
 
-    // Check expiry
     if (new Date(stored.expiresAt).getTime() < Date.now()) {
       auditService.record(AuditEventType.SESSION_EXPIRED, stored.userId, {
         targetId: stored.id,

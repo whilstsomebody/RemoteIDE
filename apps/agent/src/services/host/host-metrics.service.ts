@@ -411,7 +411,6 @@ export class HostMetricsService {
   }
 
   private checkAlerts(metrics: HostMetrics): void {
-    // 1. Low disk alert
     if (metrics.disk.usedPercent >= this.diskThresholdPercent) {
       this.triggerAlert({
         id: "alert-disk-low",
@@ -425,7 +424,6 @@ export class HostMetricsService {
       });
     }
 
-    // 2. High CPU alert
     if (metrics.cpu.usagePercent >= this.cpuThresholdPercent) {
       this.triggerAlert({
         id: "alert-cpu-high",
@@ -439,7 +437,6 @@ export class HostMetricsService {
       });
     }
 
-    // 3. High memory alert
     if (metrics.memory.usedPercent >= this.memoryThresholdPercent) {
       this.triggerAlert({
         id: "alert-memory-high",
@@ -453,7 +450,6 @@ export class HostMetricsService {
       });
     }
 
-    // 4. Process crash alert
     if (metrics.appOverview.crashedProcessesCount > 0) {
       this.triggerAlert({
         id: "alert-process-crash",

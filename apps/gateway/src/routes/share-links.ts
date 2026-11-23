@@ -51,7 +51,6 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
     return session;
   };
 
-  // 1. Create a share link (Owner or Operator only)
   fastify.post("/api/v1/share-links", async (req, reply) => {
     const currentSession = getSessionFromRequest(req);
     const canCreate =
@@ -87,7 +86,6 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(createSuccessEnvelope(result));
   });
 
-  // 2. List share links
   fastify.get("/api/v1/share-links", async (req, reply) => {
     const currentSession = getSessionFromRequest(req);
     if (!currentSession || !currentSession.isOwner) {
@@ -100,7 +98,6 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope(links));
   });
 
-  // 3. Revoke share link
   fastify.delete("/api/v1/share-links/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const currentSession = getSessionFromRequest(req);
@@ -115,7 +112,6 @@ export const shareLinkRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope({ revoked, id }));
   });
 
-  // 4. Redeem a share link into an active session
   fastify.post("/api/v1/share-links/redeem", async (req, reply) => {
     const validation = RedeemShareLinkDtoSchema.safeParse(req.body);
     if (!validation.success) {

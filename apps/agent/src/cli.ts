@@ -153,7 +153,6 @@ WantedBy=default.target
           console.error("Start failed:", e.message);
         }
       } else {
-        // Fallback spawn background process
         const nodePath = getNodePath();
         const serverPath = getAgentScriptPath();
         const out = fs.openSync(LOG_FILE, "a");

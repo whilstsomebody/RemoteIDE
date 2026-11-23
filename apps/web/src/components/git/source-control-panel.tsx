@@ -38,11 +38,9 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
   const [isSyncing, setIsSyncing] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Diff Viewer Modal State
   const [selectedDiff, setSelectedDiff] = useState<GitDiffFile | null>(null);
   const [isDiffModalOpen, setIsDiffModalOpen] = useState(false);
 
-  // Discard Confirmation Dialog State
   const [discardTarget, setDiscardTarget] = useState<string | null>(null);
 
   const fetchStatus = useCallback(async () => {
@@ -273,7 +271,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
 
   return (
     <div className="flex flex-col h-full text-xs text-zinc-300 overflow-y-auto select-none">
-      {/* Branch & Sync Bar */}
       <div className="p-3 border-b border-ide-border bg-zinc-900/50 flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1.5 font-medium text-zinc-200">
@@ -308,7 +305,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
           </div>
         </div>
 
-        {/* Sync Status / Ahead & Behind */}
         {status?.tracking && (
           <div className="flex items-center justify-between text-[11px] text-zinc-400 bg-zinc-800/40 px-2 py-1 rounded">
             <span>{status.tracking}</span>
@@ -331,7 +327,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         )}
       </div>
 
-      {/* Error Banner */}
       {error && (
         <div className="p-2 bg-rose-950/50 border-b border-rose-800/50 text-rose-300 text-[11px] flex items-start gap-1.5">
           <AlertTriangle className="w-4 h-4 shrink-0 mt-0.5" />
@@ -339,7 +334,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         </div>
       )}
 
-      {/* Commit Box */}
       <div className="p-3 border-b border-ide-border flex flex-col gap-2">
         <textarea
           rows={3}
@@ -376,7 +370,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Staged Changes Section */}
       <div className="p-2 border-b border-ide-border">
         <div className="flex items-center justify-between py-1 text-zinc-400 font-semibold text-[11px] uppercase tracking-wider">
           <span>Staged Changes ({status?.staged.length || 0})</span>
@@ -435,7 +428,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Working Tree Changes (Unstaged) */}
       <div className="p-2 border-b border-ide-border">
         <div className="flex items-center justify-between py-1 text-zinc-400 font-semibold text-[11px] uppercase tracking-wider">
           <span>Changes ({status?.unstaged.length || 0})</span>
@@ -497,7 +489,6 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Untracked Files Section */}
       <div className="p-2">
         <div className="flex items-center justify-between py-1 text-zinc-400 font-semibold text-[11px] uppercase tracking-wider">
           <span>Untracked Files ({status?.untracked.length || 0})</span>
@@ -527,14 +518,12 @@ export const SourceControlPanel: React.FC<SourceControlPanelProps> = ({
         </div>
       </div>
 
-      {/* Diff Viewer Modal */}
       <GitDiffModal
         isOpen={isDiffModalOpen}
         onClose={() => setIsDiffModalOpen(false)}
         diff={selectedDiff}
       />
 
-      {/* Discard Confirmation Dialog */}
       {discardTarget && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <div className="bg-ide-sidebar border border-ide-border rounded-lg p-4 shadow-xl max-w-sm w-full text-zinc-200 flex flex-col gap-3">

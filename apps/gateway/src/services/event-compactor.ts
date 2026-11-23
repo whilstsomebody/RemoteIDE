@@ -67,7 +67,6 @@ export class EventCompactor {
     const allowedPrefixes = isArray ? undefined : params.allowedPrefixes;
     const historyExpired = isArray ? false : (params.historyExpired ?? false);
 
-    // 1. Deduplicate by event ID and sort strictly by revision ascending
     const seenEventIds = new Set<string>();
     const uniqueEvents: CompactableEvent[] = [];
 
@@ -79,16 +78,13 @@ export class EventCompactor {
 
     uniqueEvents.sort((a, b) => a.revision - b.revision);
 
-    // 2. Data structures for compaction
     const activityHistory: ActivityHistoryItem[] = [];
 
-    // Track file lifecycles by current path
     // Map currentPath -> FileLifecycleState
     const fileStates = new Map<string, FileLifecycleState>();
     // Map initialPath -> currentPath for rename chain tracking
     const renameChains = new Map<string, string>();
 
-    // Git changes
     const gitChangesMap = new Map<string, GitChangelogItem>(); // key -> git item
     let latestBranch: string | undefined;
 
@@ -98,7 +94,6 @@ export class EventCompactor {
     // Process map (processId -> final status item)
     const processStates = new Map<string, ProcessChangelogItem>();
 
-    // Session events
     const sessionEvents: SessionChangelogItem[] = [];
 
     let earliestTime: string | null = null;
@@ -137,7 +132,6 @@ export class EventCompactor {
       const eventType = (ev.eventType || (ev as any).type || "").toString();
       if (!eventType) continue;
 
-      // --- Activity History Entry ---
       let description = "";
       if (
         eventType === WorkspaceEventType.FILE_CREATED ||
@@ -194,9 +188,7 @@ export class EventCompactor {
         },
       });
 
-      // --- Compaction Logic by Event Category ---
-
-      // 1. Filesystem Events
+      // Filesystem Events
       if (
         eventType === WorkspaceEventType.FILE_CREATED ||
         eventType === "workspace.file.created" ||
@@ -289,7 +281,6 @@ export class EventCompactor {
               lastTimestamp: ts,
             });
           }
-          // Update rename chain lookup
           const origin = [...renameChains.entries()].find(([, curr]) => curr === fromPath)?.[0];
           renameChains.set(origin || fromPath, toPath);
         }
@@ -320,7 +311,7 @@ export class EventCompactor {
         }
       }
 
-      // 2. Git Events
+      // Git Events
       else if (eventType.startsWith("git.")) {
         if (p.branch) latestBranch = p.branch;
         const commitHash = p.commitHash || p.hash;
@@ -343,7 +334,7 @@ export class EventCompactor {
         }
       }
 
-      // 3. Background Job Events
+      // Background Job Events
       else if (eventType.startsWith("job.")) {
         const jobId = p.jobId || ev.id;
         const jobName = p.jobName || p.name || `Job ${jobId.slice(0, 8)}`;
@@ -370,7 +361,7 @@ export class EventCompactor {
         });
       }
 
-      // 4. Process Events
+      // Process Events
       else if (eventType.startsWith("process.")) {
         const processId = p.processId || ev.id;
         const processName = p.name || p.processName || `Process ${processId.slice(0, 8)}`;
@@ -390,7 +381,7 @@ export class EventCompactor {
         });
       }
 
-      // 5. Session Events
+      // Session Events
       else if (eventType.startsWith("session.")) {
         sessionEvents.push({
           type: eventType,
@@ -402,7 +393,6 @@ export class EventCompactor {
       }
     }
 
-    // 3. Assemble Net Changes from compacted states
     const filesCreated: FileCreatedChange[] = [];
     const filesModified: FileModifiedChange[] = [];
     const filesRenamed: FileRenamedChange[] = [];
@@ -464,7 +454,6 @@ export class EventCompactor {
       }
     }
 
-    // Sort entries alphabetically by path for clean presentation
     filesCreated.sort((a, b) => a.path.localeCompare(b.path));
     filesModified.sort((a, b) => a.path.localeCompare(b.path));
     filesRenamed.sort((a, b) => a.toPath.localeCompare(b.toPath));

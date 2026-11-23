@@ -118,7 +118,6 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] text-zinc-300 font-sans text-xs select-none">
-      {/* Docker Header */}
       <div className="p-3 border-b border-zinc-800 bg-[#121214] flex items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Boxes className="w-4 h-4 text-sky-400" />
@@ -153,7 +152,6 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
         </div>
       )}
 
-      {/* Tabs */}
       <div className="flex items-center border-b border-zinc-800 bg-zinc-950 px-2 gap-1">
         <button
           onClick={() => setActiveTab("containers")}
@@ -201,7 +199,6 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
         </button>
       </div>
 
-      {/* Content Area */}
       <div className="flex-1 overflow-y-auto p-2">
         {activeTab === "containers" && (
           <div className="space-y-1.5">
@@ -345,7 +342,6 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
         )}
       </div>
 
-      {/* Logs Modal */}
       {logsModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <div className="bg-[#121214] border border-zinc-700 rounded-lg w-full max-w-2xl h-[70vh] flex flex-col shadow-2xl">

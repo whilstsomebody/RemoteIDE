@@ -16,8 +16,6 @@ import {
 export class TestRunnerService {
   private lastRunResults = new Map<string, TestRunResult>(); // workspaceId -> TestRunResult
 
-  // --- 1. Test Discovery ---
-
   public discoverTests(workspacePath: string): TestSuite[] {
     if (!fs.existsSync(workspacePath)) return [];
 
@@ -113,8 +111,6 @@ export class TestRunnerService {
     }
   }
 
-  // --- 2. Test Execution ---
-
   public async runTests(
     dto: RunTestsDto,
     workspacePath: string,
@@ -137,7 +133,6 @@ export class TestRunnerService {
       onLog?.(entry);
     };
 
-    // Determine command & args based on framework in workspace
     const command = "pnpm";
     let args: string[] = ["test"];
 
@@ -248,8 +243,6 @@ export class TestRunnerService {
     return this.lastRunResults.get(workspaceId) || null;
   }
 
-  // --- 3. Parsing & Coverage ---
-
   private parseVitestOutput(
     output: string,
     workspacePath: string
@@ -284,7 +277,6 @@ export class TestRunnerService {
       failed = failMatches ? failMatches.length : 0;
     }
 
-    // Extract failures and stack traces
     const failureBlocks = output.split(/FAIL\s+|✕\s+|❯\s+/);
     for (let i = 1; i < failureBlocks.length; i++) {
       const block = failureBlocks[i]!;

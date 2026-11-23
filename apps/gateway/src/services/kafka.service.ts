@@ -25,7 +25,6 @@ export class KafkaService {
   private localConsumers = new Map<string, Set<EventHandler<any>>>();
   private publishedEventsBuffer: Array<{ topic: string; event: DurableEvent<any> }> = [];
 
-  // Metrics
   private metrics = {
     publishedCount: 0,
     consumedCount: 0,
@@ -87,7 +86,6 @@ export class KafkaService {
       this.isConnected = true;
       this.logger.info("Kafka producer connected");
 
-      // Ensure standard topics exist
       await this.ensureTopics();
     } catch (err) {
       this.isConnected = false;
@@ -136,7 +134,6 @@ export class KafkaService {
     topic: KafkaTopic | string,
     event: DurableEvent<T>
   ): Promise<void> {
-    // Determine partition key: workspaceId for workspace-scoped events, otherwise hostId/sessionId/id
     const partitionKey = event.workspaceId || event.sessionId || event.hostId || event.id;
 
     if (!this.isConnected && !this.enableFallback) await this.connect();
@@ -176,7 +173,6 @@ export class KafkaService {
         this.publishedEventsBuffer.shift();
       }
 
-      // Deliver to local subscribers asynchronously
       const handlers = this.localConsumers.get(topic);
       if (handlers) {
         for (const handler of handlers) {
@@ -196,9 +192,6 @@ export class KafkaService {
     }
   }
 
-  /**
-   * Subscribe to a topic with an event handler.
-   */
   public async subscribe<T extends Record<string, unknown>>(
     topic: KafkaTopic | string,
     handler: EventHandler<T>
@@ -210,7 +203,6 @@ export class KafkaService {
     }
     handlers.add(handler as EventHandler<any>);
 
-    // If connected to Kafka broker, wire consumer group
     if (this.isConnected && this.consumer) {
       try {
         await this.consumer.connect();

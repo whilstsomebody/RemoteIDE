@@ -90,7 +90,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-2xl max-h-[85vh] bg-[#252526] border border-[#3c3c3c] rounded-xl shadow-2xl overflow-hidden flex flex-col text-xs text-zinc-200"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-5 py-3.5 bg-[#1e1e1e] border-b border-[#3c3c3c]">
           <div className="flex items-center gap-2.5">
             <div className="p-1.5 rounded-lg bg-indigo-500/10 border border-indigo-500/20 text-indigo-400">
@@ -118,7 +117,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
           </button>
         </div>
 
-        {/* Retention Expiration Notice if applicable */}
         {summary.historyExpired && (
           <div className="bg-amber-950/40 border-b border-amber-800/60 p-3.5 flex items-start gap-2.5 text-amber-200 text-xs">
             <AlertTriangle className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -132,7 +130,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
           </div>
         )}
 
-        {/* View Mode Bar & Quick Stats */}
         <div className="px-5 py-2.5 bg-[#202021] border-b border-[#3c3c3c] flex items-center justify-between">
           <div className="flex items-center gap-3 text-[11px] text-zinc-400">
             <span>
@@ -169,7 +166,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
           </div>
         </div>
 
-        {/* Main Body */}
         <div className="flex-1 overflow-y-auto p-5 space-y-4 select-text">
           {summary.totalEvents === 0 && !summary.historyExpired && (
             <div className="py-12 text-center text-zinc-400 space-y-2">
@@ -181,10 +177,8 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
             </div>
           )}
 
-          {/* VIEW: NET CHANGES */}
           {viewMode === "net" && summary.totalEvents > 0 && (
             <div className="space-y-3.5">
-              {/* Files Created */}
               {net.filesCreated.length > 0 && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -232,7 +226,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
                 </div>
               )}
 
-              {/* Files Modified */}
               {net.filesModified.length > 0 && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -287,7 +280,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
                 </div>
               )}
 
-              {/* Files Renamed */}
               {net.filesRenamed.length > 0 && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -334,7 +326,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
                 </div>
               )}
 
-              {/* Files Deleted */}
               {net.filesDeleted.length > 0 && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -370,7 +361,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
                 </div>
               )}
 
-              {/* Git Changes */}
               {net.gitChanges.length > 0 && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -415,7 +405,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
                 </div>
               )}
 
-              {/* Background Jobs & Processes */}
               {(net.jobs.length > 0 || net.processes.length > 0) && (
                 <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e]">
                   <button
@@ -490,7 +479,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
             </div>
           )}
 
-          {/* VIEW: ACTIVITY HISTORY (Chronological) */}
           {viewMode === "history" && summary.totalEvents > 0 && (
             <div className="border border-[#3c3c3c] rounded-lg overflow-hidden bg-[#1e1e1e] divide-y divide-[#2a2a2a]">
               {history.map((ev) => (
@@ -527,7 +515,6 @@ export const CatchupModal: React.FC<CatchupModalProps> = ({
           )}
         </div>
 
-        {/* Footer Actions */}
         <div className="px-5 py-3.5 bg-[#1e1e1e] border-t border-[#3c3c3c] flex items-center justify-between">
           <p className="text-[11px] text-zinc-500">
             Acknowledging marks these revisions as seen for this device.

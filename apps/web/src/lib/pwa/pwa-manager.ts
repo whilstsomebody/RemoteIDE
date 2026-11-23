@@ -23,12 +23,10 @@ export function usePwa(): PwaState {
   const [isOnline, setIsOnline] = useState(true);
 
   useEffect(() => {
-    // 1. Initial online status
     if (typeof navigator !== "undefined") {
       setIsOnline(navigator.onLine);
     }
 
-    // 2. Standalone mode detection
     if (typeof window !== "undefined") {
       const isStandaloneMode =
         window.matchMedia("(display-mode: standalone)").matches ||
@@ -62,7 +60,6 @@ export function usePwa(): PwaState {
       });
     }
 
-    // 4. Install prompt listener
     const handleBeforeInstallPrompt = (e: Event) => {
       e.preventDefault();
       setDeferredPrompt(e as BeforeInstallPromptEvent);

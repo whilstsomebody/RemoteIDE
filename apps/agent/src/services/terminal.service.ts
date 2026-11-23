@@ -37,14 +37,15 @@ export class TerminalService {
 
   constructor(options: TerminalServiceOptions = {}) {
     this.maxConcurrentSessions = options.maxConcurrentSessions ?? 10;
-    this.maxBufferChars = options.maxBufferChars ?? 150_000; // ~150KB output ring buffer
-    this.idleTimeoutMs = options.idleTimeoutMs ?? 30 * 60 * 1000; // 30 minutes idle timeout
+    this.maxBufferChars = options.maxBufferChars ?? 150_000;
+    this.idleTimeoutMs = options.idleTimeoutMs ?? 30 * 60 * 1000;
     this.ensureSpawnHelperPermissions();
     this.hasTmux = this.detectTmux();
   }
 
   /**
-   * Ensure node-pty spawn-helper binary has executable permissions on Unix systems.
+   * Some package managers strip the executable bit from node-pty's prebuilt
+   * spawn-helper, which makes every PTY spawn fail on macOS/Linux.
    */
   private ensureSpawnHelperPermissions(): void {
     if (process.platform === "win32") return;
@@ -63,13 +64,10 @@ export class TerminalService {
         }
       }
     } catch {
-      // Ignore if resolved dynamically
+      // Best effort: node-pty may be bundled or resolved from a different layout.
     }
   }
 
-  /**
-   * Detect if tmux is installed on the host.
-   */
   private detectTmux(): boolean {
     try {
       execSync("which tmux", { stdio: "ignore" });
@@ -79,16 +77,10 @@ export class TerminalService {
     }
   }
 
-  /**
-   * Returns whether tmux persistence is supported on this host.
-   */
   public isTmuxSupported(): boolean {
     return this.hasTmux;
   }
 
-  /**
-   * Determine available shells on the host.
-   */
   public getAvailableShells(): string[] {
     const candidatePaths = [
       process.env.SHELL,
@@ -126,9 +118,6 @@ export class TerminalService {
     return discovered;
   }
 
-  /**
-   * Resolve default shell for host OS.
-   */
   private resolveShell(requested?: string): string {
     const available = this.getAvailableShells();
     if (requested) {
@@ -161,7 +150,6 @@ export class TerminalService {
       );
     }
 
-    // Working directory validation
     let resolvedCwd = dto.cwd ? path.resolve(dto.cwd) : os.homedir();
     if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
       logger.warn(
@@ -181,11 +169,9 @@ export class TerminalService {
     let spawnArgs: string[] = [];
     let tmuxSessionName: string | undefined = undefined;
 
-    // Optional tmux persistence integration
     if (dto.useTmux && this.hasTmux) {
       tmuxSessionName = `remoteide_${sessionId.replace(/[^a-zA-Z0-9]/g, "")}`;
       spawnBinary = "tmux";
-      // Attach or create new named tmux session with selected shell
       spawnArgs = ["new-session", "-A", "-s", tmuxSessionName, shellPath];
     }
 
@@ -198,7 +184,6 @@ export class TerminalService {
       );
     }
 
-    // Default POSIX / Windows terminal environment
     const env: Record<string, string> = {
       ...(process.env as Record<string, string>),
       TERM: "xterm-256color",
@@ -240,22 +225,19 @@ export class TerminalService {
       idleTimeoutTimer: null,
     };
 
-    // Buffer incoming output & broadcast to active attached listeners
     ptyProcess.onData((data: string) => {
       session.lastActiveAt = new Date().toISOString();
       this.resetIdleTimer(record);
 
-      // Append to ring buffer
       record.outputBuffer.push(data);
       record.currentBufferChars += data.length;
 
-      // Enforce output ring buffer size bound (FIFO drop oldest chunks)
+      // Bounded replay buffer: drop the oldest chunks first.
       while (record.currentBufferChars > record.maxBufferChars && record.outputBuffer.length > 1) {
         const dropped = record.outputBuffer.shift();
         if (dropped) record.currentBufferChars -= dropped.length;
       }
 
-      // Notify attached client sockets
       for (const listener of record.listeners) {
         try {
           listener(data);
@@ -265,7 +247,6 @@ export class TerminalService {
       }
     });
 
-    // Handle process termination
     ptyProcess.onExit(({ exitCode }) => {
       logger.info({ sessionId, exitCode }, "Terminal PTY process exited");
       session.status = "exited";
@@ -290,9 +271,6 @@ export class TerminalService {
     return session;
   }
 
-  /**
-   * Write data (keystrokes / commands) to the PTY stdin.
-   */
   public writeTerminal(sessionId: string, data: string): void {
     const record = this.sessions.get(sessionId);
     if (!record) {
@@ -310,9 +288,6 @@ export class TerminalService {
     record.ptyProcess.write(data);
   }
 
-  /**
-   * Resize PTY window dimensions.
-   */
   public resizeTerminal(sessionId: string, cols: number, rows: number): void {
     const record = this.sessions.get(sessionId);
     if (!record) {
@@ -355,9 +330,6 @@ export class TerminalService {
     return { session: record.session, replayBuffer, unsubscribe };
   }
 
-  /**
-   * Retrieve session metadata.
-   */
   public getTerminal(sessionId: string): TerminalSession {
     const record = this.sessions.get(sessionId);
     if (!record) {
@@ -366,9 +338,6 @@ export class TerminalService {
     return record.session;
   }
 
-  /**
-   * List all terminal sessions on the host.
-   */
   public listTerminals(): TerminalSession[] {
     return Array.from(this.sessions.values()).map((r) => r.session);
   }
@@ -385,7 +354,6 @@ export class TerminalService {
     if (record.session.status === "running") {
       try {
         record.ptyProcess.kill("SIGTERM");
-        // Give short grace period before forced kill
         await new Promise((resolve) => setTimeout(resolve, 200));
         if (record.session.status === "running") {
           record.ptyProcess.kill("SIGKILL");
@@ -402,9 +370,6 @@ export class TerminalService {
     logger.info({ sessionId }, "Terminal session closed and resources released");
   }
 
-  /**
-   * Gracefully close all terminal sessions on agent shutdown.
-   */
   public async shutdownAll(): Promise<void> {
     logger.info("Terminating all active terminal PTY sessions...");
     const sessionIds = Array.from(this.sessions.keys());

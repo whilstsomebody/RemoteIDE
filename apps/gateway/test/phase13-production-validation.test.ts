@@ -22,11 +22,9 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
   let phoneSessionId: string;
   const hostId = "test-host-agent-13";
 
-  // Mock Agent WebSocket for reverse tunnel simulation
   let mockAgentWs: any;
 
   beforeAll(async () => {
-    // 1. Setup local project directory (Computer A)
     testDir = path.join(os.tmpdir(), `remoteide-e2e-${createId("test")}`);
     fs.mkdirSync(testDir, { recursive: true });
     fs.writeFileSync(path.join(testDir, "package.json"), JSON.stringify({ name: "sample-app", version: "1.0.0" }));
@@ -40,11 +38,9 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
       execSync('git commit -m "initial commit"', { cwd: testDir });
     } catch {}
 
-    // 2. Initialize Gateway
     app = await buildApp({ logger: false });
     await app.ready();
 
-    // 3. Authenticate Owner on Computer A via bootstrap
     const setupToken = authService.getSetupToken();
     const bootstrapRes = await authService.bootstrapOwner({
       email: "owner@computera.local",
@@ -57,7 +53,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     ownerToken = bootstrapRes.sessionToken;
     workspaceId = "ws-e2e-project";
 
-    // 4. Connect simulated Host Agent reverse tunnel
     const listeners = new Map<string, (data: any) => void>();
     mockAgentWs = {
       readyState: 1, // OPEN
@@ -65,7 +60,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
         const msg = JSON.parse(dataStr);
         if (msg.type === TunnelMessageType.TUNNEL_REQUEST) {
           const req = msg.payload;
-          // Simulated Host Agent HTTP handler
           let respBody: any = { success: true };
           const statusCode = 200;
 
@@ -95,7 +89,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
             },
           };
 
-          // Trigger response on next tick
           setTimeout(() => {
             const handler = listeners.get("message");
             if (handler) handler(Buffer.from(JSON.stringify(responseMsg)));
@@ -121,19 +114,10 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
   });
 
   it("Executes the complete 18-step end-to-end scenario", async () => {
-    // -------------------------------------------------------------
-    // Step 1: Install & verify host agent on Computer A
-    // -------------------------------------------------------------
     expect(tunnelRelayService.isHostOnline(hostId)).toBe(true);
 
-    // -------------------------------------------------------------
-    // Step 2: Register a local project folder
-    // -------------------------------------------------------------
     expect(fs.existsSync(path.join(testDir, "index.js"))).toBe(true);
 
-    // -------------------------------------------------------------
-    // Step 3: Generate a time-limited access link
-    // -------------------------------------------------------------
     const createLinkRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links",
@@ -153,9 +137,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     const rawToken = linkBody.data.rawToken;
     expect(rawToken).toBeDefined();
 
-    // -------------------------------------------------------------
-    // Step 4 & 5: Open link from Phone B, authenticate and browse files
-    // -------------------------------------------------------------
     const redeemRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",
@@ -172,7 +153,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     phoneSessionId = redeemBody.data.session.id;
     expect(redeemBody.data.session.role).toBe("editor");
 
-    // Browse files
     const listFilesRes = await app.inject({
       method: "GET",
       url: `/api/v1/files?workspaceId=${workspaceId}`,
@@ -182,9 +162,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     const filesData = JSON.parse(listFilesRes.body);
     expect(filesData.data.length).toBeGreaterThanOrEqual(2);
 
-    // -------------------------------------------------------------
-    // Step 6: Modify a source file from Phone B
-    // -------------------------------------------------------------
     const writeRes = await app.inject({
       method: "POST",
       url: `/api/v1/files/write?workspaceId=${workspaceId}`,
@@ -196,10 +173,7 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     });
     expect(writeRes.statusCode).toBe(200);
 
-    // -------------------------------------------------------------
-    // Step 7: Run authorized terminal command check
     // Editor role is strictly denied terminal access (owner-only capability)
-    // -------------------------------------------------------------
     const terminalAttempt = await app.inject({
       method: "POST",
       url: `/api/v1/terminals?workspaceId=${workspaceId}`,
@@ -208,7 +182,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     });
     expect(terminalAttempt.statusCode).toBe(403);
 
-    // Owner can execute terminal operations
     const ownerTerminalRes = await app.inject({
       method: "GET",
       url: `/api/v1/terminals`,
@@ -216,9 +189,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     });
     expect(ownerTerminalRes.statusCode).toBe(200);
 
-    // -------------------------------------------------------------
-    // Step 8 & 9: Development server & preview
-    // -------------------------------------------------------------
     const previewRes = await app.inject({
       method: "GET",
       url: `/api/v1/preview/3000/`,
@@ -227,9 +197,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(previewRes.statusCode).toBe(200);
     expect(previewRes.body).toContain("Preview OK");
 
-    // -------------------------------------------------------------
-    // Step 10: Review Git changes
-    // -------------------------------------------------------------
     const gitStatusRes = await app.inject({
       method: "GET",
       url: `/api/v1/git/status?workspaceId=${workspaceId}`,
@@ -239,9 +206,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     const gitData = JSON.parse(gitStatusRes.body);
     expect(gitData.data.modified).toContain("index.js");
 
-    // -------------------------------------------------------------
-    // Step 11: Disconnect Phone B
-    // -------------------------------------------------------------
     const disconnectPresenceRes = await app.inject({
       method: "POST",
       url: "/api/v1/catchup/presence",
@@ -253,9 +217,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     });
     expect(disconnectPresenceRes.statusCode).toBe(200);
 
-    // -------------------------------------------------------------
-    // Step 12: Make changes on Computer A while Phone B is offline
-    // -------------------------------------------------------------
     fs.appendFileSync(path.join(testDir, "index.js"), '// Added on Computer A offline\n');
     await outboxService.recordWorkspaceEvent({
       workspaceId,
@@ -266,9 +227,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
       payload: { path: "index.js" },
     });
 
-    // -------------------------------------------------------------
-    // Step 13 & 14: Reconnect Phone B and acknowledge one-time catchup changelog
-    // -------------------------------------------------------------
     const catchupRes = await app.inject({
       method: "GET",
       url: `/api/v1/catchup/summary?workspaceId=${workspaceId}&deviceId=phone-b`,
@@ -290,9 +248,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
       expect(ackRes.statusCode).toBe(200);
     }
 
-    // -------------------------------------------------------------
-    // Step 15 & 16: Open AI assistant, ask question, verify strictly read-only
-    // -------------------------------------------------------------
     await aiAssistantService.setApiKey("owner-computer-a", "AIzaSyValidProductionMockKey");
     aiAssistantService.setMockGenerator(async function* () {
       yield "To optimize this function, use a hash map for O(1) lookups.";
@@ -321,9 +276,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(aiMsgRes.statusCode).toBe(200);
     expect(aiMsgRes.body).toContain("hash map");
 
-    // -------------------------------------------------------------
-    // Step 17: Revoke Phone B's access from Computer A
-    // -------------------------------------------------------------
     const revokeRes = await app.inject({
       method: "DELETE",
       url: `/api/v1/auth/sessions/${phoneSessionId}`,
@@ -331,9 +283,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     });
     expect(revokeRes.statusCode).toBe(200);
 
-    // -------------------------------------------------------------
-    // Step 18: Verify all protected operations for Phone B are immediately denied
-    // -------------------------------------------------------------
     const deniedFilesRes = await app.inject({
       method: "GET",
       url: `/api/v1/files?workspaceId=${workspaceId}`,
@@ -351,7 +300,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
   });
 
   it("Verifies reliability: metrics exporter, liveness, and readiness probes", async () => {
-    // 1. Prometheus /metrics endpoint
     const metricsRes = await app.inject({
       method: "GET",
       url: "/metrics",
@@ -361,7 +309,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(metricsRes.body).toContain("remoteide_gateway_uptime_seconds");
     expect(metricsRes.body).toContain("remoteide_http_latency_ms");
 
-    // 2. JSON metrics endpoint
     const jsonMetricsRes = await app.inject({
       method: "GET",
       url: "/api/v1/metrics",
@@ -371,7 +318,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(jsonMetrics.data.service).toBe("@remote-ide/gateway");
     expect(jsonMetrics.data.http.latencyMs).toBeDefined();
 
-    // 3. Health liveness & readiness
     const livenessRes = await app.inject({ method: "GET", url: "/health/liveness" });
     expect(livenessRes.statusCode).toBe(200);
     const liveness = JSON.parse(livenessRes.body);
@@ -384,7 +330,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
   });
 
   it("Verifies Multi-Factor Authentication (TOTP setup, verify, and authenticate)", async () => {
-    // 1. Setup MFA
     const setupRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/mfa/setup",
@@ -395,11 +340,9 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(setupData.secret).toBeDefined();
     expect(setupData.backupCodes.length).toBe(8);
 
-    // 2. Generate valid TOTP code
     const { generateTotpCode } = await import("@remote-ide/shared");
     const validCode = generateTotpCode(setupData.secret);
 
-    // 3. Verify and enable MFA
     const verifyRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/mfa/verify",
@@ -409,7 +352,6 @@ describe("Phase 13 — Complete System Validation & 18-Step Scenario", () => {
     expect(verifyRes.statusCode).toBe(200);
     expect(JSON.parse(verifyRes.body).data.enabled).toBe(true);
 
-    // 4. Disable MFA
     const disableRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/mfa/disable",

@@ -33,25 +33,21 @@ describe("Phase 9 — Database Explorer Service", () => {
   it("tests connection, lists tables, inspects metadata, and paginates table data", async () => {
     const defaultProfile = service.listProfiles().find((p) => p.isDefault)!;
 
-    // 1. Test connection
     const testResult = await service.testConnection(defaultProfile.id);
     expect(testResult.success).toBe(true);
     expect(testResult.version).toBeDefined();
 
-    // 2. List tables
     const tables = await service.listTables(defaultProfile.id);
     const tableNames = tables.map((t) => t.name);
     expect(tableNames).toContain("users");
     expect(tableNames).toContain("project_tasks");
 
-    // 3. Get table metadata
     const metadata = await service.getTableMetadata(defaultProfile.id, "users");
     expect(metadata.name).toBe("users");
     expect(metadata.columns.length).toBeGreaterThanOrEqual(3);
     const idCol = metadata.columns.find((c) => c.name === "id");
     expect(idCol?.isPrimaryKey).toBe(true);
 
-    // 4. Paginated read of table data
     const tableData = await service.getTableData(defaultProfile.id, "users", 1, 10);
     expect(tableData.totalRows).toBeGreaterThanOrEqual(3);
     expect(tableData.rows.length).toBeGreaterThanOrEqual(3);

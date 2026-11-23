@@ -63,7 +63,6 @@ export interface EditorPaneProps {
   onNewUntitledFile?: () => void;
   onDiagnostics?: (diags: any[]) => void;
   onNavigateDefinition?: (path: string, line: number, col: number) => void;
-  // Collaboration props
   collabDoc?: Y.Doc;
   collabParticipants?: CollabParticipant[];
   currentUserId?: string;
@@ -145,7 +144,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-[#1e1e1e] overflow-hidden border-r border-zinc-800/80">
-      {/* Tabs */}
       <TabBar
         tabs={tabItems}
         activeTab={activeTab}
@@ -162,7 +160,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         onNewUntitledFile={onNewUntitledFile}
       />
 
-      {/* Breadcrumbs */}
       {activeTab && (
         <div className="flex items-center justify-between border-b border-[#252526] bg-[#1e1e1e] pr-3">
           <Breadcrumbs path={activeTab} />
@@ -174,7 +171,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         </div>
       )}
 
-      {/* Real-Time Collaboration Header & Conflict Banner */}
       {activeTab && collabParticipants && collabParticipants.length > 0 && onFollowUser && (
         <CollabParticipantsPanel
           participants={collabParticipants}
@@ -195,7 +191,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
         />
       )}
 
-      {/* Editor Body */}
       <div
         onDoubleClick={!activeBuffer ? onNewUntitledFile : undefined}
         className="flex-1 overflow-hidden relative flex flex-col bg-[#1e1e1e]"
@@ -207,7 +202,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
           </div>
         )}
 
-        {/* Clean Center Logo & Watermark when empty (covering ~40% of the area at the center) */}
         {!isLoading && !activeBuffer && (
           <div
             className="flex-1 flex flex-col items-center justify-center p-8 select-none"
@@ -231,7 +225,6 @@ export const EditorPane: React.FC<EditorPaneProps> = ({
 
         {!isLoading && activeBuffer && language && (
           <>
-            {/* Special Viewers */}
             {activeBuffer.isBinary || language.specialViewer === "binary" ? (
               <BinaryViewer
                 path={activeBuffer.path}

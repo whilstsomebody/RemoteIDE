@@ -48,13 +48,11 @@ export class SyncService {
     this.logger.info({ hostId, eventCount: events.length }, "Processing agent journal event sync");
 
     for (const ev of events) {
-      // 1. Deduplication check via Redis idempotency key
       if (this.outbox.isEventProcessed(ev.eventId)) {
         duplicateEventIds.push(ev.eventId);
         continue;
       }
 
-      // 2. Commit event into authoritative workspace sequence and transactional outbox
       const durable = await this.outbox.recordWorkspaceEvent({
         id: ev.eventId,
         workspaceId: ev.workspaceId,
@@ -89,9 +87,6 @@ export class SyncService {
     };
   }
 
-  /**
-   * Client reconciliation: returns all workspace events since a specific revision.
-   */
   public async reconcileClient(
     workspaceId: string,
     sinceRevision: number = 0,
@@ -106,9 +101,6 @@ export class SyncService {
     };
   }
 
-  /**
-   * Aggregates event-driven infrastructure operational metrics.
-   */
   public getMetrics(): EventInfrastructureMetrics {
     const redisMetrics = this.redis.getMetrics();
     const kafkaMetrics = this.kafka.getMetrics();

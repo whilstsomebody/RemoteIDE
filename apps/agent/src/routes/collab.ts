@@ -17,7 +17,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
 ) => {
   const { collabService } = opts;
 
-  // List active sessions
   fastify.get<{ Params: { workspaceId: string } }>(
     "/api/v1/workspaces/:workspaceId/collab/sessions",
     async (_req, reply) => {
@@ -26,7 +25,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     }
   );
 
-  // Status of a specific document session
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { path: string };
@@ -51,7 +49,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     );
   });
 
-  // Join a document session
   fastify.post<{
     Params: { workspaceId: string };
     Body: { path: string; userId: string; name?: string; role?: CollabRole; deviceId?: string };
@@ -76,7 +73,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     );
   });
 
-  // Leave a document session
   fastify.post<{
     Params: { workspaceId: string };
     Body: { path: string; userId: string };
@@ -88,7 +84,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse(result));
   });
 
-  // Fetch Step 2 sync update
   fastify.post<{
     Params: { workspaceId: string };
     Body: { path: string; stateVector?: string };
@@ -100,7 +95,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse(result));
   });
 
-  // Apply Yjs document update
   fastify.post<{
     Params: { workspaceId: string };
     Body: { path: string; update: string; userId: string; role: CollabRole };
@@ -118,7 +112,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse(result));
   });
 
-  // Update participant awareness
   fastify.post<{
     Params: { workspaceId: string };
     Body: {
@@ -148,7 +141,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ participant }));
   });
 
-  // Assign participant role (Owner only)
   fastify.post<{
     Params: { workspaceId: string };
     Body: {
@@ -172,7 +164,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ participant }));
   });
 
-  // Kick participant (Owner only)
   fastify.post<{
     Params: { workspaceId: string };
     Body: { path: string; kickerRole: CollabRole; targetUserId: string };
@@ -184,7 +175,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ success: true }));
   });
 
-  // Resolve external conflict
   fastify.post<{
     Params: { workspaceId: string };
     Body: {
@@ -199,7 +189,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse(result));
   });
 
-  // Add line comment
   fastify.post<{
     Params: { workspaceId: string };
     Body: {
@@ -224,7 +213,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ comment }));
   });
 
-  // List comments
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { path: string };
@@ -236,7 +224,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ comments }));
   });
 
-  // Propose change
   fastify.post<{
     Params: { workspaceId: string };
     Body: {
@@ -261,7 +248,6 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     return reply.send(createSuccessResponse({ proposal }));
   });
 
-  // Apply proposed change
   fastify.post<{
     Params: { workspaceId: string; proposalId: string };
     Body: { path: string; userRole: CollabRole };

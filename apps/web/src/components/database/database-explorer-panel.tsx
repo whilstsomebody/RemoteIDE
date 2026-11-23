@@ -23,7 +23,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
   const [tablePage, setTablePage] = useState(1);
   const [activeTab, setActiveTab] = useState<"schema" | "browser" | "sql">("schema");
 
-  // SQL Runner state
   const [sqlQuery, setSqlQuery] = useState("SELECT * FROM users LIMIT 10;");
   const [queryResult, setQueryResult] = useState<SqlQueryResult | null>(null);
   const [isExecutingSql, setIsExecutingSql] = useState(false);
@@ -33,13 +32,11 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     version?: string;
   } | null>(null);
 
-  // New Profile modal
   const [newProfileModal, setNewProfileModal] = useState(false);
   const [newName, setNewName] = useState("");
   const [newType, setNewType] = useState<"sqlite" | "postgres" | "mysql">("sqlite");
   const [newDatabase, setNewDatabase] = useState(":memory:");
 
-  // Fetch Profiles
   const fetchProfiles = useCallback(async () => {
     try {
       const res = await fetch(`${agentUrl}/api/v1/database/profiles`);
@@ -61,7 +58,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     void fetchProfiles();
   }, [fetchProfiles]);
 
-  // Fetch Tables when Profile changes
   const fetchTables = useCallback(async () => {
     if (!selectedProfileId) return;
     try {
@@ -79,7 +75,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     void fetchTables();
   }, [fetchTables]);
 
-  // Fetch Table Data
   const fetchTableData = useCallback(
     async (tableName: string, page = 1) => {
       if (!selectedProfileId) return;
@@ -186,7 +181,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] text-zinc-300 font-sans text-xs select-none">
-      {/* Header Toolbar */}
       <div className="p-3 border-b border-zinc-800 bg-[#121214] flex flex-wrap items-center justify-between gap-2">
         <div className="flex items-center gap-2">
           <Database className="w-4 h-4 text-emerald-400" />
@@ -228,7 +222,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
         </div>
       </div>
 
-      {/* Test Connection Banner */}
       {testResult && (
         <div
           className={cn(
@@ -247,7 +240,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
         </div>
       )}
 
-      {/* Mode Subtabs */}
       <div className="flex items-center border-b border-zinc-800 bg-zinc-950 px-2 gap-1 shrink-0">
         <button
           onClick={() => setActiveTab("schema")}
@@ -291,9 +283,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
         </button>
       </div>
 
-      {/* Main Tab Content */}
       <div className="flex-1 overflow-hidden">
-        {/* 1. Schema & Tables Tab */}
         {activeTab === "schema" && (
           <div className="h-full overflow-y-auto p-3 space-y-2">
             {tables.length === 0 ? (
@@ -337,7 +327,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
           </div>
         )}
 
-        {/* 2. Table Data Browser Tab */}
         {activeTab === "browser" && (
           <div className="h-full flex flex-col">
             {tableData ? (
@@ -414,7 +403,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
           </div>
         )}
 
-        {/* 3. Read-Only SQL Console Tab */}
         {activeTab === "sql" && (
           <div className="h-full flex flex-col p-3 space-y-3">
             <div className="space-y-1.5">
@@ -506,7 +494,6 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
         )}
       </div>
 
-      {/* New Database Profile Modal */}
       {newProfileModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <form

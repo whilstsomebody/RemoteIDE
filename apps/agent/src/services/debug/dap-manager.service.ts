@@ -71,12 +71,9 @@ export class DapManagerService {
     return rec.session;
   }
 
-  // --- 1. Launch & Attach ---
-
   public async launch(dto: LaunchDebugDto): Promise<DebugSession> {
     const { workspaceId, name, type, program, args = [], cwd, env = {}, stopOnEntry } = dto;
 
-    // Prevent duplicate launch of the same target program in workspace
     for (const rec of this.sessions.values()) {
       if (
         rec.session.workspaceId === workspaceId &&
@@ -139,7 +136,6 @@ export class DapManagerService {
     record.process = child;
     session.pid = child.pid;
 
-    // Capture stdout/stderr for debug console
     child.stdout?.on("data", (chunk: Buffer) => {
       this.emitEvent(record, "output", {
         category: "stdout",
@@ -210,7 +206,6 @@ export class DapManagerService {
     port: number,
     stopOnEntry = false
   ): Promise<void> {
-    // Wait for inspector endpoint to become available
     let wsUrl: string | null = null;
     for (let attempt = 0; attempt < 60; attempt++) {
       try {
@@ -252,7 +247,6 @@ export class DapManagerService {
       this.emitEvent(record, "terminated", {});
     });
 
-    // Initialize V8 domains
     await this.sendV8(record, "Runtime.enable");
     await this.sendV8(record, "Debugger.enable");
     await this.sendV8(record, "Debugger.setPauseOnExceptions", { state: "none" });
@@ -371,8 +365,6 @@ export class DapManagerService {
     }
   }
 
-  // --- 2. Breakpoints ---
-
   public async setBreakpoints(dto: SetBreakpointsDto): Promise<Breakpoint[]> {
     const { sessionId, path: filePath, breakpoints } = dto;
     const record = this.sessions.get(sessionId);
@@ -411,8 +403,6 @@ export class DapManagerService {
     record.breakpoints.set(filePath, results);
     return results;
   }
-
-  // --- 3. Stepping & Execution Flow ---
 
   public async continue(sessionId: string): Promise<void> {
     const record = this.sessions.get(sessionId);
@@ -459,8 +449,6 @@ export class DapManagerService {
     }
     await this.sendV8(record, "Debugger.stepOut");
   }
-
-  // --- 4. Call Stack, Scopes, and Variables ---
 
   public getStackTrace(sessionId: string): StackFrame[] {
     const record = this.sessions.get(sessionId);
@@ -539,8 +527,6 @@ export class DapManagerService {
     }
   }
 
-  // --- 5. Expression Evaluation & Watch ---
-
   public async evaluate(dto: EvaluateDto): Promise<EvaluateResult> {
     const { sessionId, expression, frameId } = dto;
     const record = this.sessions.get(sessionId);
@@ -579,8 +565,6 @@ export class DapManagerService {
     }
   }
 
-  // --- 6. Stop & Cleanup ---
-
   public async stop(sessionId: string): Promise<void> {
     const record = this.sessions.get(sessionId);
     if (!record) return;
@@ -604,8 +588,6 @@ export class DapManagerService {
     record.session.status = DebugSessionStatus.TERMINATED;
     this.sessions.delete(sessionId);
   }
-
-  // --- 7. Event Subscriptions ---
 
   public onSessionEvent(
     sessionId: string,

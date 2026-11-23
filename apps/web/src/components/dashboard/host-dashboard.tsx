@@ -92,7 +92,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
     return `${m}m`;
   };
 
-  // Sparkline generator from history array
   const renderSparkline = (data: number[], color: string) => {
     if (data.length < 2) return null;
     const max = 100;
@@ -124,7 +123,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] text-zinc-300 font-sans text-xs overflow-y-auto p-4 space-y-4">
-      {/* Top Header & Actions */}
       <div className="flex items-center justify-between pb-3 border-b border-zinc-800">
         <div className="flex items-center gap-2">
           <Server className="w-4 h-4 text-emerald-400" />
@@ -160,7 +158,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
         </div>
       )}
 
-      {/* Active Alerts Banner */}
       {alerts.length > 0 && (
         <div className="space-y-1.5">
           {alerts.map((alt) => (
@@ -192,9 +189,7 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
 
       {metrics && (
         <>
-          {/* Main Resource Cards Grid */}
           <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
-            {/* CPU Card */}
             <div className="p-3.5 bg-[#121214] border border-zinc-800/90 rounded-lg flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-1.5 text-zinc-400">
@@ -224,7 +219,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
               </div>
             </div>
 
-            {/* Memory Card */}
             <div className="p-3.5 bg-[#121214] border border-zinc-800/90 rounded-lg flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-1.5 text-zinc-400">
@@ -254,7 +248,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
               </div>
             </div>
 
-            {/* Disk Card */}
             <div className="p-3.5 bg-[#121214] border border-zinc-800/90 rounded-lg flex flex-col justify-between">
               <div className="flex items-center justify-between pb-2">
                 <div className="flex items-center gap-1.5 text-zinc-400">
@@ -281,7 +274,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
             </div>
           </div>
 
-          {/* System Info & Battery Strip */}
           <div className="grid grid-cols-2 md:grid-cols-4 gap-2.5">
             <div className="p-3 bg-[#121214] border border-zinc-800/80 rounded-lg flex items-center gap-3">
               {metrics.battery.isCharging ? (
@@ -337,7 +329,6 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
             </div>
           </div>
 
-          {/* App & Services Status Overview */}
           <div className="p-3.5 bg-[#121214] border border-zinc-800/90 rounded-lg space-y-3">
             <h3 className="font-semibold text-zinc-200 text-xs flex items-center gap-1.5">
               <FolderGit2 className="w-4 h-4 text-indigo-400" />

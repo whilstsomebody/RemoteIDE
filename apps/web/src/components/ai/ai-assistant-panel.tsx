@@ -66,7 +66,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   initialPrompt,
   initialContext,
 }) => {
-  // Settings & Key state
   const [settings, setSettings] = useState<AiSettings | null>(null);
   const [isKeyModalOpen, setIsKeyModalOpen] = useState(false);
   const [apiKeyInput, setApiKeyInput] = useState("");
@@ -74,28 +73,23 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   const [isSavingKey, setIsSavingKey] = useState(false);
   const [keyError, setKeyError] = useState<string | null>(null);
 
-  // Conversations state
   const [conversations, setConversations] = useState<AiConversation[]>([]);
   const [activeConversationId, setActiveConversationId] = useState<string | null>(null);
   const [messages, setMessages] = useState<AiMessage[]>([]);
   const [isLoadingMessages, setIsLoadingMessages] = useState(false);
   const [isConversationsDropdownOpen, setIsConversationsDropdownOpen] = useState(false);
 
-  // Streaming / Generation state
   const [input, setInput] = useState("");
   const [isStreaming, setIsStreaming] = useState(false);
   const [streamingText, setStreamingText] = useState("");
   const [activeMessageId, setActiveMessageId] = useState<string | null>(null);
   const [errorBanner, setErrorBanner] = useState<string | null>(null);
 
-  // Active attached context
   const [attachedContext, setAttachedContext] = useState<AiMessageContext | null>(null);
 
-  // Renaming chat state
   const [isRenaming, setIsRenaming] = useState(false);
   const [renamedTitle, setRenamedTitle] = useState("");
 
-  // Refs
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
   const startXRef = useRef(0);
@@ -112,7 +106,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     return headers;
   }, [token]);
 
-  // Load Settings
   const fetchSettings = useCallback(async () => {
     try {
       const res = await fetch(`${gatewayUrl}/api/v1/ai/settings`, {
@@ -130,7 +123,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   }, [gatewayUrl, authHeaders]);
 
-  // Load Conversations
   const fetchConversations = useCallback(async () => {
     try {
       const res = await fetch(`${gatewayUrl}/api/v1/ai/conversations?workspaceId=${encodeURIComponent(workspaceId)}`, {
@@ -150,7 +142,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   }, [gatewayUrl, workspaceId, activeConversationId, authHeaders]);
 
-  // Load Conversation Messages
   const fetchMessages = useCallback(
     async (convId: string) => {
       setIsLoadingMessages(true);
@@ -189,7 +180,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   }, [activeConversationId, fetchMessages]);
 
-  // Handle incoming initial prompt or context
   useEffect(() => {
     if (initialPrompt) {
       setInput(initialPrompt);
@@ -199,7 +189,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   }, [initialPrompt, initialContext]);
 
-  // Auto-scroll
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [messages, streamingText, isStreaming]);
@@ -231,7 +220,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     startWidthRef.current = width;
   };
 
-  // Create New Chat
   const handleCreateNewChat = async (title = "New Chat") => {
     try {
       const res = await fetch(`${gatewayUrl}/api/v1/ai/conversations`, {
@@ -258,7 +246,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     return null;
   };
 
-  // Rename Chat
   const handleRenameChat = async () => {
     if (!activeConversationId || !renamedTitle.trim()) return;
     try {
@@ -278,7 +265,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   };
 
-  // Delete Chat
   const handleDeleteChat = async (convId: string) => {
     if (!window.confirm("Are you sure you want to delete this chat conversation?")) return;
     try {
@@ -298,7 +284,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   };
 
-  // Save API Key
   const handleSaveApiKey = async () => {
     if (!apiKeyInput.trim()) {
       setKeyError("Please enter a valid Gemini API key");
@@ -330,7 +315,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   };
 
-  // Stop Generation
   const handleStopGeneration = async () => {
     if (abortControllerRef.current) {
       abortControllerRef.current.abort();
@@ -347,7 +331,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     setIsStreaming(false);
   };
 
-  // Send Prompt (Streaming with SSE)
   const handleSend = async (customPrompt?: string, customContext?: AiMessageContext) => {
     const promptToSend = (customPrompt || input).trim();
     if (!promptToSend || isStreaming) return;
@@ -365,7 +348,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
 
     const currentContext = customContext || attachedContext || undefined;
 
-    // Create optimistic user message
     const tempUserMsg: AiMessage = {
       id: `u-${Date.now()}`,
       conversationId: convId,
@@ -464,7 +446,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
     }
   };
 
-  // Quick Action Handlers
   const handleExplainSelection = () => {
     if (!selectedText) return;
     const ctx: AiMessageContext = {
@@ -505,13 +486,11 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
       style={{ width: `${width}px` }}
       className="h-full bg-zinc-950 border-l border-zinc-800 flex flex-col relative z-20 select-none overflow-hidden shrink-0 transition-[width] duration-75"
     >
-      {/* Drag handle for resizing */}
       <div
         onMouseDown={handleMouseDown}
         className="absolute left-0 top-0 bottom-0 w-1.5 cursor-col-resize hover:bg-indigo-500/50 transition-colors z-30"
       />
 
-      {/* Top Header */}
       <div className="h-10 border-b border-zinc-800 flex items-center justify-between px-3 bg-zinc-900/80 shrink-0">
         <div className="flex items-center gap-2 min-w-0">
           <div className="w-5 h-5 rounded bg-indigo-600/30 border border-indigo-500/50 flex items-center justify-center shrink-0">
@@ -529,7 +508,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         </div>
 
         <div className="flex items-center gap-1.5">
-          {/* Key Settings Button */}
           <button
             onClick={() => setIsKeyModalOpen(true)}
             title="Configure Gemini API Key & Model"
@@ -542,7 +520,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
             <Key className="w-3.5 h-3.5" />
           </button>
 
-          {/* New Chat Button */}
           <button
             onClick={() => void handleCreateNewChat()}
             title="New Conversation"
@@ -551,7 +528,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
             <Plus className="w-3.5 h-3.5" />
           </button>
 
-          {/* Close Sidebar */}
           <button
             onClick={onClose}
             title="Close Assistant"
@@ -562,7 +538,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         </div>
       </div>
 
-      {/* Conversation Selector & Title Bar */}
       <div className="px-3 py-2 border-b border-zinc-850 bg-zinc-900/40 flex items-center justify-between text-xs gap-2 shrink-0">
         <div className="relative flex-1 min-w-0">
           {isRenaming ? (
@@ -598,7 +573,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
             </button>
           )}
 
-          {/* Dropdown Menu */}
           {isConversationsDropdownOpen && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-800 rounded shadow-xl py-1 z-40 max-h-56 overflow-y-auto">
               <button
@@ -641,7 +615,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
           )}
         </div>
 
-        {/* Rename & Delete for Active Chat */}
         {activeConv && !isRenaming && (
           <div className="flex items-center gap-1 shrink-0">
             <button
@@ -665,7 +638,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         )}
       </div>
 
-      {/* Warning / Setup Banner if Key Missing */}
       {!settings?.hasKey && (
         <div className="px-3 py-2 bg-amber-950/40 border-b border-amber-800/40 flex items-start gap-2 text-xs text-amber-300">
           <ShieldAlert className="w-4 h-4 text-amber-400 shrink-0 mt-0.5" />
@@ -684,7 +656,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         </div>
       )}
 
-      {/* Error Alert Banner */}
       {errorBanner && (
         <div className="px-3 py-2 bg-rose-950/50 border-b border-rose-800/60 flex items-start gap-2 text-xs text-rose-300">
           <AlertTriangle className="w-4 h-4 text-rose-400 shrink-0 mt-0.5" />
@@ -695,7 +666,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         </div>
       )}
 
-      {/* Messages List Area */}
       <div className="flex-1 overflow-y-auto p-3 space-y-4 select-text">
         {isLoadingMessages ? (
           <div className="text-center py-8 text-xs text-zinc-500 italic">Loading messages...</div>
@@ -711,7 +681,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
               </p>
             </div>
 
-            {/* Quick Context Action Prompts */}
             <div className="w-full space-y-2 pt-2">
               {selectedText && (
                 <button
@@ -763,7 +732,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
           ))
         )}
 
-        {/* Real-time Streaming Bubble */}
         {isStreaming && streamingText && (
           <div className="flex flex-col gap-1.5 items-start">
             <div className="flex items-center gap-1.5 text-[11px] text-zinc-400 font-sans">
@@ -781,7 +749,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         <div ref={messagesEndRef} />
       </div>
 
-      {/* Attached Context Preview Pill */}
       {attachedContext && (
         <div className="px-3 py-1.5 bg-zinc-900 border-t border-zinc-800 flex items-center justify-between text-[11px] text-indigo-300 shrink-0">
           <div className="flex items-center gap-1.5 truncate">
@@ -803,7 +770,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
         </div>
       )}
 
-      {/* Composer Input Area */}
       <div className="p-3 border-t border-zinc-800 bg-zinc-900/60 shrink-0 space-y-2">
         <div className="relative flex items-center">
           <textarea
@@ -845,13 +811,11 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
           )}
         </div>
 
-        {/* Footer Disclaimer */}
         <p className="text-[10px] text-zinc-500 text-center select-none font-sans">
           RemoteIDE Assistant is read-only. Generated suggestions must be applied manually.
         </p>
       </div>
 
-      {/* API Key & Model Configuration Modal */}
       {isKeyModalOpen && (
         <div className="absolute inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="w-full max-w-sm bg-zinc-900 border border-zinc-800 rounded-lg p-5 space-y-4 shadow-2xl">
@@ -910,7 +874,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
 
               {keyError && <p className="text-xs text-rose-400">{keyError}</p>}
 
-              {/* Privacy Notice */}
               <div className="p-2.5 rounded bg-zinc-950/80 border border-zinc-800 text-[11px] text-zinc-400 space-y-1">
                 <p className="font-semibold text-zinc-300">Third-Party Processing Notice</p>
                 <p className="text-[10px] leading-relaxed">{GEMINI_PRIVACY_DISCLAIMER}</p>
@@ -956,7 +919,6 @@ export const AiAssistantPanel: React.FC<AiAssistantPanelProps> = ({
   );
 };
 
-// Render Individual Chat Message
 const ChatMessageItem: React.FC<{
   message: AiMessage;
   onRetry?: () => void;
@@ -982,14 +944,12 @@ const ChatMessageItem: React.FC<{
         </span>
       </div>
 
-      {/* Message Context Attached */}
       {message.context && (
         <div className="max-w-[85%] px-2.5 py-1 rounded bg-zinc-900/60 border border-zinc-800 text-[10px] text-indigo-300 font-mono truncate">
           {message.context.filePath ? `Context: ${message.context.filePath}` : "Context attached"}
         </div>
       )}
 
-      {/* Content Bubble */}
       <div
         className={`rounded-lg p-3 text-xs leading-relaxed max-w-[92%] overflow-hidden ${
           isUser
@@ -1004,7 +964,6 @@ const ChatMessageItem: React.FC<{
         )}
       </div>
 
-      {/* Retry Button for Assistant Messages */}
       {!isUser && onRetry && (
         <button
           onClick={onRetry}
@@ -1018,7 +977,6 @@ const ChatMessageItem: React.FC<{
   );
 };
 
-// Simple, Safe Markdown and Code Block Renderer
 const RenderMarkdown: React.FC<{ text: string }> = ({ text }) => {
   // Split on triple backticks for fenced code blocks
   const parts = text.split(/(```[\s\S]*?```)/g);
@@ -1033,7 +991,6 @@ const RenderMarkdown: React.FC<{ text: string }> = ({ text }) => {
           return <CodeBlock key={idx} language={lang} code={code} />;
         }
 
-        // Inline formatting for non-code block text
         return (
           <div key={idx} className="whitespace-pre-wrap leading-relaxed text-zinc-200">
             {renderInlineMarkdown(part)}
@@ -1044,7 +1001,6 @@ const RenderMarkdown: React.FC<{ text: string }> = ({ text }) => {
   );
 };
 
-// Code block with Copy button
 const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, code }) => {
   const [copied, setCopied] = useState(false);
 
@@ -1073,9 +1029,7 @@ const CodeBlock: React.FC<{ language: string; code: string }> = ({ language, cod
   );
 };
 
-// Inline Markdown formatter (bold, inline code, links)
 function renderInlineMarkdown(raw: string): React.ReactNode {
-  // Bold **text**
   const boldParts = raw.split(/(\*\*.*?\*\*)/g);
   return boldParts.map((bPart, bIdx) => {
     if (bPart.startsWith("**") && bPart.endsWith("**")) {
@@ -1086,7 +1040,6 @@ function renderInlineMarkdown(raw: string): React.ReactNode {
       );
     }
 
-    // Inline `code`
     const codeParts = bPart.split(/(`.*?`)/g);
     return codeParts.map((cPart, cIdx) => {
       if (cPart.startsWith("`") && cPart.endsWith("`")) {

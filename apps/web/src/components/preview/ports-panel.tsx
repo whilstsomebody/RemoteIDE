@@ -29,7 +29,6 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [copiedPort, setCopiedPort] = useState<number | null>(null);
 
-  // Form
   const [newPort, setNewPort] = useState("");
   const [newLabel, setNewLabel] = useState("");
   const [expiresHours, setExpiresHours] = useState("24");
@@ -143,7 +142,6 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
 
   return (
     <div className="flex flex-col h-full w-full bg-[#141417] text-zinc-300 text-xs select-none p-4 overflow-y-auto">
-      {/* Header */}
       <div className="flex items-center justify-between pb-3 border-b border-ide-border mb-4">
         <div className="flex items-center gap-2">
           <Globe className="w-4 h-4 text-indigo-400" />
@@ -165,7 +163,6 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
         </div>
       </div>
 
-      {/* Detected Local Ports on Host */}
       {detectedPorts.length > 0 && (
         <div className="mb-6 p-3 rounded-lg bg-zinc-900/60 border border-zinc-800">
           <div className="flex items-center gap-2 font-medium text-zinc-300 mb-2">
@@ -201,7 +198,6 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
         </div>
       )}
 
-      {/* Forwarded Ports Table */}
       <div className="rounded-lg border border-ide-border overflow-hidden bg-zinc-900/30">
         <table className="w-full text-left border-collapse">
           <thead>
@@ -290,7 +286,6 @@ export const PortsPanel: React.FC<PortsPanelProps> = ({ gatewayUrl = "", onOpenP
         </table>
       </div>
 
-      {/* Forward Port Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <form

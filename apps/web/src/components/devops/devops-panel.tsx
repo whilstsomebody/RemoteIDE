@@ -94,7 +94,6 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] text-zinc-300 font-sans text-xs select-none">
-      {/* Subtab Navigation Bar */}
       <div className="flex items-center border-b border-zinc-800 bg-[#121214] px-2 py-1.5 gap-1 shrink-0 overflow-x-auto">
         <button
           onClick={() => setActiveSubTab("metrics")}
@@ -156,7 +155,6 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
         </button>
       </div>
 
-      {/* Tab Panels */}
       <div className="flex-1 overflow-hidden">
         {activeSubTab === "metrics" && <HostDashboard agentUrl={agentUrl} />}
 
@@ -306,7 +304,6 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
         )}
       </div>
 
-      {/* New SSH Modal */}
       {newSshModal && (
         <div className="fixed inset-0 bg-black/70 flex items-center justify-center p-4 z-50">
           <form

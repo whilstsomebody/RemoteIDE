@@ -213,14 +213,12 @@ export function getLanguageDefinition(filePath: string): LanguageDefinition {
   const normalized = filePath.toLowerCase();
   const basename = normalized.split("/").pop() || "";
 
-  // 1. Check exact filenames first
   for (const lang of LANGUAGE_REGISTRY) {
     if (lang.filenames && lang.filenames.some((f) => f.toLowerCase() === basename)) {
       return lang;
     }
   }
 
-  // 2. Check extensions
   for (const lang of LANGUAGE_REGISTRY) {
     for (const ext of lang.extensions) {
       if (basename.endsWith(ext.toLowerCase())) {

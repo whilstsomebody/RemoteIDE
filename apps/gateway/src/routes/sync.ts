@@ -10,7 +10,6 @@ import {
 import { syncService } from "../services/sync.service.js";
 
 export const syncRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Submit pending events from host agent (with host sequence numbers)
   fastify.post("/api/v1/sync/events", async (req, reply) => {
     if (!authenticateAgent(req)) return reply.status(401).send(createErrorResponse(ErrorCode.UNAUTHORIZED, "Agent authentication required"));
     const parse = SyncEventsDtoSchema.safeParse(req.body);
@@ -29,7 +28,6 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 2. Client reconciliation: fetch events since a specific revision
   fastify.get("/api/v1/sync/reconcile", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) return reply.status(401).send(createErrorResponse(ErrorCode.UNAUTHORIZED, "Authentication required"));
@@ -62,7 +60,6 @@ export const syncRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 3. Operational & Performance metrics
   fastify.get("/api/v1/sync/metrics", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session?.isOwner) return reply.status(403).send(createErrorResponse(ErrorCode.FORBIDDEN, "Owner authentication required"));

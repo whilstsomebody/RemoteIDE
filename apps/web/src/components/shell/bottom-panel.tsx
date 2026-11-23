@@ -116,13 +116,11 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
       style={{ height: panelHeight }}
       className="bg-zinc-950 border-t border-zinc-800 flex flex-col shrink-0 select-none overflow-hidden transition-all duration-75 relative z-20"
     >
-      {/* Resizer Handle */}
       <div
         onMouseDown={handleMouseDown}
         className="h-1 bg-transparent hover:bg-zinc-600 cursor-row-resize transition-colors absolute top-0 left-0 right-0 z-30"
       />
 
-      {/* Panel Header & Tabs */}
       <div className="h-9 px-3 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between text-xs shrink-0">
         <div className="flex items-center gap-1">
           <button
@@ -240,7 +238,6 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
           </button>
         </div>
 
-        {/* Panel Controls */}
         <div className="flex items-center gap-1">
           {activeTab === "output" && onClearLogs && (
             <button
@@ -274,7 +271,6 @@ export const BottomPanel: React.FC<BottomPanelProps> = ({
         </div>
       </div>
 
-      {/* Tab Contents */}
       <div className="flex-1 overflow-hidden font-mono text-xs text-zinc-300 select-text bg-[#09090b]">
         {activeTab === "terminal" && (
           <div className="h-full w-full">

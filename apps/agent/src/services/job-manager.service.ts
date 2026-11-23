@@ -31,7 +31,7 @@ export interface JobManagerOptions {
 
 export class JobManagerService {
   private jobs = new Map<string, JobRecord>();
-  private pendingQueue: string[] = []; // Job IDs queued for execution
+  private pendingQueue: string[] = [];
   private eventListeners = new Set<(event: JobLifecycleEvent) => void>();
   private readonly maxConcurrentJobs: number;
   private readonly maxLogEntriesPerJob: number;
@@ -40,12 +40,9 @@ export class JobManagerService {
   constructor(options: JobManagerOptions = {}) {
     this.maxConcurrentJobs = options.maxConcurrentJobs ?? 5;
     this.maxLogEntriesPerJob = options.maxLogEntriesPerJob ?? 5000;
-    this.defaultTimeoutMs = options.defaultTimeoutMs ?? 1800000; // 30 minutes
+    this.defaultTimeoutMs = options.defaultTimeoutMs ?? 1800000;
   }
 
-  /**
-   * Register a subscriber for job lifecycle events.
-   */
   public onEvent(listener: (event: JobLifecycleEvent) => void): () => void {
     this.eventListeners.add(listener);
     return () => this.eventListeners.delete(listener);
@@ -70,11 +67,7 @@ export class JobManagerService {
     }
   }
 
-  /**
-   * Create and queue/execute a new background job.
-   */
   public async createJob(dto: CreateJobDto, ownerId: string): Promise<JobDefinition> {
-    // Idempotency check: return existing running/pending job if same key
     if (dto.idempotencyKey) {
       for (const record of this.jobs.values()) {
         if (
@@ -90,7 +83,6 @@ export class JobManagerService {
       }
     }
 
-    // Working directory validation
     const resolvedCwd = dto.cwd ? path.resolve(dto.cwd) : os.homedir();
     if (!fs.existsSync(resolvedCwd) || !fs.statSync(resolvedCwd).isDirectory()) {
       throw new AppError(ErrorCode.NOT_FOUND, `Working directory does not exist: ${resolvedCwd}`);
@@ -128,16 +120,12 @@ export class JobManagerService {
       `Job registered and queued: ${job.name} (${job.command} ${job.args.join(" ")})`
     );
 
-    // Schedule execution
     this.pendingQueue.push(jobId);
     this.processQueue();
 
     return job;
   }
 
-  /**
-   * Process pending queue if capacity is available.
-   */
   private processQueue(): void {
     const runningCount = Array.from(this.jobs.values()).filter(
       (r) => r.job.status === "running"
@@ -159,9 +147,6 @@ export class JobManagerService {
     this.startJobProcess(record);
   }
 
-  /**
-   * Spawn child process and manage log streams.
-   */
   private startJobProcess(record: JobRecord): void {
     const { job } = record;
     job.status = "running";
@@ -184,19 +169,16 @@ export class JobManagerService {
 
       record.process = child;
 
-      // Handle stdout
       child.stdout?.on("data", (chunk: Buffer) => {
         const text = chunk.toString("utf-8");
         this.addLog(record, "stdout", text);
       });
 
-      // Handle stderr
       child.stderr?.on("data", (chunk: Buffer) => {
         const text = chunk.toString("utf-8");
         this.addLog(record, "stderr", text);
       });
 
-      // Execution timeout watchdog
       if (job.timeoutMs && job.timeoutMs > 0) {
         record.timeoutTimer = setTimeout(() => {
           if (job.status === "running") {
@@ -210,14 +192,12 @@ export class JobManagerService {
         }, job.timeoutMs);
       }
 
-      // Process error
       child.on("error", (err) => {
         logger.error({ err, jobId: job.id }, "Child process error");
         job.error = err.message;
         this.finishJob(record, "failed", null, err.message);
       });
 
-      // Process exit
       child.on("close", (code) => {
         if (job.status === "cancelled") return;
         const status = code === 0 ? "completed" : "failed";
@@ -264,13 +244,9 @@ export class JobManagerService {
       this.emitEvent("job.failed", job);
     }
 
-    // Trigger next queued job
     this.processQueue();
   }
 
-  /**
-   * Add a log entry and broadcast to active stream listeners.
-   */
   private addLog(record: JobRecord, stream: "stdout" | "stderr" | "system", data: string): void {
     const entry: JobLogEntry = {
       id: generateId("log"),
@@ -296,16 +272,12 @@ export class JobManagerService {
     }
   }
 
-  /**
-   * Cancel a running or queued job.
-   */
   public async cancelJob(jobId: string, reason = "Cancelled by user"): Promise<JobDefinition> {
     const record = this.jobs.get(jobId);
     if (!record) {
       throw new AppError(ErrorCode.NOT_FOUND, `Job not found: ${jobId}`);
     }
 
-    // If pending, remove from queue
     if (record.job.status === "pending") {
       this.pendingQueue = this.pendingQueue.filter((id) => id !== jobId);
       this.finishJob(record, "cancelled", null, reason);
@@ -329,9 +301,6 @@ export class JobManagerService {
     return record.job;
   }
 
-  /**
-   * Retry an approved job.
-   */
   public async retryJob(jobId: string, ownerId: string): Promise<JobDefinition> {
     const record = this.jobs.get(jobId);
     if (!record) {
@@ -350,9 +319,6 @@ export class JobManagerService {
     );
   }
 
-  /**
-   * Retrieve job details.
-   */
   public getJob(jobId: string): JobDefinition {
     const record = this.jobs.get(jobId);
     if (!record) {
@@ -361,9 +327,6 @@ export class JobManagerService {
     return record.job;
   }
 
-  /**
-   * Retrieve job logs.
-   */
   public getJobLogs(jobId: string): JobLogEntry[] {
     const record = this.jobs.get(jobId);
     if (!record) {
@@ -372,9 +335,6 @@ export class JobManagerService {
     return record.logs;
   }
 
-  /**
-   * Subscribe to live streaming logs.
-   */
   public subscribeLogs(
     jobId: string,
     listener: (entry: JobLogEntry) => void
@@ -391,16 +351,10 @@ export class JobManagerService {
     };
   }
 
-  /**
-   * List all jobs.
-   */
   public listJobs(): JobDefinition[] {
     return Array.from(this.jobs.values()).map((r) => r.job);
   }
 
-  /**
-   * Graceful shutdown of all active jobs on agent shutdown.
-   */
   public async shutdownAll(): Promise<void> {
     logger.info("Terminating all active background jobs...");
     const runningJobs = Array.from(this.jobs.values()).filter((r) => r.job.status === "running");

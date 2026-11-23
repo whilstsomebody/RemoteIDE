@@ -57,7 +57,6 @@ export class CollabDocManagerService {
     this.inactivityTtlMs = options?.inactivityTtlMs ?? 300000; // 5 minutes default
     this.maxSnapshots = options?.maxSnapshots ?? 10;
 
-    // Listen to watcherService for external file changes
     if (this.watcherService) {
       this.watcherService.subscribe((evt) => {
         if (evt.eventType === "update") {
@@ -105,14 +104,12 @@ export class CollabDocManagerService {
       return session;
     }
 
-    // Load initial file from host filesystem
     const fileData = this.fsService.readFile(workspaceId, relativePath, "utf-8");
     const stat = this.fsService.getFileStat(workspaceId, relativePath);
 
     const doc = new Y.Doc();
     const text = doc.getText("contents");
 
-    // Populate initial contents
     doc.transact(() => {
       text.insert(0, fileData.content);
     });
@@ -138,7 +135,6 @@ export class CollabDocManagerService {
 
     this.sessions.set(key, session);
 
-    // Track any doc updates to mark session dirty
     doc.on("update", () => {
       session.isDirty = true;
     });
@@ -152,9 +148,6 @@ export class CollabDocManagerService {
     return this.sessions.get(this.getSessionKey(workspaceId, relativePath));
   }
 
-  /**
-   * Registers a participant joining the collaborative document.
-   */
   public async join(
     workspaceId: string,
     relativePath: string,
@@ -284,9 +277,6 @@ export class CollabDocManagerService {
     };
   }
 
-  /**
-   * Schedules a debounced batched write to the host filesystem.
-   */
   private scheduleBatchWrite(session: CollabSessionRecord): void {
     if (session.writeTimer) return; // Debounce timer already active
 
@@ -296,9 +286,6 @@ export class CollabDocManagerService {
     }, this.batchWriteDelayMs);
   }
 
-  /**
-   * Immediately flushes collaborative document text to the host filesystem.
-   */
   public async flush(workspaceId: string, relativePath: string): Promise<void> {
     const session = this.getSession(workspaceId, relativePath);
     if (session) {
@@ -325,7 +312,6 @@ export class CollabDocManagerService {
       session.isDirty = false;
       session.lastPersistedMtime = new Date().toISOString();
 
-      // Create snapshot periodically
       if (session.snapshots.length >= this.maxSnapshots) {
         session.snapshots.shift();
       }
@@ -344,9 +330,6 @@ export class CollabDocManagerService {
     }
   }
 
-  /**
-   * Flushes and cleans up an inactive collaborative session.
-   */
   public async cleanupSession(workspaceId: string, relativePath: string): Promise<void> {
     const key = this.getSessionKey(workspaceId, relativePath);
     const session = this.sessions.get(key);
@@ -392,12 +375,10 @@ export class CollabDocManagerService {
       const crdtText = session.text.toString();
 
       if (diskData.content === crdtText) {
-        // Disk matches current CRDT; no conflict
         session.conflictStatus = undefined;
         return;
       }
 
-      // External conflict detected!
       session.conflictStatus = {
         workspaceId,
         filePath: relativePath,
@@ -586,9 +567,6 @@ export class CollabDocManagerService {
     });
   }
 
-  /**
-   * Adds a line comment to the document.
-   */
   public addComment(
     workspaceId: string,
     relativePath: string,

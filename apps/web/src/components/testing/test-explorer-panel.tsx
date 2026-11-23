@@ -39,7 +39,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
   const [isRunning, setIsRunning] = useState<boolean>(false);
   const [showLogs, setShowLogs] = useState<boolean>(false);
 
-  // Discover tests
   const discoverTests = async () => {
     try {
       const res = await fetch(
@@ -50,7 +49,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
         const list: TestSuite[] = json.data || [];
         setSuites(list);
 
-        // Auto-expand first 3 suites
         const exp: Record<string, boolean> = {};
         list.slice(0, 3).forEach((s) => (exp[s.id] = true));
         setExpandedSuites(exp);
@@ -80,7 +78,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [workspacePath, baseUrl]);
 
-  // Execute Tests
   const handleRunTests = async (
     scope: "all" | "file" | "single" | "failed",
     filePath?: string,
@@ -117,7 +114,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-[#121214] text-zinc-200 text-xs font-sans select-none overflow-hidden">
-      {/* Header */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between shrink-0 bg-[#18181b]">
         <div className="flex items-center gap-2">
           <FlaskConical className="w-4 h-4 text-emerald-400" />
@@ -152,7 +148,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
         </div>
       </div>
 
-      {/* Test Run Summary Status Card */}
       {lastRun && (
         <div className="p-2.5 border-b border-zinc-800/80 bg-zinc-900/40 shrink-0 space-y-1.5">
           <div className="flex items-center justify-between">
@@ -183,7 +178,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
             )}
           </div>
 
-          {/* Coverage Summary Pill */}
           {lastRun.coverage && (
             <div className="pt-1 flex items-center justify-between text-[10px] text-zinc-400 border-t border-zinc-800/50">
               <span className="flex items-center gap-1">
@@ -198,7 +192,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
         </div>
       )}
 
-      {/* Failure Highlights with click-to-open */}
       {lastRun && lastRun.failures && lastRun.failures.length > 0 && (
         <div className="p-2 border-b border-rose-950/80 bg-rose-950/20 max-h-36 overflow-y-auto space-y-1 shrink-0">
           <div className="text-[10px] uppercase font-bold text-rose-400 flex items-center gap-1">
@@ -220,7 +213,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
         </div>
       )}
 
-      {/* Discovered Test Suites Tree */}
       <div className="flex-1 overflow-y-auto p-2 space-y-1">
         <div className="flex items-center justify-between text-[11px] font-semibold text-zinc-400 uppercase tracking-wider mb-1 px-1">
           <span>Test Suites ({suites.length})</span>
@@ -240,7 +232,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
                 key={suite.id}
                 className="rounded border border-zinc-800/60 bg-zinc-900/30 overflow-hidden"
               >
-                {/* Suite Header */}
                 <div className="flex items-center justify-between p-1.5 hover:bg-zinc-800/60 transition-colors group">
                   <div
                     onClick={() =>
@@ -268,7 +259,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
                   </button>
                 </div>
 
-                {/* Test Cases */}
                 {isExpanded && (
                   <div className="pl-6 pr-2 pb-1.5 space-y-0.5 border-t border-zinc-800/40 pt-1">
                     {suite.tests.map((test) => (
@@ -302,7 +292,6 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
         )}
       </div>
 
-      {/* Logs Toggle Drawer */}
       {lastRun && lastRun.logs && lastRun.logs.length > 0 && (
         <div className="border-t border-zinc-800 bg-[#141416] shrink-0">
           <button

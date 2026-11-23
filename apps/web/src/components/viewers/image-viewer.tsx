@@ -23,7 +23,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, filename, sizeByt
 
   return (
     <div className="flex-1 flex flex-col h-full bg-zinc-950 text-zinc-100 overflow-hidden">
-      {/* Image Toolbar */}
       <div className="h-10 px-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between text-xs shrink-0">
         <div className="flex items-center gap-3">
           <Badge
@@ -89,7 +88,6 @@ export const ImageViewer: React.FC<ImageViewerProps> = ({ src, filename, sizeByt
         </div>
       </div>
 
-      {/* Image Display Canvas with transparency pattern */}
       <div className="flex-1 overflow-auto flex items-center justify-center p-6 bg-zinc-950/80 bg-[radial-gradient(#27272a_1px,transparent_1px)] [background-size:16px_16px]">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img

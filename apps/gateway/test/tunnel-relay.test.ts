@@ -34,7 +34,6 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
   it("handles agent reverse tunnel registration, heartbeats, and request forwarding", async () => {
     const mockAgentSocket = new MockWebSocket();
 
-    // 1. Agent registers over outbound reverse tunnel
     tunnelRelayService.registerAgentSocket("test-host", mockAgentSocket as any, {
       reverseTunnel: true,
       platform: "darwin",
@@ -45,7 +44,6 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
     expect(status.online).toBe(true);
     expect(status.capabilities).toBeDefined();
 
-    // 2. Heartbeat ping from agent produces pong
     mockAgentSocket.emit(
       "message",
       JSON.stringify({
@@ -59,14 +57,12 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
     );
     expect(heartbeatAckMsg).toBeDefined();
 
-    // 3. Gateway forwards request across reverse tunnel
     const forwardPromise = tunnelRelayService.forwardRequest("test-host", {
       method: "GET",
       path: "/api/v1/workspaces",
       headers: { "x-test": "1" },
     });
 
-    // Check that TUNNEL_REQUEST was sent across the agent socket
     const requestFrame = mockAgentSocket.sentMessages.find((m) =>
       m.includes(TunnelMessageType.TUNNEL_REQUEST)
     );
@@ -75,7 +71,6 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
     const correlationId = parsedRequest.payload.correlationId;
     expect(correlationId).toBeDefined();
 
-    // Agent replies with TUNNEL_RESPONSE
     mockAgentSocket.emit(
       "message",
       JSON.stringify({
@@ -95,7 +90,6 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
   });
 
   it("immediately severs active client WebSockets when a session is revoked", async () => {
-    // 1. Create a session
     const { session } = authService.createSessionInternal({
       userId: "test-user-1",
       hostId: "local-host-agent",
@@ -112,7 +106,6 @@ describe("Phase 3 - Outbound Reverse Tunnel Relay & Session Severance", () => {
     const mockClientSocket = new MockWebSocket();
     tunnelRelayService.registerClientSocket(session.id, mockClientSocket as any);
 
-    // 2. Revoking the session immediately closes the client WebSocket with code 4401
     authService.revokeSession(session.id, "admin");
 
     expect(mockClientSocket.readyState).toBe(3); // CLOSED

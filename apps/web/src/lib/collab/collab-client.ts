@@ -44,7 +44,6 @@ export class CollabClient {
     this.doc = new Y.Doc();
     this.yText = this.doc.getText("contents");
 
-    // Listen to local Yjs document updates and broadcast to server
     this.doc.on("update", (update: Uint8Array, origin: unknown) => {
       if (origin === localCollabOrigin && this.currentRole !== "viewer") {
         this.sendUpdate(update);
@@ -59,7 +58,6 @@ export class CollabClient {
   public attachWebSocket(ws: WebSocket): void {
     this.ws = ws;
 
-    // Join room with initial state vector
     const stateVector = Y.encodeStateVector(this.doc);
     const stateVectorBase64 = Buffer.from(stateVector).toString("base64");
 
@@ -113,7 +111,6 @@ export class CollabClient {
             this.config.onParticipantsChange?.([...this.participants]);
           }
 
-          // If following this user, trigger scroll/navigation
           if (this.followingParticipantId === payload.userId) {
             this.config.onFollowCursor?.(payload.userId, payload.cursor.line, payload.cursor.col);
           }

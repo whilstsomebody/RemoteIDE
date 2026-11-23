@@ -31,9 +31,8 @@ export interface TunnelTransportOptions {
 }
 
 /**
- * Local & Cloud Relay Transport.
- * Establishes an outbound authenticated persistent connection from the Host Agent
- * to the Remote Gateway without requiring inbound router port forwarding.
+ * Outbound authenticated persistent connection from the Host Agent to the Remote
+ * Gateway, so the host never needs inbound router port forwarding.
  */
 export class RelayTunnelTransport implements ITunnelTransport {
   public readonly name = "relay";
@@ -75,10 +74,9 @@ export class RelayTunnelTransport implements ITunnelTransport {
       });
 
       this.ws.on("open", () => {
-        this.backoffMs = this.initialBackoffMs; // Reset backoff on success
+        this.backoffMs = this.initialBackoffMs;
         this.startHeartbeat();
 
-        // Register host with gateway
         this.ws?.send(
           JSON.stringify({
             type: TunnelMessageType.AGENT_REGISTER,
@@ -219,7 +217,6 @@ export class RelayTunnelTransport implements ITunnelTransport {
   private scheduleReconnect(): void {
     if (this.reconnectTimer || this.isShuttingDown) return;
 
-    // Exponential backoff with random jitter
     const jitter = Math.floor(Math.random() * 500);
     const delay = Math.min(this.maxBackoffMs, this.backoffMs + jitter);
     this.backoffMs = Math.min(this.maxBackoffMs, Math.floor(this.backoffMs * 1.5));
@@ -252,7 +249,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
   }
 
   /**
-   * Dual-layer capability and boundary enforcement on the host agent before execution.
+   * Re-checks capabilities and workspace scope on the host, so a compromised or buggy
+   * gateway cannot exceed the session's grant.
    */
   private async handleProxiedRequest(
     req: TunnelHttpRequestPayload
@@ -267,7 +265,6 @@ export class RelayTunnelTransport implements ITunnelTransport {
       if (segments[2] === "workspaces" && (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) && auth.role !== UserRole.OWNER) {
         return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Only the owner can manage host workspaces" } } };
       }
-      // 1. Dual-layer Capability Enforcement on Host Agent
       if (auth) {
         const required = requiredRequestPermission(req.method, req.path, req.body);
         if (required === Permission.TERMINAL_ACCESS && auth.role !== UserRole.OWNER) {
@@ -287,7 +284,6 @@ export class RelayTunnelTransport implements ITunnelTransport {
           };
         }
 
-        // 2. Dual-layer Workspace Restriction on Host Agent
         if (auth.allowedWorkspaceIds && auth.allowedWorkspaceIds.length > 0) {
           // Host-wide tools accept absolute paths or execute arbitrary commands;
           // they cannot safely honor a workspace-only grant.
@@ -400,10 +396,10 @@ export class CloudflareTunnelTransport implements ITunnelTransport {
   }
 
   public async connect(): Promise<void> {
-    // Cloudflare daemon manages the outbound tunnel
+    // cloudflared manages the outbound tunnel itself.
   }
 
   public async disconnect(): Promise<void> {
-    // Cleanup
+    // Nothing to tear down; cloudflared owns the connection.
   }
 }

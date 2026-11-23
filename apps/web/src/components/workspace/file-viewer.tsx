@@ -78,7 +78,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({
 
   return (
     <div className="flex-1 flex flex-col h-full bg-ide-bg text-zinc-100 overflow-hidden select-text">
-      {/* File Action & Metadata Header */}
       <div className="h-10 bg-zinc-950/80 border-b border-zinc-800 px-4 flex items-center justify-between text-xs">
         <div className="flex items-center gap-3">
           <span className="font-mono font-medium text-zinc-200">{file.path}</span>
@@ -134,7 +133,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({
         </div>
       )}
 
-      {/* Editor Area */}
       <div className="flex-1 overflow-hidden p-0 relative">
         {file.isBinary ? (
           <div className="p-6 text-center text-zinc-400 space-y-2">
@@ -159,7 +157,6 @@ export const FileViewer: React.FC<FileViewerProps> = ({
         )}
       </div>
 
-      {/* Footer Info */}
       <div className="h-6 bg-zinc-950/90 border-t border-zinc-800/80 px-4 flex items-center justify-between text-[10px] text-zinc-500 font-mono">
         <div className="flex items-center gap-3">
           <span>Lines: {file.isBinary ? 0 : content.split("\n").length}</span>

@@ -69,10 +69,9 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
   };
 
   const handleReadiness = async (_req: unknown, reply: { status: (code: number) => { send: (data: unknown) => unknown } }) => {
-    // Service is ready if basic memory and relay infrastructure are operational
     const mem = process.memoryUsage();
     const heapUsedMb = Math.round(mem.heapUsed / (1024 * 1024));
-    const isReady = heapUsedMb < 1024; // Less than 1GB heap limit
+    const isReady = heapUsedMb < 1024;
 
     if (!isReady) {
       return reply.status(503).send({
@@ -92,15 +91,12 @@ export const healthRoutes: FastifyPluginAsync = async (fastify) => {
     });
   };
 
-  // Full health
   fastify.get("/health", handleHealth);
   fastify.get("/api/v1/health", handleHealth);
 
-  // Kubernetes Liveness probe
   fastify.get("/health/liveness", handleLiveness);
   fastify.get("/api/v1/health/liveness", handleLiveness);
 
-  // Kubernetes Readiness probe
   fastify.get("/health/readiness", handleReadiness);
   fastify.get("/api/v1/health/readiness", handleReadiness);
   fastify.get("/ready", handleReadiness);

@@ -76,7 +76,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-[#121214] text-zinc-200 text-xs font-sans select-none overflow-hidden">
-      {/* Header */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between shrink-0 bg-[#18181b]">
         <div className="flex items-center gap-2">
           <Code2 className="w-4 h-4 text-indigo-400" />
@@ -94,7 +93,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
         </button>
       </div>
 
-      {/* Detected Project Overview */}
       <div className="p-3 border-b border-zinc-800/80 bg-zinc-900/40 shrink-0 space-y-2">
         <div className="flex items-center justify-between">
           <span className="text-zinc-400">Primary Project Language:</span>
@@ -119,7 +117,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
         )}
       </div>
 
-      {/* Servers List */}
       <div className="flex-1 overflow-y-auto p-3 space-y-3">
         <div className="text-[11px] font-semibold text-zinc-400 uppercase tracking-wider flex items-center gap-1.5 mb-1">
           <Server className="w-3.5 h-3.5" />
@@ -143,7 +140,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
                     : "border-zinc-800/60 opacity-80"
               )}
             >
-              {/* Server Title & Status */}
               <div className="flex items-start justify-between gap-2">
                 <div className="space-y-0.5">
                   <div className="font-semibold text-zinc-100 flex items-center gap-1.5">
@@ -180,7 +176,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
                 </div>
               </div>
 
-              {/* Runtime Availability */}
               <div className="flex items-center gap-1.5 text-[11px] text-zinc-400">
                 <Cpu className="w-3.5 h-3.5 text-zinc-500 shrink-0" />
                 <span className="text-zinc-500">Host Runtime:</span>
@@ -191,7 +186,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
                 </span>
               </div>
 
-              {/* Features List */}
               <div className="space-y-1">
                 <span className="text-[10px] uppercase font-bold text-zinc-500 tracking-wider">
                   Supported Features
@@ -210,7 +204,6 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
                 </div>
               </div>
 
-              {/* Actions & Restart */}
               <div className="pt-2 border-t border-zinc-800/60 flex items-center justify-between">
                 <span className="text-[10px] text-zinc-500">
                   {server.crashCount > 0 ? `Restarts: ${server.crashCount}` : "Stable"}

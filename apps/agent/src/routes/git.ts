@@ -18,20 +18,17 @@ import { GitService, gitService as defaultGitService } from "../services/git.ser
 export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async (fastify, opts) => {
   const service = opts.gitService || defaultGitService;
 
-  // Helper to extract repo path from query or body
   const getRepoPath = (req: any): string => {
     const p = req.query?.path || req.body?.repoPath || process.cwd();
     return String(p);
   };
 
-  // Status
   fastify.get("/api/v1/git/status", async (req) => {
     const repoPath = getRepoPath(req);
     const status = await service.getStatus(repoPath);
     return createSuccessResponse(status);
   });
 
-  // Diff
   fastify.get("/api/v1/git/diff", async (req) => {
     const repoPath = getRepoPath(req);
     const file = (req.query as any)?.file as string | undefined;
@@ -40,7 +37,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse(diff);
   });
 
-  // History / Log
   fastify.get("/api/v1/git/history", async (req) => {
     const repoPath = getRepoPath(req);
     const limit = parseInt((req.query as any)?.limit || "50", 10);
@@ -48,14 +44,12 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse(history);
   });
 
-  // Branches
   fastify.get("/api/v1/git/branches", async (req) => {
     const repoPath = getRepoPath(req);
     const branches = await service.getBranches(repoPath);
     return createSuccessResponse(branches);
   });
 
-  // Blame
   fastify.get("/api/v1/git/blame", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const file = (req.query as any)?.file as string;
@@ -68,7 +62,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse(blame);
   });
 
-  // Stage
   fastify.post("/api/v1/git/stage", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitStageDtoSchema.safeParse(req.body);
@@ -81,7 +74,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Unstage
   fastify.post("/api/v1/git/unstage", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitUnstageDtoSchema.safeParse(req.body);
@@ -94,7 +86,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Discard (Destructive)
   fastify.post("/api/v1/git/discard", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitDiscardDtoSchema.safeParse(req.body);
@@ -107,7 +98,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Commit
   fastify.post("/api/v1/git/commit", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitCommitDtoSchema.safeParse(req.body);
@@ -120,7 +110,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse(commit);
   });
 
-  // Checkout / Switch Branch
   fastify.post("/api/v1/git/checkout", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitCheckoutDtoSchema.safeParse(req.body);
@@ -133,7 +122,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Delete Branch (Destructive)
   fastify.post("/api/v1/git/branch/delete", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitDeleteBranchDtoSchema.safeParse(req.body);
@@ -146,7 +134,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Fetch
   fastify.post("/api/v1/git/fetch", async (req) => {
     const repoPath = getRepoPath(req);
     const remote = (req.body as any)?.remote || "origin";
@@ -154,7 +141,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Pull
   fastify.post("/api/v1/git/pull", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitPullDtoSchema.safeParse(req.body || {});
@@ -163,7 +149,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Push (Force push requires confirmation)
   fastify.post("/api/v1/git/push", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitPushDtoSchema.safeParse(req.body || {});
@@ -178,7 +163,6 @@ export const gitRoutes: FastifyPluginAsync<{ gitService?: GitService }> = async 
     return createSuccessResponse({ success: true });
   });
 
-  // Stash
   fastify.post("/api/v1/git/stash", async (req, reply) => {
     const repoPath = getRepoPath(req);
     const parse = GitStashDtoSchema.safeParse(req.body);

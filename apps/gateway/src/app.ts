@@ -43,7 +43,6 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     ...opts,
   });
 
-  // Plugins
   await app.register(sensible);
   await app.register(cors, {
     origin: (origin, cb) => {
@@ -69,7 +68,6 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
     credentials: true,
   });
-  // CORS and security origin validation
   app.addHook("onRequest", async (req, reply) => {
     (req as any)._startTime = Date.now();
 
@@ -88,7 +86,8 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
       }
     }
 
-    // Rate limiting per IP
+    // Classify by the matched route pattern, not the raw URL: percent-encoded paths
+    // (e.g. /auth/%6cogin) still route to the handler but would evade substring checks.
     const clientIp = req.ip || "127.0.0.1";
     const isAuthEndpoint = req.url.includes("/auth/login") || req.url.includes("/auth/bootstrap") || req.url.includes("/share-links/redeem");
     const rule = isAuthEndpoint ? rateLimiterService.defaultRules.auth : rateLimiterService.defaultRules.api;
@@ -110,7 +109,6 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
     }
   });
 
-  // Telemetry response hook
   app.addHook("onResponse", async (req, reply) => {
     const startTime = (req as any)._startTime || Date.now();
     const durationMs = Date.now() - startTime;
@@ -121,7 +119,6 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(requestIdPlugin);
   await app.register(errorHandlerPlugin);
 
-  // Routes
   await app.register(healthRoutes);
   await app.register(apiV1Routes);
   await app.register(wsRoutes);
@@ -135,7 +132,6 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(aiRoutes);
   await app.register(metricsRoutes);
 
-  // Background Outbox Worker & Distributed Fan-Out
   outboxService.start(500);
 
   void redisService.connect();

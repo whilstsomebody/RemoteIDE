@@ -157,7 +157,6 @@ export const MobileGitView: React.FC<MobileGitViewProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-zinc-100 select-none overflow-hidden">
-      {/* Header Bar */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-900/60 shrink-0">
         <div className="flex items-center gap-2">
           <GitBranch className="w-4 h-4 text-zinc-400" />
@@ -206,7 +205,6 @@ export const MobileGitView: React.FC<MobileGitViewProps> = ({
         </div>
       )}
 
-      {/* Commit Box */}
       <div className="p-3 border-b border-zinc-800 bg-zinc-900/30 flex flex-col gap-2 shrink-0">
         <textarea
           rows={2}
@@ -234,9 +232,7 @@ export const MobileGitView: React.FC<MobileGitViewProps> = ({
         </div>
       </div>
 
-      {/* File lists */}
       <div className="flex-1 overflow-y-auto divide-y divide-zinc-900">
-        {/* Staged Changes */}
         {status?.staged && status.staged.length > 0 && (
           <div className="p-3">
             <div className="flex items-center justify-between text-xs text-zinc-400 font-mono mb-2">
@@ -262,7 +258,6 @@ export const MobileGitView: React.FC<MobileGitViewProps> = ({
           </div>
         )}
 
-        {/* Unstaged & Untracked Changes */}
         <div className="p-3">
           <div className="flex items-center justify-between text-xs text-zinc-400 font-mono mb-2">
             <span className="font-semibold">
@@ -311,7 +306,6 @@ export const MobileGitView: React.FC<MobileGitViewProps> = ({
         </div>
       </div>
 
-      {/* Confirmation Dialog for Destructive Discard */}
       {discardTarget && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 max-w-sm w-full shadow-2xl">

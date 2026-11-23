@@ -14,7 +14,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
     (shareLinkService as any).links.clear();
     (shareLinkService as any).tokenHashToId.clear();
 
-    // Bootstrap an owner
     const setupToken = authService.getSetupToken();
     const result = await authService.bootstrapOwner({
       email: "owner@test.com",
@@ -29,7 +28,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
   it("creates a share link, stores only its SHA-256 hash, and redeems it once", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Create a single-use Viewer link
     const createRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links",
@@ -54,7 +52,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
     expect(storedLink.tokenHash).toBe(sha256Sync(rawToken));
     expect((storedLink as any).rawToken).toBeUndefined();
 
-    // 2. First redemption succeeds and creates a session
     const redeemRes1 = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",
@@ -72,7 +69,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
     expect(redeemBody1.data.session.capabilities).not.toContain(Permission.FS_WRITE);
     expect(redeemBody1.data.session.allowedWorkspaceIds).toEqual(["ws-123"]);
 
-    // 3. Second redemption of single-use link fails with 410
     const redeemRes2 = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",
@@ -92,7 +88,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
   it("enforces PIN protection on protected share links", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Create a link with PIN "8492"
     const createRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links",
@@ -108,7 +103,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
 
     const { rawToken } = JSON.parse(createRes.payload).data;
 
-    // 2. Redeem without PIN -> fails
     const noPinRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",
@@ -116,7 +110,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
     });
     expect(noPinRes.statusCode).toBe(401);
 
-    // 3. Redeem with wrong PIN -> fails
     const wrongPinRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",
@@ -124,7 +117,6 @@ describe("Phase 3 - Temporary Share Links & Single-Use Redemption", () => {
     });
     expect(wrongPinRes.statusCode).toBe(401);
 
-    // 4. Redeem with correct PIN -> succeeds
     const correctPinRes = await app.inject({
       method: "POST",
       url: "/api/v1/share-links/redeem",

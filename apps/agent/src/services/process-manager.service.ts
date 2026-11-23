@@ -49,14 +49,10 @@ export class ProcessManagerService {
     return masked;
   }
 
-  /**
-   * List all processes for a workspace or all if owner.
-   */
   public async listProcesses(workspaceId?: string): Promise<ManagedProcess[]> {
     const list: ManagedProcess[] = [];
     for (const record of this.processes.values()) {
       if (!workspaceId || record.process.workspaceId === workspaceId) {
-        // Update live stats if process is running
         if (record.process.status === "running" && record.process.pid) {
           record.process.stats = await this.getProcessStats(
             record.process.pid,
@@ -69,9 +65,6 @@ export class ProcessManagerService {
     return list;
   }
 
-  /**
-   * Get a specific managed process.
-   */
   public async getProcess(id: string): Promise<ManagedProcess> {
     const record = this.processes.get(id);
     if (!record) {
@@ -86,9 +79,6 @@ export class ProcessManagerService {
     return { ...record.process };
   }
 
-  /**
-   * Start a new managed development process.
-   */
   public async startProcess(dto: StartProcessDto): Promise<ManagedProcess> {
     const cwd = dto.cwd ? path.resolve(dto.cwd) : process.cwd();
     if (!fs.existsSync(cwd)) {
@@ -215,9 +205,6 @@ export class ProcessManagerService {
     }
   }
 
-  /**
-   * Stop a running process (graceful SIGTERM, followed by SIGKILL).
-   */
   public async stopProcess(id: string): Promise<ManagedProcess> {
     const record = this.processes.get(id);
     if (!record) {
@@ -243,9 +230,6 @@ export class ProcessManagerService {
     return { ...record.process };
   }
 
-  /**
-   * Restart a process.
-   */
   public async restartProcess(id: string): Promise<ManagedProcess> {
     const record = this.processes.get(id);
     if (!record) {
@@ -263,9 +247,6 @@ export class ProcessManagerService {
     return { ...record.process };
   }
 
-  /**
-   * Get logs for a process.
-   */
   public getLogs(
     id: string
   ): Array<{ timestamp: string; stream: "stdout" | "stderr"; text: string }> {
@@ -276,9 +257,6 @@ export class ProcessManagerService {
     return [...record.logs];
   }
 
-  /**
-   * Stream live logs for a process.
-   */
   public subscribeLogs(
     id: string,
     listener: (entry: { timestamp: string; stream: "stdout" | "stderr"; text: string }) => void
@@ -291,16 +269,12 @@ export class ProcessManagerService {
     return () => record.logListeners.delete(listener);
   }
 
-  /**
-   * Get CPU and memory stats for a PID.
-   */
   private async getProcessStats(pid: number, startedAt: string): Promise<ProcessStats> {
     const uptimeSeconds = Math.max(
       0,
       Math.floor((Date.now() - new Date(startedAt).getTime()) / 1000)
     );
     try {
-      // Use standard `ps` on macOS / Linux
       const { stdout } = await execFileAsync("ps", ["-p", String(pid), "-o", "%cpu,rss"]);
       const lines = stdout.trim().split("\n");
       if (lines.length >= 2 && lines[1]) {
@@ -324,9 +298,6 @@ export class ProcessManagerService {
     };
   }
 
-  /**
-   * Clean shutdown of all running processes.
-   */
   public shutdown(): void {
     for (const record of this.processes.values()) {
       if (record.child) {

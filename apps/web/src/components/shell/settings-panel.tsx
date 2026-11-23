@@ -17,7 +17,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         <p className="text-[11px] text-zinc-500">Preferences are stored locally in your browser.</p>
       </div>
 
-      {/* Theme */}
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-zinc-200 font-medium text-xs">
           <Palette className="w-4 h-4 text-indigo-400" />
@@ -38,7 +37,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         </select>
       </div>
 
-      {/* Font Size */}
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-zinc-200 font-medium text-xs">
           <Type className="w-4 h-4 text-indigo-400" />
@@ -61,7 +59,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         </div>
       </div>
 
-      {/* Tab Size */}
       <div className="space-y-2">
         <label className="flex items-center gap-2 text-zinc-200 font-medium text-xs">
           <Sliders className="w-4 h-4 text-indigo-400" />
@@ -84,7 +81,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         </div>
       </div>
 
-      {/* Word Wrap */}
       <div className="flex items-center justify-between py-2 border-t border-zinc-800/80">
         <div>
           <span className="font-medium text-zinc-200">Word Wrap</span>
@@ -98,7 +94,6 @@ export const SettingsPanel: React.FC<SettingsPanelProps> = ({ settings, onUpdate
         />
       </div>
 
-      {/* Autosave */}
       <div className="space-y-2 pt-2 border-t border-zinc-800/80">
         <label className="flex items-center gap-2 text-zinc-200 font-medium text-xs">
           <Save className="w-4 h-4 text-indigo-400" />

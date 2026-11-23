@@ -68,7 +68,6 @@ export function useViewport(): ViewportState {
     window.addEventListener("resize", handleResize);
     window.addEventListener("orientationchange", handleResize);
 
-    // Initial sync
     handleResize();
 
     return () => {

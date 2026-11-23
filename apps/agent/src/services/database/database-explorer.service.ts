@@ -41,7 +41,6 @@ export class DatabaseExplorerService {
   private sqliteConnections = new Map<string, SqliteDb>();
 
   constructor() {
-    // Seed default in-memory demo sqlite database
     const defaultProfile: StoredDatabaseProfile = {
       id: "db-default-sqlite",
       name: "Default Demo SQLite DB",
@@ -172,7 +171,6 @@ export class DatabaseExplorerService {
       }
     }
 
-    // Postgres / MySQL connection testing interface
     const latencyMs = Date.now() - start;
     profile.status = "connected";
     profile.lastTestedAt = new Date().toISOString();
@@ -199,7 +197,6 @@ export class DatabaseExplorerService {
       const results: TableMetadata[] = [];
       for (const row of rows) {
         try {
-          // Columns
           const colRows = db
             .prepare(`PRAGMA table_info("${row.name.replace(/"/g, '""')}")`)
             .all() as any[];
@@ -211,7 +208,6 @@ export class DatabaseExplorerService {
             defaultValue: c.dflt_value != null ? String(c.dflt_value) : null,
           }));
 
-          // Count estimate
           let count = 0;
           try {
             const countRes = db
@@ -235,7 +231,6 @@ export class DatabaseExplorerService {
       return results;
     }
 
-    // Default sample tables for remote profile mock/interface
     return [
       {
         name: "records",
@@ -311,7 +306,6 @@ export class DatabaseExplorerService {
     if (!profile)
       throw new AppError(ErrorCode.NOT_FOUND, `Database profile ${dto.profileId} not found`);
 
-    // Strict Read-Only SQL Query Validation
     this.validateReadOnlyQuery(dto.query);
 
     const start = Date.now();
@@ -363,7 +357,6 @@ export class DatabaseExplorerService {
       throw new AppError(ErrorCode.VALIDATION_ERROR, "Query is empty");
     }
 
-    // Check first word
     const firstWordMatch = trimmed.match(/^([a-zA-Z]+)/);
     if (!firstWordMatch) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid SQL query format");

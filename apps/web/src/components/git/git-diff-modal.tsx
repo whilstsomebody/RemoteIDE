@@ -16,7 +16,6 @@ export const GitDiffModal: React.FC<GitDiffModalProps> = ({ isOpen, onClose, dif
   return (
     <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
       <div className="bg-ide-sidebar border border-ide-border rounded-lg shadow-2xl w-full max-w-4xl max-h-[85vh] flex flex-col overflow-hidden text-zinc-300">
-        {/* Header */}
         <div className="px-4 py-3 border-b border-ide-border flex items-center justify-between bg-zinc-900/90">
           <div className="flex items-center gap-2">
             <GitCommit className="w-4 h-4 text-indigo-400" />
@@ -33,7 +32,6 @@ export const GitDiffModal: React.FC<GitDiffModalProps> = ({ isOpen, onClose, dif
           </button>
         </div>
 
-        {/* Diff Content */}
         <div className="flex-1 overflow-auto p-4 font-mono text-xs leading-relaxed bg-[#141417]">
           {diff.hunks.length === 0 ? (
             <div className="text-zinc-500 italic py-8 text-center">
@@ -73,7 +71,6 @@ export const GitDiffModal: React.FC<GitDiffModalProps> = ({ isOpen, onClose, dif
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-4 py-2.5 border-t border-ide-border bg-zinc-900/80 flex justify-end">
           <button
             onClick={onClose}

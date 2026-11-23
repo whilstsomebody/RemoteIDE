@@ -17,13 +17,11 @@ export const databaseRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.databaseService || databaseExplorerService;
 
-  // List Profiles
   fastify.get("/api/v1/database/profiles", async () => {
     const profiles = service.listProfiles();
     return createSuccessResponse(profiles);
   });
 
-  // Create Profile
   fastify.post<{
     Body: unknown;
   }>("/api/v1/database/profiles", async (request) => {
@@ -38,7 +36,6 @@ export const databaseRoutes: FastifyPluginAsync<{
     return createSuccessResponse(profile);
   });
 
-  // Delete Profile
   fastify.delete<{
     Params: { id: string };
   }>("/api/v1/database/profiles/:id", async (request) => {
@@ -49,7 +46,6 @@ export const databaseRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ deleted: true, id: request.params.id });
   });
 
-  // Test Profile Connection
   fastify.post<{
     Params: { id: string };
   }>("/api/v1/database/profiles/:id/test", async (request) => {
@@ -57,7 +53,6 @@ export const databaseRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // List Tables and Schemas
   fastify.get<{
     Params: { id: string };
   }>("/api/v1/database/profiles/:id/tables", async (request) => {
@@ -65,7 +60,6 @@ export const databaseRoutes: FastifyPluginAsync<{
     return createSuccessResponse(tables);
   });
 
-  // Get Paginated Table Data
   fastify.get<{
     Params: { id: string; tableName: string };
     Querystring: { page?: string; pageSize?: string };
@@ -82,7 +76,6 @@ export const databaseRoutes: FastifyPluginAsync<{
     return createSuccessResponse(data);
   });
 
-  // Execute Read-Only SQL Query
   fastify.post<{
     Body: unknown;
   }>("/api/v1/database/query", async (request) => {

@@ -16,9 +16,7 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({ onNewUntitledF
       onDoubleClick={onNewUntitledFile}
       className="flex-1 bg-[#1e1e1e] flex flex-col items-center justify-center p-6 select-none overflow-hidden relative cursor-default"
     >
-      {/* Center 40% area containing the logo, RemoteIDE title, and subtle shortcuts */}
       <div className="w-full max-w-md flex flex-col items-center text-center space-y-6">
-        {/* Logo covering the center visual focal point */}
         <div className="flex flex-col items-center space-y-3">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
@@ -34,7 +32,6 @@ export const WorkspaceCanvas: React.FC<WorkspaceCanvasProps> = ({ onNewUntitledF
           </p>
         </div>
 
-        {/* Subtle VS Code Keyboard Shortcuts Watermark */}
         <div className="pt-2 border-t border-zinc-800/80 w-full max-w-xs space-y-2 text-[11px] text-zinc-400 font-sans">
           <div className="flex items-center justify-between">
             <span>Show All Commands</span>

@@ -9,7 +9,6 @@ describe("Phase 8 — Problems and Diagnostics Service", () => {
     const testRunner = new TestRunnerService();
     const service = new ProblemsService(lsp, testRunner);
 
-    // Record manual build problem
     service.recordProblem({
       workspaceId: "ws-p",
       filePath: "src/main.ts",
@@ -41,7 +40,6 @@ describe("Phase 8 — Problems and Diagnostics Service", () => {
     expect(res.counts.errors).toBe(1);
     expect(res.counts.warnings).toBe(1);
 
-    // Filter by severity
     const errorsOnly = service.getProblems({
       workspaceId: "ws-p",
       severity: "error",
@@ -49,7 +47,6 @@ describe("Phase 8 — Problems and Diagnostics Service", () => {
     expect(errorsOnly.items.length).toBe(1);
     expect(errorsOnly.items[0]!.filePath).toBe("src/main.ts");
 
-    // Filter by query
     const queryRes = service.getProblems({
       workspaceId: "ws-p",
       query: "unused",

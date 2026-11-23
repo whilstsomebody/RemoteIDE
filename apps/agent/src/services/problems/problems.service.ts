@@ -32,7 +32,6 @@ export class ProblemsService {
     const { workspaceId, filePath, severity, source, query } = filter;
     const allProblems: ProblemItem[] = [];
 
-    // 1. Gather LSP diagnostics for specified workspace/file
     if (filePath) {
       const lspDiags = this.lsp.getDiagnostics(workspaceId, filePath);
       for (const d of lspDiags) {
@@ -50,7 +49,6 @@ export class ProblemsService {
       }
     }
 
-    // 2. Gather Test failures from last test run
     const lastRun = this.testRunner.getLastRun(workspaceId);
     if (lastRun && lastRun.failures) {
       for (let i = 0; i < lastRun.failures.length; i++) {
@@ -71,7 +69,6 @@ export class ProblemsService {
       }
     }
 
-    // 3. Gather Manual/Build problems
     for (const p of this.manualProblems) {
       if (p.workspaceId === workspaceId) {
         if (!filePath || p.filePath === filePath) {
@@ -80,7 +77,6 @@ export class ProblemsService {
       }
     }
 
-    // 4. Apply filters
     let filtered = allProblems;
     if (severity) {
       filtered = filtered.filter((p) => p.severity === severity);
@@ -98,7 +94,6 @@ export class ProblemsService {
       );
     }
 
-    // 5. Calculate severity counts
     const counts = {
       total: filtered.length,
       errors: filtered.filter((p) => p.severity === "error").length,

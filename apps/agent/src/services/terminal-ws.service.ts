@@ -18,7 +18,7 @@ export class TerminalWsServer {
     this.server.on("upgrade", (request, socket, head) => {
       const { pathname, query } = parseUrl(request.url || "", true);
 
-      // Match /api/v1/terminals/:id/stream or /api/v1/terminals/stream?sessionId=:id
+      // Matches /api/v1/terminals/:id/stream or /api/v1/terminals/stream?sessionId=:id
       const streamMatch = pathname?.match(/^\/api\/v1\/terminals\/([^/]+)\/stream$/);
       const sessionId = streamMatch ? streamMatch[1] : (query.sessionId as string | undefined);
 
@@ -28,7 +28,6 @@ export class TerminalWsServer {
       }
 
       try {
-        // Verify session exists before upgrading
         this.terminalService.getTerminal(sessionId);
       } catch {
         socket.write("HTTP/1.1 404 Not Found\r\n\r\n");
@@ -60,7 +59,6 @@ export class TerminalWsServer {
 
         unsubscribe = attachResult.unsubscribe;
 
-        // Immediately replay output buffer to populate client terminal
         const attachedMsg: TerminalWsMessage = {
           type: "attached",
           sessionId,

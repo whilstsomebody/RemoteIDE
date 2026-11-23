@@ -7,25 +7,21 @@ export const hostMetricsRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.hostMetricsService || hostMetricsService;
 
-  // Get current metrics snapshot
   fastify.get("/api/v1/host/metrics", async () => {
     const metrics = await service.getMetrics();
     return createSuccessResponse(metrics);
   });
 
-  // Get bounded historical metrics
   fastify.get("/api/v1/host/metrics/history", async () => {
     const history = service.getHistory();
     return createSuccessResponse(history);
   });
 
-  // Get active and recent alerts
   fastify.get("/api/v1/host/alerts", async () => {
     const alerts = service.getAlerts();
     return createSuccessResponse(alerts);
   });
 
-  // Acknowledge an alert
   fastify.post<{
     Params: { id: string };
   }>("/api/v1/host/alerts/:id/ack", async (request) => {
@@ -36,7 +32,6 @@ export const hostMetricsRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ acknowledged: true, id: request.params.id });
   });
 
-  // Record a custom alert
   fastify.post<{
     Body: {
       type: any;

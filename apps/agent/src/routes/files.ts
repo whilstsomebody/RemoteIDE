@@ -15,7 +15,6 @@ export const fileRoutes: FastifyPluginAsync<{
   fsService: FilesystemService;
   journalService: LocalJournalService;
 }> = async (fastify, opts) => {
-  // 1. List directory tree
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { path?: string; depth?: string };
@@ -29,7 +28,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(tree);
   });
 
-  // 2. File stat metadata
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { path: string };
@@ -41,7 +39,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(stat);
   });
 
-  // 3. Read file contents
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { path: string; encoding?: "utf-8" | "base64" };
@@ -57,7 +54,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(file);
   });
 
-  // 4. Save file contents (atomic with optional ETag check)
   fastify.put<{
     Params: { workspaceId: string };
   }>("/api/v1/workspaces/:workspaceId/files/write", async (request) => {
@@ -77,7 +73,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // 5. Create new file or directory
   fastify.post<{
     Params: { workspaceId: string };
   }>("/api/v1/workspaces/:workspaceId/files/create", async (request) => {
@@ -98,7 +93,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // 6. Rename or move file / directory
   fastify.post<{
     Params: { workspaceId: string };
   }>("/api/v1/workspaces/:workspaceId/files/move", async (request) => {
@@ -114,7 +108,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // 7. Delete file or directory
   fastify.delete<{
     Params: { workspaceId: string };
     Querystring: { path?: string; recursive?: string };
@@ -131,7 +124,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // 8. Search filenames and file contents
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: {
@@ -157,7 +149,6 @@ export const fileRoutes: FastifyPluginAsync<{
     return createSuccessResponse(searchResults);
   });
 
-  // 9. Get local change journal entries for this workspace
   fastify.get<{
     Params: { workspaceId: string };
     Querystring: { limit?: string };

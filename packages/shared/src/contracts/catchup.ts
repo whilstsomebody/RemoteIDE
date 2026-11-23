@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// 1. Device Registration & Identification
-
 export enum DeviceType {
   DESKTOP = "desktop",
   LAPTOP = "laptop",
@@ -30,8 +28,6 @@ export const RegisterDeviceDtoSchema = z.object({
 });
 export type RegisterDeviceDto = z.infer<typeof RegisterDeviceDtoSchema>;
 
-// 2. Inactivity & Presence States
-
 export enum DevicePresenceState {
   ACTIVE = "active",
   INACTIVE = "inactive",
@@ -46,8 +42,6 @@ export const DevicePresenceDtoSchema = z.object({
   timestamp: z.string().optional(),
 });
 export type DevicePresenceDto = z.infer<typeof DevicePresenceDtoSchema>;
-
-// 3. Compacted Changelog Entities
 
 export interface FileCreatedChange {
   path: string;
@@ -182,8 +176,6 @@ export type CatchupSummary = {
   activityHistory: ActivityHistoryItem[];
 };
 
-// 4. Acknowledgement & Cursors
-
 export const CatchupAckDtoSchema = z.object({
   deliveryId: z.string().min(1),
   workspaceId: z.string().min(1),
@@ -199,8 +191,6 @@ export const CatchupAckResultSchema = z.object({
   currentRevision: z.number().int().nonnegative(),
 });
 export type CatchupAckResult = z.infer<typeof CatchupAckResultSchema>;
-
-// 5. Retention Configuration
 
 export enum EventRetentionDuration {
   DAY_1 = 1,
@@ -223,8 +213,6 @@ export const UpdateRetentionDtoSchema = z.object({
   retentionDays: z.union([z.literal(1), z.literal(3), z.literal(7), z.literal(30)]),
 });
 export type UpdateRetentionDto = z.infer<typeof UpdateRetentionDtoSchema>;
-
-// 6. File Diff Inspection
 
 export const FileDiffQuerySchema = z.object({
   workspaceId: z.string().min(1),

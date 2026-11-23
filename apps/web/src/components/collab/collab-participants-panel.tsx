@@ -70,7 +70,6 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
 
   return (
     <div className="flex flex-col border-b border-zinc-800 bg-zinc-950/90 text-xs select-none">
-      {/* External Conflict Warning Banner */}
       {conflictStatus && conflictStatus.conflictDetected && (
         <div className="flex items-center justify-between px-3 py-1.5 bg-amber-950/60 border-b border-amber-800/80 text-amber-200">
           <div className="flex items-center gap-2">
@@ -109,9 +108,7 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
         </div>
       )}
 
-      {/* Main Top Header Bar */}
       <div className="flex items-center justify-between px-3 h-8">
-        {/* Left: Active Participants List */}
         <div className="flex items-center gap-1.5 overflow-x-auto no-scrollbar">
           <div className="flex items-center gap-1 text-zinc-400 text-[11px] mr-1">
             <Users className="w-3.5 h-3.5" />
@@ -147,7 +144,6 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
                   {isFollowingThis && <Eye className="w-3 h-3 text-sky-400 animate-pulse ml-0.5" />}
                 </div>
 
-                {/* Dropdown for Participant Controls */}
                 {showDropdown === p.id && (
                   <div className="absolute left-0 top-full mt-1 w-48 bg-zinc-900 border border-zinc-700 rounded shadow-xl z-50 p-1.5 space-y-1 font-sans">
                     <div className="text-[10px] text-zinc-400 px-2 py-1 border-b border-zinc-800">
@@ -227,7 +223,6 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
           })}
         </div>
 
-        {/* Right: Actions (Viewer request edit control, Comments, Proposals) */}
         <div className="flex items-center gap-2 shrink-0">
           {isViewer && onRequestEditControl && (
             <button
@@ -278,7 +273,6 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
         </div>
       </div>
 
-      {/* Expandable Comments Drawer */}
       {showComments && (
         <div className="p-3 bg-zinc-900/90 border-t border-zinc-800 space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">
@@ -356,7 +350,6 @@ export const CollabParticipantsPanel: React.FC<CollabParticipantsPanelProps> = (
         </div>
       )}
 
-      {/* Expandable Proposals Drawer */}
       {showProposals && (
         <div className="p-3 bg-zinc-900/90 border-t border-zinc-800 space-y-2">
           <div className="flex items-center justify-between text-xs font-semibold text-zinc-300">

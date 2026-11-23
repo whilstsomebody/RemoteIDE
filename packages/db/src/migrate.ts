@@ -21,7 +21,6 @@ export async function runMigrations(migrationsFolder?: string): Promise<void> {
   }
 }
 
-// Allow direct CLI execution if executed directly
 if (process.argv[1] && process.argv[1].endsWith("migrate.js")) {
   runMigrations()
     .then(() => process.exit(0))

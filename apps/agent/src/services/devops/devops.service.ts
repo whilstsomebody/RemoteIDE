@@ -19,7 +19,6 @@ export class DevOpsService {
   private sshProfiles = new Map<string, SshProfile>();
 
   constructor() {
-    // Seed a sample local host SSH profile interface
     const defaultSsh: SshProfile = {
       id: "ssh-local",
       name: "Local Host SSH",
@@ -45,8 +44,6 @@ export class DevOpsService {
       composeCount: 0,
     };
   }
-
-  // --- 1. PM2 Adapter ---
 
   public async getPm2Overview(): Promise<Pm2Overview> {
     try {
@@ -110,8 +107,6 @@ export class DevOpsService {
     }
   }
 
-  // --- 2. Kubernetes Adapter ---
-
   public async getKubernetesOverview(): Promise<KubernetesOverview> {
     try {
       const { stdout } = await execAsync("kubectl config view -o json", { timeout: 4000 });
@@ -140,8 +135,6 @@ export class DevOpsService {
       };
     }
   }
-
-  // --- 3. SSH Server Profiles Adapter ---
 
   public listSshProfiles(): SshProfile[] {
     return Array.from(this.sshProfiles.values());
@@ -179,7 +172,6 @@ export class DevOpsService {
     }
 
     try {
-      // Safe TCP connect probe to SSH port
       await new Promise<void>((resolve, reject) => {
         const socket = new net.Socket();
         socket.setTimeout(3000);

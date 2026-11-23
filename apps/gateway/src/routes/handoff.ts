@@ -48,7 +48,6 @@ export const handoffRoutes: FastifyPluginAsync = async (fastify) => {
     return session;
   };
 
-  // POST /api/v1/handoff - Stage a workspace handoff to another device
   fastify.post("/api/v1/handoff", async (req, reply) => {
     const session = getSessionFromRequest(req);
     if (!session) {
@@ -80,7 +79,6 @@ export const handoffRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.status(201).send(createSuccessEnvelope(handoff));
   });
 
-  // GET /api/v1/handoff/pending - Query pending handoff for this user/device
   fastify.get("/api/v1/handoff/pending", async (req, reply) => {
     const session = getSessionFromRequest(req);
     if (!session) {
@@ -94,7 +92,6 @@ export const handoffRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope(pending));
   });
 
-  // POST /api/v1/handoff/:id/consume - Consume handoff state once accepted
   fastify.post("/api/v1/handoff/:id/consume", async (req, reply) => {
     const session = getSessionFromRequest(req);
     if (!session) {
@@ -117,7 +114,6 @@ export const handoffRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // GET /api/v1/devices/active - List active registered personal devices for handoff
   fastify.get("/api/v1/devices/active", async (req, reply) => {
     const session = getSessionFromRequest(req);
     if (!session) {

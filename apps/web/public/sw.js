@@ -6,7 +6,6 @@ const SHELL_ASSETS = [
   "/logo.png"
 ];
 
-// Install: Cache core application shell
 self.addEventListener("install", (event) => {
   event.waitUntil(
     caches.open(CACHE_NAME).then((cache) => {
@@ -18,7 +17,6 @@ self.addEventListener("install", (event) => {
   self.skipWaiting();
 });
 
-// Activate: Clean up old caches
 self.addEventListener("activate", (event) => {
   event.waitUntil(
     caches.keys().then((keys) => {
@@ -34,11 +32,10 @@ self.addEventListener("activate", (event) => {
   self.clients.claim();
 });
 
-// Fetch: Network-first for dynamic and API routes; Stale-while-revalidate for static assets
 self.addEventListener("fetch", (event) => {
   const url = new URL(event.request.url);
 
-  // Strictly NEVER cache API requests, WebSocket endpoints, or sensitive state
+  // Never cache API requests, cross-origin responses (e.g. a separately hosted gateway), or authenticated state
   if (
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/socket.io/") ||
@@ -48,7 +45,6 @@ self.addEventListener("fetch", (event) => {
     return; // Pass directly to network
   }
 
-  // Next.js static assets (_next/static, images)
   if (url.pathname.startsWith("/_next/static/") || url.pathname.match(/\.(png|jpg|jpeg|svg|css|js|woff2)$/)) {
     event.respondWith(
       caches.match(event.request).then((cached) => {

@@ -90,7 +90,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     };
   });
 
-  // Mount editor when path or container changes
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -210,7 +209,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
 
     viewRef.current = view;
 
-    // Report initial cursor position
     callbacksRef.current.onCursorChange?.(1, 1, 0);
 
     return () => {
@@ -239,7 +237,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     }
   }, [doc]);
 
-  // Update theme dynamically
   useEffect(() => {
     const view = viewRef.current;
     const compartments = compartmentsRef.current;
@@ -250,7 +247,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [theme]);
 
-  // Update language dynamically
   useEffect(() => {
     const view = viewRef.current;
     const compartments = compartmentsRef.current;
@@ -261,7 +257,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [language]);
 
-  // Update word wrap dynamically
   useEffect(() => {
     const view = viewRef.current;
     const compartments = compartmentsRef.current;
@@ -272,7 +267,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [wordWrap]);
 
-  // Update tab size dynamically
   useEffect(() => {
     const view = viewRef.current;
     const compartments = compartmentsRef.current;
@@ -283,7 +277,6 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
     });
   }, [tabSize]);
 
-  // Update readOnly dynamically
   useEffect(() => {
     const view = viewRef.current;
     const compartments = compartmentsRef.current;

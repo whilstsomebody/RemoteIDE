@@ -29,7 +29,6 @@ function ShareRedeemContent() {
       setToken(tokenParam);
     }
 
-    // Auto-detect a reasonable default device label
     if (typeof window !== "undefined") {
       const ua = navigator.userAgent;
       let platform = "Browser";
@@ -77,7 +76,6 @@ function ShareRedeemContent() {
 
       const session = data.data.session;
 
-      // Also persist in localStorage for client-side API calls
       localStorage.setItem("remote_ide_token", data.data.sessionToken);
       localStorage.setItem("remote_ide_role", session.role);
       localStorage.setItem("remote_ide_session_id", session.id);
@@ -88,7 +86,6 @@ function ShareRedeemContent() {
         allowedWorkspaceIds: session.allowedWorkspaceIds,
       });
 
-      // Redirect after brief delay
       setTimeout(() => {
         router.push("/");
       }, 1500);
@@ -103,10 +100,8 @@ function ShareRedeemContent() {
   return (
     <div className="min-h-screen bg-[#0d0d10] text-zinc-100 flex flex-col justify-center items-center p-4 selection:bg-indigo-500/30">
       <div className="w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-xl shadow-2xl p-6 relative overflow-hidden">
-        {/* Top Glow Accent */}
         <div className="absolute top-0 left-0 right-0 h-1 bg-gradient-to-r from-indigo-500 via-sky-500 to-emerald-500" />
 
-        {/* Brand Header */}
         <div className="flex flex-col items-center text-center mb-6 pt-2">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img

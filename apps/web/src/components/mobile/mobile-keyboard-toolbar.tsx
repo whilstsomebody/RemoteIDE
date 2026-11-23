@@ -64,7 +64,6 @@ export const MobileKeyboardToolbar: React.FC<MobileKeyboardToolbarProps> = ({
 
   return (
     <div className="bg-zinc-900 border-t border-b border-zinc-800 flex items-center h-10 px-1 gap-1 z-30 shrink-0 select-none overflow-hidden">
-      {/* Action Controls */}
       <div className="flex items-center gap-0.5 border-r border-zinc-800 pr-1 shrink-0">
         {onSave && (
           <button
@@ -131,7 +130,6 @@ export const MobileKeyboardToolbar: React.FC<MobileKeyboardToolbarProps> = ({
         )}
       </div>
 
-      {/* Programming Symbol Quick Row */}
       <div className="flex-1 flex items-center gap-1 overflow-x-auto no-scrollbar py-0.5">
         {symbols.map((sym) => (
           <button

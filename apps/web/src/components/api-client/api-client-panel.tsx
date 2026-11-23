@@ -17,7 +17,6 @@ export interface ApiClientPanelProps {
 }
 
 export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" }) => {
-  // Request Config
   const [method, setMethod] = useState<HttpMethod>("GET");
   const [url, setUrl] = useState("http://localhost:3000/api/v1/health");
   const [activeTab, setActiveTab] = useState<"params" | "headers" | "auth" | "body" | "env">(
@@ -37,13 +36,11 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
     baseUrl: "http://localhost:3000",
   });
 
-  // State
   const [isLoading, setIsLoading] = useState(false);
   const [response, setResponse] = useState<ApiClientResponse | null>(null);
   const [curlCopied, setCurlCopied] = useState(false);
   const [bodyCopied, setBodyCopied] = useState(false);
 
-  // WebSocket Tester Tab state
   const [isWsMode, setIsWsMode] = useState(false);
   const [wsUrl, setWsUrl] = useState("ws://localhost:4000/api/v1/tunnel/agent");
   const [wsMessage, setWsMessage] = useState('{"type":"ping"}');
@@ -121,7 +118,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
     setTimeout(() => setBodyCopied(false), 2000);
   };
 
-  // WebSocket Tester Handlers
   const handleConnectWs = () => {
     if (activeWs) {
       activeWs.close();
@@ -180,7 +176,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
 
   return (
     <div className="flex flex-col h-full w-full bg-[#141417] text-zinc-300 text-xs select-none overflow-hidden">
-      {/* Top Header Mode Toggle */}
       <div className="px-3 py-2 border-b border-ide-border bg-zinc-900/60 flex items-center justify-between">
         <div className="flex items-center gap-3">
           <button
@@ -218,9 +213,7 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
 
       {!isWsMode ? (
         <div className="flex-1 flex flex-col md:flex-row overflow-hidden">
-          {/* Request Composer Pane */}
           <div className="w-full md:w-1/2 flex flex-col border-r border-ide-border bg-zinc-900/30 overflow-hidden">
-            {/* URL & Method Bar */}
             <div className="p-3 border-b border-ide-border flex items-center gap-2">
               <select
                 value={method}
@@ -267,7 +260,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
               </button>
             </div>
 
-            {/* Request Configuration Tabs */}
             <div className="flex border-b border-ide-border px-3 bg-zinc-900/60 text-xs">
               {(["params", "headers", "auth", "body", "env"] as const).map((tab) => (
                 <button
@@ -284,7 +276,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
               ))}
             </div>
 
-            {/* Request Tab Contents */}
             <div className="flex-1 overflow-auto p-3">
               {activeTab === "params" && (
                 <div className="flex flex-col gap-2">
@@ -496,11 +487,9 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
             </div>
           </div>
 
-          {/* Response Viewer Pane */}
           <div className="flex-1 flex flex-col bg-[#101014] overflow-hidden">
             {response ? (
               <>
-                {/* Response Status Bar */}
                 <div className="px-4 py-2.5 border-b border-ide-border bg-zinc-900/40 flex items-center justify-between">
                   <div className="flex items-center gap-3">
                     <span
@@ -535,7 +524,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
                   </button>
                 </div>
 
-                {/* Response Body Output */}
                 <div className="flex-1 overflow-auto p-4 font-mono text-xs text-zinc-200 leading-relaxed whitespace-pre-wrap select-text">
                   {response.body}
                 </div>
@@ -549,7 +537,6 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
           </div>
         </div>
       ) : (
-        /* WebSocket Tester Mode */
         <div className="flex-1 flex flex-col p-4 gap-3 bg-[#0f0f13] overflow-hidden">
           <div className="flex items-center gap-2">
             <input

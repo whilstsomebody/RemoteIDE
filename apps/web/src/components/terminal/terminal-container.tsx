@@ -34,7 +34,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  // Fetch host available shells and running sessions
   const fetchSessions = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -76,7 +75,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
     void fetchSessions();
   }, [fetchSessions]);
 
-  // Create a new terminal tab
   const handleCreateTerminal = async (shellOverride?: string) => {
     setIsLoading(true);
     setError(null);
@@ -108,7 +106,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
     }
   };
 
-  // Close a terminal tab
   const handleCloseTerminal = async (sessionId: string, e?: React.MouseEvent) => {
     if (e) e.stopPropagation();
     try {
@@ -138,7 +135,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
 
   return (
     <div className={`w-full h-full flex flex-col bg-[#09090b] text-zinc-300 ${className}`}>
-      {/* Tab Bar Header */}
       <div className="h-7 bg-[#141417] border-b border-zinc-800 flex items-center justify-between px-2 text-xs select-none shrink-0">
         <div className="flex items-center gap-1 overflow-x-auto no-scrollbar">
           {sessions.map((sess, idx) => {
@@ -168,7 +164,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
             );
           })}
 
-          {/* Plus Button to spawn new terminal */}
           <button
             onClick={() => void handleCreateTerminal()}
             disabled={isLoading}
@@ -180,7 +175,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
           </button>
         </div>
 
-        {/* Right Tools (Shell selector, Split toggle, Refresh) */}
         <div className="flex items-center gap-1.5 shrink-0">
           {availableShells.length > 1 && (
             <select
@@ -201,7 +195,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
             <button
               onClick={() => {
                 if (!isSplit) {
-                  // Pick second terminal
                   const second = sessions.find((s) => s.id !== activeSessionId);
                   if (second) setSecondarySessionId(second.id);
                 }
@@ -228,7 +221,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
         </div>
       </div>
 
-      {/* Error notification */}
       {error && (
         <div className="p-2 bg-red-950/40 border-b border-red-800/60 flex items-center gap-2 text-xs text-red-300">
           <AlertCircle className="w-3.5 h-3.5 text-red-400 shrink-0" />
@@ -236,7 +228,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
         </div>
       )}
 
-      {/* Terminal Display Canvas */}
       <div className="flex-1 w-full h-full overflow-hidden flex">
         {sessions.length === 0 ? (
           <div className="flex-1 flex flex-col items-center justify-center p-6 text-center text-zinc-500">
@@ -256,7 +247,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
           </div>
         ) : (
           <>
-            {/* Primary Terminal */}
             {activeSessionId && (
               <div className="flex-1 h-full min-w-0">
                 <XtermView
@@ -268,7 +258,6 @@ export const TerminalContainer: React.FC<TerminalContainerProps> = ({
               </div>
             )}
 
-            {/* Split Secondary Terminal */}
             {isSplit && secondarySessionId && (
               <div className="flex-1 h-full min-w-0 border-l border-zinc-800">
                 <XtermView

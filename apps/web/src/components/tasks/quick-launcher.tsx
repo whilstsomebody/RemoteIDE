@@ -70,7 +70,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
   const [customCommand, setCustomCommand] = useState("");
   const logContainerRef = useRef<HTMLDivElement>(null);
 
-  // Fetch running/recent jobs
   const fetchJobs = useCallback(async () => {
     try {
       const token = localStorage.getItem("remote_ide_token") || "";
@@ -91,7 +90,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
     }
   }, [gatewayUrl, selectedJobId]);
 
-  // Fetch logs for selected job
   const fetchLogs = useCallback(
     async (jobId: string) => {
       try {
@@ -120,14 +118,12 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
     return () => clearInterval(interval);
   }, [fetchJobs, fetchLogs, selectedJobId]);
 
-  // Auto-scroll logs
   useEffect(() => {
     if (logContainerRef.current) {
       logContainerRef.current.scrollTop = logContainerRef.current.scrollHeight;
     }
   }, [jobLogs]);
 
-  // Run a task
   const handleRunTask = async (name: string, command: string) => {
     setIsLoading(true);
     setError(null);
@@ -162,7 +158,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
     }
   };
 
-  // Cancel running job
   const handleCancelJob = async (jobId: string) => {
     try {
       const token = localStorage.getItem("remote_ide_token") || "";
@@ -180,7 +175,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
     }
   };
 
-  // Retry job
   const handleRetryJob = async (jobId: string) => {
     try {
       const token = localStorage.getItem("remote_ide_token") || "";
@@ -208,7 +202,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
     <div
       className={`w-full h-full flex flex-col md:flex-row bg-[#09090b] text-zinc-300 ${className}`}
     >
-      {/* Left Column: Quick Action Buttons & Jobs List */}
       <div className="w-full md:w-80 border-b md:border-b-0 md:border-r border-zinc-800 p-3 flex flex-col gap-3 overflow-y-auto shrink-0 bg-[#0c0c0f]">
         <div>
           <h3 className="text-xs font-semibold text-zinc-200 flex items-center gap-1.5 uppercase tracking-wider mb-2">
@@ -226,7 +219,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
             </div>
           )}
 
-          {/* Quick Predefined Buttons */}
           <div className="grid grid-cols-2 gap-2">
             {PREDEFINED_TASKS.map((task) => {
               const isRunning = jobs.some(
@@ -260,7 +252,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
           </div>
         </div>
 
-        {/* Custom Approved Command Runner */}
         <div className="pt-2 border-t border-zinc-800">
           <label className="block text-[11px] font-medium text-zinc-400 mb-1">
             Execute Custom Script
@@ -294,7 +285,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
           </div>
         </div>
 
-        {/* Recent Jobs History */}
         <div className="flex-1 flex flex-col min-h-[120px] pt-2 border-t border-zinc-800">
           <div className="flex items-center justify-between mb-1.5">
             <span className="text-[11px] font-medium text-zinc-400 uppercase tracking-wider">
@@ -358,11 +348,9 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
         </div>
       </div>
 
-      {/* Right Column: Live Log Viewer & Job Control */}
       <div className="flex-1 flex flex-col min-h-0 bg-[#09090b]">
         {selectedJob ? (
           <>
-            {/* Job Header Info & Controls */}
             <div className="h-10 bg-[#121215] border-b border-zinc-800 px-3 flex items-center justify-between text-xs select-none shrink-0">
               <div className="flex items-center gap-3">
                 <span className="font-semibold text-zinc-200">{selectedJob.name}</span>
@@ -409,7 +397,6 @@ export const QuickLauncher: React.FC<QuickLauncherProps> = ({
               </div>
             </div>
 
-            {/* Live Streaming Logs Output */}
             <div
               ref={logContainerRef}
               className="flex-1 overflow-y-auto p-3 font-mono text-xs select-text space-y-1 bg-[#09090b]"

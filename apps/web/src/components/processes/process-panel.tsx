@@ -25,7 +25,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
   const [isLoading, setIsLoading] = useState(false);
   const [isModalOpen, setIsModalOpen] = useState(false);
 
-  // New Process Form
   const [newProcName, setNewProcName] = useState("");
   const [newProcCommand, setNewProcCommand] = useState("");
   const [newProcArgs, setNewProcArgs] = useState("");
@@ -150,7 +149,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
 
   return (
     <div className="flex flex-col md:flex-row h-full w-full bg-[#141417] text-zinc-300 text-xs select-none overflow-hidden">
-      {/* Process List Sidebar */}
       <div className="w-full md:w-80 border-r border-ide-border flex flex-col bg-zinc-900/60 shrink-0">
         <div className="p-3 border-b border-ide-border flex items-center justify-between">
           <div className="flex items-center gap-2 font-semibold text-zinc-200">
@@ -243,7 +241,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         </div>
       </div>
 
-      {/* Process Log & Details Area */}
       <div className="flex-1 flex flex-col overflow-hidden bg-[#101014]">
         {selectedProcess ? (
           <>
@@ -296,7 +293,6 @@ export const ProcessPanel: React.FC<ProcessPanelProps> = ({
         )}
       </div>
 
-      {/* Start Process Modal */}
       {isModalOpen && (
         <div className="fixed inset-0 z-50 bg-black/60 backdrop-blur-sm flex items-center justify-center p-4">
           <form

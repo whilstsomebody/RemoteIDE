@@ -147,7 +147,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-3xl bg-[#252526] border border-[#3c3c3c] rounded-xl shadow-2xl overflow-hidden flex flex-col text-xs text-zinc-200"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#1e1e1e] border-b border-[#3c3c3c]">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
@@ -172,7 +171,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
           </div>
         </div>
 
-        {/* Host Tunnel Presence Indicator */}
         <div className="px-5 py-2.5 bg-zinc-950/60 border-b border-[#3c3c3c] flex items-center justify-between text-xs">
           <div className="flex items-center gap-2">
             <Radio
@@ -198,7 +196,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
           )}
         </div>
 
-        {/* Tab Switcher */}
         <div className="flex items-center px-4 bg-[#1e1e1e] border-b border-[#3c3c3c]">
           {[
             { id: "sessions", label: `Active Sessions (${sessions.length})`, icon: Laptop },
@@ -224,9 +221,7 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
           })}
         </div>
 
-        {/* Body Content */}
         <div className="p-4 max-h-[380px] overflow-y-auto min-h-[200px]">
-          {/* Tab 1: Active Sessions */}
           {activeTab === "sessions" && (
             <div className="space-y-3">
               {sessions.length === 0 ? (
@@ -288,7 +283,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
             </div>
           )}
 
-          {/* Tab 2: Temporary Share Links */}
           {activeTab === "links" && (
             <div className="space-y-3">
               {links.length === 0 ? (
@@ -350,7 +344,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
             </div>
           )}
 
-          {/* Tab 3: Audit Log */}
           {activeTab === "audit" && (
             <div className="space-y-2 font-mono text-[11px]">
               {auditLogs.length === 0 ? (
@@ -382,7 +375,6 @@ export const SessionDashboardModal: React.FC<SessionDashboardModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="p-3 bg-[#1e1e1e] border-t border-[#3c3c3c] flex justify-between items-center text-[10px] text-zinc-500">
           <span className="flex items-center gap-1">
             <AlertCircle className="w-3 h-3 text-indigo-400" />

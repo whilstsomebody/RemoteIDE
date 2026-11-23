@@ -14,13 +14,11 @@ export const terminalRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const { terminalService } = opts;
 
-  // List all terminal sessions on this host
   fastify.get("/api/v1/terminals", async () => {
     const list = terminalService.listTerminals();
     return createSuccessResponse(list);
   });
 
-  // Query available shells and tmux capability on host
   fastify.get("/api/v1/terminals/shells", async () => {
     const shells = terminalService.getAvailableShells();
     const tmuxSupported = terminalService.isTmuxSupported();
@@ -32,7 +30,6 @@ export const terminalRoutes: FastifyPluginAsync<{
     });
   });
 
-  // Create an interactive PTY session
   fastify.post("/api/v1/terminals", async (request) => {
     const validation = CreateTerminalDtoSchema.safeParse(request.body || {});
     if (!validation.success) {
@@ -46,13 +43,11 @@ export const terminalRoutes: FastifyPluginAsync<{
     return createSuccessResponse(session);
   });
 
-  // Get specific session metadata
   fastify.get<{ Params: { id: string } }>("/api/v1/terminals/:id", async (request) => {
     const session = terminalService.getTerminal(request.params.id);
     return createSuccessResponse(session);
   });
 
-  // Resize terminal window dimensions
   fastify.post<{ Params: { id: string } }>("/api/v1/terminals/:id/resize", async (request) => {
     const validation = TerminalResizeDtoSchema.safeParse(request.body);
     if (!validation.success) {
@@ -69,7 +64,6 @@ export const terminalRoutes: FastifyPluginAsync<{
     });
   });
 
-  // Explicitly terminate shell process
   fastify.delete<{ Params: { id: string } }>("/api/v1/terminals/:id", async (request) => {
     await terminalService.closeTerminal(request.params.id);
     return createSuccessResponse({ terminated: true, id: request.params.id });

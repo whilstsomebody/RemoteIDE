@@ -85,7 +85,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
 
   return (
     <div className="flex flex-col h-full text-xs select-none">
-      {/* Search Header Controls */}
       <div className="p-3 border-b border-zinc-800 space-y-2">
         <div className="relative flex items-center">
           <Input
@@ -122,7 +121,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
           </div>
         </div>
 
-        {/* Search Mode Toggles & Action */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-1 bg-zinc-900 p-0.5 rounded border border-zinc-800">
             <button
@@ -163,7 +161,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
         </div>
       </div>
 
-      {/* Results List */}
       <div className="flex-1 overflow-y-auto p-2 space-y-2 font-mono">
         {error && (
           <div className="p-3 text-xs text-rose-400 bg-rose-950/20 border border-rose-900/40 rounded">
@@ -187,7 +184,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
 
         {groupedResults.map((group) => (
           <div key={group.path} className="space-y-1">
-            {/* File Header */}
             <div
               onClick={() => onOpenFile(group.path)}
               className="flex items-center gap-1.5 px-2 py-1 rounded hover:bg-zinc-800/60 cursor-pointer text-zinc-200 font-medium text-[11px] group"
@@ -197,7 +193,6 @@ export const SearchPanel: React.FC<SearchPanelProps> = ({ workspaceId, agentUrl,
               <span className="text-zinc-500 text-[10px] ml-auto">{group.items.length}</span>
             </div>
 
-            {/* Line Snippets */}
             <div className="pl-4 space-y-0.5 border-l border-zinc-800 ml-3">
               {group.items.map((m, mIdx) => (
                 <div

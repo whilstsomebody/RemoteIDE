@@ -54,7 +54,6 @@ export const TabBar: React.FC<TabBarProps> = ({
 
   return (
     <div className="h-9 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between select-none shrink-0 overflow-x-auto text-xs">
-      {/* Tabs List */}
       <div
         onDoubleClick={onNewUntitledFile}
         className="flex-1 flex items-center h-full overflow-x-auto no-scrollbar"
@@ -84,7 +83,6 @@ export const TabBar: React.FC<TabBarProps> = ({
                 )}
               </span>
 
-              {/* Dirty indicator or close button */}
               <div className="flex items-center shrink-0">
                 {tab.isDirty ? (
                   <div
@@ -110,7 +108,6 @@ export const TabBar: React.FC<TabBarProps> = ({
         })}
       </div>
 
-      {/* Editor Action Toolbar (Split & Markdown Preview) */}
       <div className="flex items-center gap-1 px-2 border-l border-zinc-800/80 shrink-0">
         {isCurrentMarkdown && onToggleMarkdownPreview && (
           <button

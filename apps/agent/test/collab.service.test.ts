@@ -273,7 +273,6 @@ describe("Phase 11 — Collaborative Editing & Yjs CRDT Persistence", () => {
     dummyDoc.on("update", (u) => (rogueUpdate = u));
     dummyDoc.transact(() => text.insert(0, "// MALICIOUS EDIT\n"));
 
-    // Attempt write
     expect(() => {
       collabService.applyClientUpdate(
         workspaceId,
@@ -337,7 +336,6 @@ describe("Phase 11 — Collaborative Editing & Yjs CRDT Persistence", () => {
       session.text.insert(0, "Updated: ");
     });
 
-    // Flush immediately to disk
     await collabService.flush(workspaceId, filePath);
 
     // Verify host filesystem has the persisted content
@@ -346,7 +344,6 @@ describe("Phase 11 — Collaborative Editing & Yjs CRDT Persistence", () => {
 
     // All participants leave
     collabService.leave(workspaceId, filePath, "p1");
-    // Wait for cleanup
     await new Promise((resolve) => setTimeout(resolve, 150));
 
     // Disk still retains correct final document
@@ -373,7 +370,6 @@ describe("Phase 11 — Collaborative Editing & Yjs CRDT Persistence", () => {
     const { fullPath } = fsService.resolveSafePath(workspaceId, filePath);
     fs.writeFileSync(fullPath, externalContent, "utf-8");
 
-    // Trigger external change detection
     collabService.handleExternalFileChange(workspaceId, filePath);
 
     expect(session.conflictStatus?.conflictDetected).toBe(true);

@@ -13,7 +13,6 @@ import { catchupService } from "../services/catchup.service.js";
 import { authenticateClient } from "../services/request-auth.js";
 
 export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Register or update device metadata
   fastify.post("/api/v1/catchup/device", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -41,7 +40,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse(device);
   });
 
-  // Query registered device
   fastify.get("/api/v1/catchup/device", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -65,7 +63,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse(device);
   });
 
-  // 2. Inactivity & presence heartbeat
   fastify.post("/api/v1/catchup/presence", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -85,7 +82,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse({ recorded: true });
   });
 
-  // 3. Generate or query catch-up summary
   fastify.get("/api/v1/catchup/summary", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -107,7 +103,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
         );
     }
 
-    // Access control: verify session allows access to this workspace
     if (
       session.allowedWorkspaceIds &&
       session.allowedWorkspaceIds.length > 0 &&
@@ -132,7 +127,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 4. Acknowledge catch-up delivery (advances cursor monotonically)
   fastify.post("/api/v1/catchup/ack", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -162,7 +156,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse(result);
   });
 
-  // 5. Inspect file diffs for authorized text files
   fastify.get("/api/v1/catchup/diff", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -221,7 +214,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 6. Get event retention policy
   fastify.get("/api/v1/catchup/retention", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session) {
@@ -236,7 +228,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse(policy);
   });
 
-  // 7. Update event retention policy (Owner only)
   fastify.put("/api/v1/catchup/retention", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session || !session.isOwner) {
@@ -264,7 +255,6 @@ export const catchupRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 8. Maintenance pruning trigger
   fastify.post("/api/v1/catchup/prune", async (req, reply) => {
     const session = authenticateClient(req);
     if (!session || !session.isOwner) {

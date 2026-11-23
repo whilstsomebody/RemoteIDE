@@ -4,22 +4,15 @@ import { URL } from "node:url";
 import { AppError, ErrorCode, ExecuteApiRequestDto, ApiClientResponse, isSsrfDangerousTarget } from "@remote-ide/shared";
 
 export class ApiClientService {
-  /**
-   * Interpolate environment variables into a template string (e.g. {{baseUrl}}).
-   */
   public interpolate(text: string, variables: Record<string, string> = {}): string {
     return text.replace(/\{\{([a-zA-Z0-9_.-]+)\}\}/g, (_, key) => {
       return variables[key] !== undefined ? variables[key] : `{{${key}}}`;
     });
   }
 
-  /**
-   * Execute an API request on the host machine.
-   */
   public async executeRequest(dto: ExecuteApiRequestDto): Promise<ApiClientResponse> {
     const variables = dto.variables || {};
 
-    // 1. Interpolate URL
     let rawUrl = this.interpolate(dto.url.trim(), variables);
     if (!rawUrl.startsWith("http://") && !rawUrl.startsWith("https://")) {
       rawUrl = `http://${rawUrl}`;
@@ -32,13 +25,11 @@ export class ApiClientService {
       throw new AppError(ErrorCode.BAD_REQUEST, `Invalid URL: ${rawUrl}`);
     }
 
-    // SSRF Guard: Comprehensive Metadata, Link-Local, and Multicast Blocking
     const ssrfCheck = isSsrfDangerousTarget(parsedUrl.toString());
     if (ssrfCheck.blocked) {
       throw new AppError(ErrorCode.FORBIDDEN, `Access to forbidden endpoint: ${ssrfCheck.reason}`);
     }
 
-    // 2. Append Query Parameters
     if (dto.params && dto.params.length > 0) {
       for (const param of dto.params) {
         if (param.enabled && param.key) {
@@ -49,7 +40,6 @@ export class ApiClientService {
       }
     }
 
-    // 3. Prepare Headers
     const headers: Record<string, string> = {};
     if (dto.headers && dto.headers.length > 0) {
       for (const h of dto.headers) {
@@ -61,7 +51,6 @@ export class ApiClientService {
       }
     }
 
-    // 4. Apply Authentication
     if (dto.authType === "bearer" && dto.authToken) {
       const token = this.interpolate(dto.authToken, variables);
       headers["authorization"] = `Bearer ${token}`;
@@ -80,7 +69,6 @@ export class ApiClientService {
       }
     }
 
-    // 5. Prepare Body
     let bodyBuffer: Buffer | null = null;
     if (dto.method !== "GET" && dto.method !== "HEAD") {
       if (dto.bodyType === "json" && dto.bodyRaw) {
@@ -114,10 +102,8 @@ export class ApiClientService {
       headers["content-length"] = String(bodyBuffer.length);
     }
 
-    // 6. Generate cURL export command
     const curlCommand = this.generateCurl(dto.method, parsedUrl.toString(), headers, bodyBuffer);
 
-    // 7. Execute Request with Timing
     const startTime = Date.now();
     const isHttps = parsedUrl.protocol === "https:";
     const transport = isHttps ? https : http;

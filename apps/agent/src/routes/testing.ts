@@ -13,7 +13,6 @@ export const testRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.testService || testRunnerService;
 
-  // Discover tests in workspace
   fastify.get<{ Querystring: { workspacePath?: string } }>(
     "/api/v1/tests/discover",
     async (request) => {
@@ -23,7 +22,6 @@ export const testRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Run tests
   fastify.post<{ Body: unknown; Querystring: { workspacePath?: string } }>(
     "/api/v1/tests/run",
     async (request) => {
@@ -39,7 +37,6 @@ export const testRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Get last test run outcome
   fastify.get<{ Querystring: { workspaceId?: string } }>(
     "/api/v1/tests/last-run",
     async (request) => {

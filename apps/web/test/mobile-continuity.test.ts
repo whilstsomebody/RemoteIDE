@@ -125,7 +125,6 @@ describe("Phase 10 — Mobile, Tablet, PWA, and Cross-Device Continuity", () => 
       vi.advanceTimersByTime(500);
       expect(callback).toHaveBeenCalledTimes(1);
 
-      // Cancel verification
       recovery.scheduleReconnect(callback);
       recovery.cancelScheduled();
       vi.advanceTimersByTime(1000);

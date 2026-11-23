@@ -174,9 +174,6 @@ export class TunnelRelayService {
     };
   }
 
-  /**
-   * Subscribe to live terminal stream chunks from the host agent over the tunnel.
-   */
   public subscribeTerminal(sessionId: string, listener: (msg: unknown) => void): () => void {
     let set = this.terminalSessionListeners.get(sessionId);
     if (!set) {
@@ -192,9 +189,6 @@ export class TunnelRelayService {
     };
   }
 
-  /**
-   * Send terminal control or input frame to the host agent over the tunnel.
-   */
   public sendTerminalMessage(hostId: string, type: TunnelMessageType, payload: unknown): void {
     const agent = this.getConnectedAgent(hostId);
     if (agent && agent.socket.readyState === WebSocket.OPEN) {
@@ -202,9 +196,6 @@ export class TunnelRelayService {
     }
   }
 
-  /**
-   * Forward an HTTP request over the agent's outbound reverse WebSocket tunnel.
-   */
   public async forwardRequest(
     hostId: string,
     reqPayload: Omit<TunnelHttpRequestPayload, "correlationId">,
@@ -299,9 +290,6 @@ export class TunnelRelayService {
     return count;
   }
 
-  /**
-   * Broadcast a workspace event to all authorized client WebSockets
-   */
   public broadcastWorkspaceEvent(workspaceId: string, event: unknown): void {
     const eventId = (event as { id?: string })?.id;
     if (eventId) {
@@ -338,9 +326,6 @@ export class TunnelRelayService {
     }
   }
 
-  /**
-   * Immediately close all active client WebSockets for a revoked/expired session
-   */
   public terminateSessionSockets(sessionId: string): void {
     const sockets = this.clientSessionSockets.get(sessionId);
     if (sockets) {

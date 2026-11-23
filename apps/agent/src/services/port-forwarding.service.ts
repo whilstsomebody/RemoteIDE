@@ -15,13 +15,9 @@ const COMMON_DEV_PORTS = [3000, 3001, 3002, 4000, 4200, 5000, 5173, 5174, 8000, 
 export class PortForwardingService {
   private forwardedPorts = new Map<number, ForwardedPort>();
 
-  /**
-   * Scan host machine for listening development ports on 127.0.0.1.
-   */
   public async detectListeningPorts(): Promise<DetectedPort[]> {
     const detected: DetectedPort[] = [];
 
-    // Probe common dev ports on localhost
     const checkPort = (port: number): Promise<boolean> => {
       return new Promise((resolve) => {
         const socket = new net.Socket();
@@ -63,15 +59,11 @@ export class PortForwardingService {
     return detected.sort((a, b) => a.port - b.port);
   }
 
-  /**
-   * List all forwarded ports.
-   */
   public listForwardedPorts(): ForwardedPort[] {
     const now = new Date().getTime();
     const result: ForwardedPort[] = [];
 
     for (const portInfo of this.forwardedPorts.values()) {
-      // Check expiration
       if (portInfo.expiresAt && new Date(portInfo.expiresAt).getTime() < now) {
         portInfo.enabled = false;
       }
@@ -87,7 +79,6 @@ export class PortForwardingService {
   public forwardPort(dto: ForwardPortDto): ForwardedPort {
     const port = dto.port;
 
-    // Strict Port Range Validation (1024 - 65535)
     if (port < 1024 || port > 65535) {
       throw new AppError(
         ErrorCode.BAD_REQUEST,
@@ -95,7 +86,7 @@ export class PortForwardingService {
       );
     }
 
-    // SSRF Guard: Block access to protected internal service ports
+    // SSRF guard: infrastructure ports (databases, Docker, the agent itself) are never previewable.
     if (BLOCKED_INTERNAL_INFRA_PORTS.has(port)) {
       throw new AppError(
         ErrorCode.FORBIDDEN,
@@ -112,7 +103,7 @@ export class PortForwardingService {
       label: dto.label || `Port ${port}`,
       protocol: dto.protocol || "http",
       enabled: true,
-      targetHost: "127.0.0.1", // Enforce local loopback only
+      targetHost: "127.0.0.1",
       createdAt: new Date().toISOString(),
       expiresAt,
       sessionRestricted: false,
@@ -125,9 +116,6 @@ export class PortForwardingService {
     return forwarded;
   }
 
-  /**
-   * Toggle port forwarding enable/disable.
-   */
   public togglePortForward(port: number, enabled: boolean): ForwardedPort {
     const record = this.forwardedPorts.get(port);
     if (!record) {
@@ -137,9 +125,6 @@ export class PortForwardingService {
     return { ...record };
   }
 
-  /**
-   * Remove forwarded port.
-   */
   public unforwardPort(port: number): void {
     if (!this.forwardedPorts.has(port)) {
       throw new AppError(ErrorCode.NOT_FOUND, `Forwarded port ${port} not found.`);
@@ -147,9 +132,6 @@ export class PortForwardingService {
     this.forwardedPorts.delete(port);
   }
 
-  /**
-   * Check if a port is approved and active for preview proxying.
-   */
   public isPortApproved(port: number): boolean {
     const record = this.forwardedPorts.get(port);
     if (!record || !record.enabled) return false;
@@ -160,9 +142,6 @@ export class PortForwardingService {
     return true;
   }
 
-  /**
-   * Proxy an incoming HTTP request to the local forwarded port.
-   */
   public async proxyHttpRequest(
     port: number,
     subpath: string,

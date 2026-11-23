@@ -145,12 +145,10 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     journalService: journal,
   });
 
-  // Auto-watch any already registered workspaces on boot
   for (const ws of workspaceService.listWorkspaces()) {
     watcherService.watchWorkspace(ws);
   }
 
-  // Centralized exception handling
   app.setErrorHandler((rawError, request, reply) => {
     request.log.error({ err: rawError, url: request.raw.url }, "Host Agent error");
 
@@ -203,7 +201,6 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   await app.register(databaseRoutes, { databaseService: defaultDatabaseExplorerService });
   await app.register(collabRoutes, { collabService });
 
-  // Connect host metrics dependencies and start sampling
   defaultHostMetricsService.setDependencies({
     processManager: defaultProcessManagerService,
     terminalService: defaultTerminalService,
@@ -221,7 +218,6 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
   const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
   terminalWsServer.init();
 
-  // Outbound Reverse Tunnel Transport (Local Relay or Cloud Tunnel)
   let tunnelTransport: ITunnelTransport | undefined;
   if (opts.enableTunnel !== false) {
     const gatewayWsUrl =

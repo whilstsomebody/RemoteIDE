@@ -47,7 +47,6 @@ describe("Agent HTTP API Routes Integration", () => {
   });
 
   it("performs full workspace registration and file lifecycle via HTTP", async () => {
-    // 1. Register workspace
     const regRes = await app.inject({
       method: "POST",
       url: "/api/v1/workspaces/register",
@@ -63,7 +62,6 @@ describe("Agent HTTP API Routes Integration", () => {
     const workspaceId = regBody.data.id;
     expect(workspaceId).toBeDefined();
 
-    // 2. Write a file
     const writeRes = await app.inject({
       method: "PUT",
       url: `/api/v1/workspaces/${workspaceId}/files/write`,
@@ -78,12 +76,10 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(writeBody.success).toBe(true);
     expect(writeBody.data.eTag).toBeDefined();
 
-    // Verify on disk directly
     expect(fs.readFileSync(path.join(projectDir, "hello.txt"), "utf-8")).toBe(
       "Hello from Agent HTTP API"
     );
 
-    // 3. Read the file
     const readRes = await app.inject({
       method: "GET",
       url: `/api/v1/workspaces/${workspaceId}/files/read?path=hello.txt`,
@@ -94,7 +90,6 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(readBody.success).toBe(true);
     expect(readBody.data.content).toBe("Hello from Agent HTTP API");
 
-    // 4. List directory files
     const listRes = await app.inject({
       method: "GET",
       url: `/api/v1/workspaces/${workspaceId}/files`,
@@ -105,7 +100,6 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(listBody.success).toBe(true);
     expect(listBody.data.some((f: { name: string }) => f.name === "hello.txt")).toBe(true);
 
-    // 5. Search files
     const searchRes = await app.inject({
       method: "GET",
       url: `/api/v1/workspaces/${workspaceId}/files/search?query=Agent&type=content`,
@@ -116,7 +110,6 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(searchBody.success).toBe(true);
     expect(searchBody.data.results.length).toBeGreaterThan(0);
 
-    // 6. Delete file
     const deleteRes = await app.inject({
       method: "DELETE",
       url: `/api/v1/workspaces/${workspaceId}/files?path=hello.txt`,
@@ -125,7 +118,6 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(deleteRes.statusCode).toBe(200);
     expect(fs.existsSync(path.join(projectDir, "hello.txt"))).toBe(false);
 
-    // 7. Check local change journal
     const journalRes = await app.inject({
       method: "GET",
       url: `/api/v1/workspaces/${workspaceId}/journal`,

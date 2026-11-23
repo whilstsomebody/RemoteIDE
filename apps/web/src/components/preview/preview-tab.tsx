@@ -47,7 +47,6 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
         isFullscreen ? "fixed inset-0 z-50 p-0" : ""
       }`}
     >
-      {/* Navigation & Controls Bar */}
       <div className="h-10 px-3 border-b border-ide-border bg-zinc-900/80 flex items-center justify-between gap-3 shrink-0">
         <div className="flex items-center gap-2 flex-1 max-w-xl">
           <button
@@ -58,7 +57,6 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
             <RefreshCw className="w-3.5 h-3.5" />
           </button>
 
-          {/* Port Input */}
           <div className="flex items-center bg-zinc-800/80 rounded border border-zinc-700/80 px-2 py-1 text-xs font-mono">
             <span className="text-zinc-500 mr-1">:</span>
             <input
@@ -71,7 +69,6 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
             />
           </div>
 
-          {/* Path Bar */}
           <div className="flex items-center flex-1 bg-zinc-800/80 rounded border border-zinc-700/80 px-2 py-1 text-xs">
             <Globe className="w-3 h-3 text-zinc-500 mr-1.5 shrink-0" />
             <input
@@ -87,7 +84,6 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
           </div>
         </div>
 
-        {/* Device Mode Switcher & Actions */}
         <div className="flex items-center gap-1">
           <div className="flex items-center bg-zinc-800/60 rounded p-0.5 border border-zinc-700/60">
             <button
@@ -135,7 +131,6 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
         </div>
       </div>
 
-      {/* Frame Container */}
       <div className="flex-1 overflow-auto flex items-center justify-center p-2 bg-[#09090b]">
         <div
           style={{ width: getContainerWidth() }}

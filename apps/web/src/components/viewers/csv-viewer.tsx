@@ -80,7 +80,6 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({ content, path }) => {
 
   return (
     <div className="flex-1 flex flex-col h-full bg-zinc-950 text-zinc-100 overflow-hidden">
-      {/* CSV Toolbar */}
       <div className="h-10 px-4 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between text-xs shrink-0">
         <div className="flex items-center gap-3">
           <Badge
@@ -126,7 +125,6 @@ export const CsvViewer: React.FC<CsvViewerProps> = ({ content, path }) => {
         </div>
       </div>
 
-      {/* CSV Grid */}
       <div className="flex-1 overflow-auto">
         <table className="w-full text-left text-xs border-collapse">
           <thead className="bg-zinc-900/90 sticky top-0 z-10 border-b border-zinc-800">

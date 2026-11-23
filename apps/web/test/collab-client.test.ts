@@ -42,7 +42,6 @@ describe("Phase 11 — Web CollabClient & CodeMirror Extension", () => {
       onParticipantsChange: (p) => (participantsReceived = p),
     });
 
-    // Check that COLLAB_JOIN was sent
     expect(mockWs.sentMessages.length).toBe(1);
     const joinMsg = JSON.parse(mockWs.sentMessages[0]!);
     expect(joinMsg.type).toBe(WsMessageType.COLLAB_JOIN);
@@ -83,12 +82,10 @@ describe("Phase 11 — Web CollabClient & CodeMirror Extension", () => {
 
     mockWs.sentMessages = []; // clear join message
 
-    // Local edit via transaction
     client.doc.transact(() => {
       client.yText.insert(0, "// Local comment\n");
     }, localCollabOrigin);
 
-    // Verify COLLAB_UPDATE was sent
     expect(mockWs.sentMessages.length).toBe(1);
     const updateMsg = JSON.parse(mockWs.sentMessages[0]!);
     expect(updateMsg.type).toBe(WsMessageType.COLLAB_UPDATE);
@@ -136,7 +133,6 @@ describe("Phase 11 — Web CollabClient & CodeMirror Extension", () => {
       { id: "user-beta", name: "Beta", color: "#34d399", role: "editor", joinedAt: "" },
     ];
 
-    // Follow user-beta
     client.followParticipant("user-beta");
     expect(client.followingParticipantId).toBe("user-beta");
 
@@ -171,7 +167,6 @@ describe("Phase 11 — Web CollabClient & CodeMirror Extension", () => {
 
     mockWs.sentMessages = [];
 
-    // Attempt local edit
     client.doc.transact(() => {
       client.yText.insert(0, "Illegal edit");
     }, Symbol.for("local-collab"));

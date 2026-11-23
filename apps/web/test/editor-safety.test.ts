@@ -7,7 +7,6 @@ import {
 } from "../src/lib/storage/settings-storage";
 
 describe("Editor Safety & UI Persistence", () => {
-  // In-memory mock localStorage
   const store = new Map<string, string>();
 
   beforeEach(() => {

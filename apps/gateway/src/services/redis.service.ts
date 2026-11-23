@@ -27,7 +27,6 @@ export class RedisService {
   private memoryCache = new Map<string, { value: string; expiresAt: number }>();
   private localPubSub = new Map<string, Set<(message: string) => void>>();
 
-  // Metrics
   private metrics = {
     cacheHits: 0,
     cacheMisses: 0,
@@ -110,8 +109,6 @@ export class RedisService {
     return this.isConnected;
   }
 
-  // Session Caching
-
   public async cacheSession(
     session: RemoteSession,
     ttlSeconds = REDIS_TTL.SESSION_SECONDS
@@ -181,8 +178,6 @@ export class RedisService {
     }
   }
 
-  // Presence & Heartbeats
-
   public async setPresence(
     entityType: "host" | "device",
     id: string,
@@ -241,8 +236,6 @@ export class RedisService {
     return null;
   }
 
-  // Connection-to-Gateway Routing
-
   public async setRouting(
     entityType: "session" | "host",
     id: string,
@@ -288,8 +281,6 @@ export class RedisService {
 
     return null;
   }
-
-  // Workspace Revision Caching
 
   public async cacheWorkspaceRevision(workspaceId: string, revision: number): Promise<void> {
     const key = `${REDIS_NAMESPACES.WORKSPACE_REVISION}:${workspaceId}`;
@@ -339,8 +330,6 @@ export class RedisService {
     this.metrics.cacheMisses++;
     return null;
   }
-
-  // Permission Caching & Immediate Invalidation
 
   public async cachePermissions(
     sessionId: string,
@@ -408,8 +397,6 @@ export class RedisService {
     }
   }
 
-  // Rate Limiting (Fixed Window Atomic Counter)
-
   public async checkRateLimit(
     key: string,
     limit: number,
@@ -436,7 +423,6 @@ export class RedisService {
       }
     }
 
-    // In-memory fallback
     const entry = this.memoryCache.get(rateLimitKey);
     const now = Date.now();
     let current = 1;
@@ -463,8 +449,6 @@ export class RedisService {
       resetSeconds,
     };
   }
-
-  // Idempotency Key Caching
 
   /**
    * Checks and acquires an idempotency key.
@@ -500,8 +484,6 @@ export class RedisService {
     return true;
   }
 
-  // Pub/Sub Fan-Out
-
   public async publish(channel: string, message: unknown): Promise<number> {
     const msgString = typeof message === "string" ? message : JSON.stringify(message);
 
@@ -532,7 +514,6 @@ export class RedisService {
   }
 
   public async subscribe(channel: string, handler: (message: string) => void): Promise<() => void> {
-    // Add to local handlers
     let handlers = this.localPubSub.get(channel);
     if (!handlers) {
       handlers = new Set();
@@ -558,8 +539,6 @@ export class RedisService {
       }
     };
   }
-
-  // Metrics & Lifecycle
 
   public getMetrics(): {
     cacheHits: number;

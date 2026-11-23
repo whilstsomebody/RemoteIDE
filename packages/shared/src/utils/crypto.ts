@@ -7,7 +7,6 @@ export function generateSecureRandomToken(byteLength = 32): string {
   if (typeof globalThis.crypto?.getRandomValues === "function") {
     const bytes = new Uint8Array(byteLength);
     globalThis.crypto.getRandomValues(bytes);
-    // Convert to base64url
     let binary = "";
     for (let i = 0; i < bytes.length; i++) {
       binary += String.fromCharCode(bytes[i] ?? 0);

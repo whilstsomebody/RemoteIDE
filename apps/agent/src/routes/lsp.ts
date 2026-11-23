@@ -24,7 +24,6 @@ export const lspRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.lspService || lspManagerService;
 
-  // 1. Language Servers & Toolchain Detection
   fastify.get("/api/v1/lsp/servers", async (request) => {
     const servers = service.detectToolchain();
     const query = request.query as Record<string, string | undefined>;
@@ -48,7 +47,6 @@ export const lspRoutes: FastifyPluginAsync<{
     }
   );
 
-  // 2. Document Sync
   fastify.post("/api/v1/lsp/open", async (request) => {
     const val = LspTextDocumentDidOpenDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -93,7 +91,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ success: true });
   });
 
-  // 3. Autocompletion
   fastify.post("/api/v1/lsp/completion", async (request) => {
     const val = LspCompletionDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -105,7 +102,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(items);
   });
 
-  // 4. Hover
   fastify.post("/api/v1/lsp/hover", async (request) => {
     const val = LspHoverDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -117,7 +113,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(hover);
   });
 
-  // 5. Definition & References
   fastify.post("/api/v1/lsp/definition", async (request) => {
     const val = LspDefinitionDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -140,7 +135,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(refs);
   });
 
-  // 6. Rename
   fastify.post("/api/v1/lsp/rename", async (request) => {
     const val = LspRenameDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -152,7 +146,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(edit);
   });
 
-  // 7. Symbols
   fastify.get<{ Querystring: { workspaceId: string; path: string } }>(
     "/api/v1/lsp/symbols/document",
     async (request) => {
@@ -165,7 +158,6 @@ export const lspRoutes: FastifyPluginAsync<{
     }
   );
 
-  // 8. Signature Help
   fastify.post("/api/v1/lsp/signature-help", async (request) => {
     const val = LspSignatureHelpDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -177,7 +169,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(help);
   });
 
-  // 9. Diagnostics
   fastify.get<{ Querystring: { workspaceId: string; path: string } }>(
     "/api/v1/lsp/diagnostics",
     async (request) => {
@@ -190,7 +181,6 @@ export const lspRoutes: FastifyPluginAsync<{
     }
   );
 
-  // 10. Code Actions
   fastify.post("/api/v1/lsp/code-action", async (request) => {
     const val = LspCodeActionDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -202,7 +192,6 @@ export const lspRoutes: FastifyPluginAsync<{
     return createSuccessResponse(actions);
   });
 
-  // 11. Formatting
   fastify.post("/api/v1/lsp/format", async (request) => {
     const val = LspFormatDtoSchema.safeParse(request.body);
     if (!val.success) {

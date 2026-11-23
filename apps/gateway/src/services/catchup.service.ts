@@ -103,8 +103,6 @@ export class CatchupService {
     });
   }
 
-  // --- 1. Device Registration & Lifecycle ---
-
   public registerDevice(params: {
     deviceId: string;
     deviceName?: string;
@@ -141,8 +139,6 @@ export class CatchupService {
     return Array.from(this.devices.values()).filter((d) => d.userId === userId);
   }
 
-  // --- 2. Inactivity Detection & Presence Tracking ---
-
   public recordPresence(dto: DevicePresenceDto): void {
     const now = new Date().toISOString();
     this.devicePresence.set(dto.deviceId, {
@@ -163,8 +159,6 @@ export class CatchupService {
   public getDevicePresence(deviceId: string): DevicePresenceRecord | undefined {
     return this.devicePresence.get(deviceId);
   }
-
-  // --- 3. Cursors (Sync vs Changelog Acknowledged) ---
 
   public updateSyncCursor(deviceId: string, workspaceId: string, revision: number): void {
     const key = `${deviceId}:${workspaceId}`;
@@ -202,8 +196,6 @@ export class CatchupService {
   ): ChangelogCursorRecord | undefined {
     return this.changelogCursors.get(`${deviceId}:${workspaceId}`);
   }
-
-  // --- 4. Catch-Up Generation ---
 
   public generateCatchupSummary(params: {
     deviceId: string;
@@ -262,7 +254,6 @@ export class CatchupService {
     // Check if history is expired (revisions purged beyond retention window)
     const historyExpired = lastAckRev > 0 && oldestRev > 0 && lastAckRev < oldestRev;
 
-    // Check if device is already completely caught up and up-to-date
     if (!historyExpired && lastAckRev >= currentRev && currentRev > 0) {
       return null;
     }
@@ -271,20 +262,16 @@ export class CatchupService {
       return null;
     }
 
-    // Determine target revision range
     const fromRev = historyExpired ? oldestRev : lastAckRev + 1;
     const toRev = currentRev;
 
-    // Retrieve authorized events in the range
     const events = historyExpired ? [] : this.outbox.getEventsInRange(workspaceId, fromRev, toRev);
 
     // If there were no events between fromRev and toRev (e.g. revision gap or no recorded events)
     if (events.length === 0 && !historyExpired) {
-      // Revisions advanced without new domain events (or empty range)
       if (fromRev > toRev) return null;
     }
 
-    // Generate delivery ID
     const deliveryId =
       "cdel_" +
       (typeof crypto !== "undefined" && crypto.randomUUID
@@ -306,7 +293,6 @@ export class CatchupService {
     const now = new Date();
     const expiresAt = new Date(now.getTime() + policy.retentionDays * 86400000).toISOString();
 
-    // Persist delivery record with status "delivered"
     // "Do not delete delivery state before acknowledgement."
     this.deliveries.set(deliveryId, {
       id: deliveryId,
@@ -325,8 +311,6 @@ export class CatchupService {
     this.persist();
     return summary;
   }
-
-  // --- 5. Acknowledgement ---
 
   public acknowledgeChangelog(dto: CatchupAckDto): CatchupAckResult {
     return this.acknowledgeCatchup(dto);
@@ -353,7 +337,6 @@ export class CatchupService {
     const existing = this.changelogCursors.get(key);
 
     if (!delivery) {
-      // Unknown delivery; return current cursor status
       return {
         acknowledged: false,
         deliveryId,
@@ -409,8 +392,6 @@ export class CatchupService {
     return this.deliveries.get(deliveryId);
   }
 
-  // --- 6. File Diff Inspection ---
-
   public async getFileDiff(params: {
     workspaceId: string;
     path: string;
@@ -448,7 +429,6 @@ export class CatchupService {
       }
     }
 
-    // Simple line diff hunk generator
     const origLines = originalContent.split("\n");
     const currLines = currentContent.split("\n");
     const diffHunks: string[] = [];
@@ -476,8 +456,6 @@ export class CatchupService {
       isBinary: false,
     };
   }
-
-  // --- 7. Configurable Retention & Pruning ---
 
   public getRetentionPolicy(workspaceId: string): EventRetentionPolicy {
     const existing = this.retentionConfigs.get(workspaceId);
@@ -541,7 +519,6 @@ export class CatchupService {
     let prunedDeliveriesCount = 0;
     let prunedEventsCount = 0;
 
-    // 1. Prune expired deliveries
     for (const [id, del] of this.deliveries.entries()) {
       if (workspaceId && del.workspaceId !== workspaceId) continue;
       if (del.expiresAt < now || (del.status === "acknowledged" && del.expiresAt < now)) {
@@ -550,7 +527,6 @@ export class CatchupService {
       }
     }
 
-    // 2. Prune events older than workspace retention policy
     const workspacesToPrune = workspaceId
       ? [workspaceId]
       : Array.from(new Set(Array.from(this.retentionConfigs.keys())));

@@ -20,7 +20,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
   beforeEach(async () => {
     app = await buildApp({ logger: false });
 
-    // Create authenticated user session
     const session = authService.createSessionInternal({
       userId,
       hostId: "local-host-agent",
@@ -35,7 +34,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     });
     userToken = session.sessionToken;
 
-    // Reset AI key and mock generator
     await aiAssistantService.clearApiKey(userId);
     aiAssistantService.setMockGenerator(null);
   });
@@ -46,7 +44,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
   });
 
   it("1. Missing API key returns API_KEY_MISSING error", async () => {
-    // Create conversation first
     const conv = await aiAssistantService.createConversation(workspaceId, userId, "Test Missing Key");
 
     const res = await app.inject({
@@ -66,7 +63,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
   it("2. Stores encrypted API key, masks it in settings, and never returns plaintext to client", async () => {
     const rawKey = "AIzaSyFakeSecretGeminiKey123456789";
 
-    // Set key via REST
     const setRes = await app.inject({
       method: "POST",
       url: "/api/v1/ai/settings",
@@ -84,7 +80,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(setBody.data.maskedKey).toContain("AIzaSy...");
     expect(setBody.data.maskedKey).not.toBe(rawKey);
 
-    // Read back settings via GET
     const getRes = await app.inject({
       method: "GET",
       url: "/api/v1/ai/settings",
@@ -103,7 +98,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
   });
 
   it("3. Conversation CRUD: create, list, retrieve history, rename, and delete", async () => {
-    // 1. Create
     const createRes = await app.inject({
       method: "POST",
       url: "/api/v1/ai/conversations",
@@ -119,7 +113,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     const convId = createRes.json().data.id;
     expect(convId).toBeDefined();
 
-    // 2. List
     const listRes = await app.inject({
       method: "GET",
       url: `/api/v1/ai/conversations?workspaceId=${workspaceId}`,
@@ -129,7 +122,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     const convs = listRes.json().data;
     expect(convs.some((c: any) => c.id === convId)).toBe(true);
 
-    // 3. Get with history
     const getRes = await app.inject({
       method: "GET",
       url: `/api/v1/ai/conversations/${convId}`,
@@ -141,7 +133,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(hist.messages.length).toBe(1);
     expect(hist.messages[0].content).toBe("Hello Gemini");
 
-    // 4. Rename
     const renameRes = await app.inject({
       method: "PATCH",
       url: `/api/v1/ai/conversations/${convId}`,
@@ -151,7 +142,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(renameRes.statusCode).toBe(200);
     expect(renameRes.json().data.title).toBe("Refined Architecture Discussion");
 
-    // 5. Delete
     const delRes = await app.inject({
       method: "DELETE",
       url: `/api/v1/ai/conversations/${convId}`,
@@ -160,7 +150,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(delRes.statusCode).toBe(200);
     expect(delRes.json().data.deleted).toBe(true);
 
-    // 6. Verify deleted
     const verifyRes = await app.inject({
       method: "GET",
       url: `/api/v1/ai/conversations/${convId}`,
@@ -172,7 +161,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
   it("4. Normal Q&A & Streaming via Mock Provider with CodeMirror snippet context", async () => {
     await aiAssistantService.setApiKey(userId, "AIzaSyValidMockKey12345");
 
-    // Configure mock streaming generator
     aiAssistantService.setMockGenerator(async function* (prompt) {
       expect(prompt).toContain("Selected Code from src/index.ts");
       expect(prompt).toContain("const x = 42;");
@@ -183,7 +171,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
 
     const conv = await aiAssistantService.createConversation(workspaceId, userId, "Code Explanation");
 
-    // Send prompt with code selection context
     const res = await app.inject({
       method: "POST",
       url: `/api/v1/ai/conversations/${conv.id}/messages`,
@@ -206,7 +193,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(body.data.content).toContain("This code declares a constant");
     expect(body.data.content).toContain("console.log(x);");
 
-    // Verify messages persisted
     const hist = await aiAssistantService.getConversation(conv.id, userId);
     expect(hist?.messages.length).toBe(2);
     expect(hist?.messages[0].role).toBe("user");
@@ -225,7 +211,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
 
     const conv = await aiAssistantService.createConversation(workspaceId, userId, "Multi-turn Chat");
 
-    // Turn 1
     await app.inject({
       method: "POST",
       url: `/api/v1/ai/conversations/${conv.id}/messages`,
@@ -233,7 +218,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
       payload: { prompt: "Let's discuss TypeScript generics." },
     });
 
-    // Turn 2
     await app.inject({
       method: "POST",
       url: `/api/v1/ai/conversations/${conv.id}/messages`,
@@ -241,7 +225,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
       payload: { prompt: "Can you give an example of a constrained generic?" },
     });
 
-    // Verify history included previous messages
     expect(receivedHistory.length).toBeGreaterThanOrEqual(2);
     expect(receivedHistory.some((h) => h.content.includes("TypeScript generics"))).toBe(true);
   });
@@ -251,7 +234,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
 
     aiAssistantService.setMockGenerator(async function* (_prompt, _history, signal) {
       yield "Part 1...";
-      // Simulate delay while checking abort signal
       for (let i = 0; i < 20; i++) {
         if (signal?.aborted) return;
         await new Promise((r) => setTimeout(r, 10));
@@ -263,18 +245,15 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
 
     const stream = aiAssistantService.streamPrompt(conv.id, userId, "Write a long essay");
 
-    // Read first chunk
     const first = await stream.next();
     expect(first.value?.type).toBe("chunk");
     const msgId = first.value?.messageId;
     expect(msgId).toBeDefined();
     if (!msgId) throw new Error("messageId expected");
 
-    // Cancel stream
     const stopped = aiAssistantService.abortStream(msgId);
     expect(stopped).toBe(true);
 
-    // Subsequent yield should report cancelled
     const second = await stream.next();
     expect(second.value?.type).toBe("error");
     expect(second.value?.code).toBe("REQUEST_CANCELLED");
@@ -284,7 +263,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     await aiAssistantService.setApiKey(userId, "AIzaSyValidMockKey12345");
     const conv = await aiAssistantService.createConversation(workspaceId, userId, "Error Handling");
 
-    // 1. Quota error
     aiAssistantService.setMockGenerator(async function* (_prompt, _history, signal) {
       if (signal?.aborted) yield "";
       const err: any = new Error("Resource has been exhausted (e.g. check quota).");
@@ -298,7 +276,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(quotaEvt.value?.code).toBe("QUOTA_EXCEEDED");
     expect(quotaEvt.value?.error).toContain("rate limit or quota exceeded");
 
-    // 2. Invalid Key error
     aiAssistantService.setMockGenerator(async function* (_prompt, _history, signal) {
       if (signal?.aborted) yield "";
       const err: any = new Error("API_KEY_INVALID: key not valid");
@@ -312,7 +289,6 @@ describe("Phase 12 — Gemini-Powered Read-Only AI Assistant", () => {
     expect(keyEvt.value?.code).toBe("INVALID_KEY");
     expect(keyEvt.value?.error).toContain("API key is invalid or expired");
 
-    // 3. Timeout error
     aiAssistantService.setMockGenerator(async function* (_prompt, _history, signal) {
       if (signal?.aborted) yield "";
       throw new Error("ETIMEDOUT: Connection timed out");
@@ -349,7 +325,6 @@ const dbPassword = 'password: "super_secret_database_pass"';
   });
 
   it("9. Security Boundary: assistant system prompt strictly enforces read-only limitations and refuses prompt injection", async () => {
-    // Verify system instruction explicitly forbids modifications or execution
     expect(GEMINI_READ_ONLY_SYSTEM_PROMPT).toContain("strictly a read-only conversational assistant");
     expect(GEMINI_READ_ONLY_SYSTEM_PROMPT).toContain("You do NOT have any tools");
     expect(GEMINI_READ_ONLY_SYSTEM_PROMPT).toContain("CANNOT create, edit, save, or delete files");
@@ -405,7 +380,6 @@ const dbPassword = 'password: "super_secret_database_pass"';
 
     await aiAssistantService.deleteConversation(conv.id, userId);
 
-    // Verify durable milestones occurred
     expect(publishedMilestones).toContain("remoteide.ai.chat_created");
     expect(publishedMilestones).toContain("remoteide.ai.chat_renamed");
     expect(publishedMilestones).toContain("remoteide.ai.message_completed");

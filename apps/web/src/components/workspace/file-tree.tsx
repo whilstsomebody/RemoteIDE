@@ -54,22 +54,18 @@ export const FileTree: React.FC<FileTreeProps> = ({
   const [filterQuery, setFilterQuery] = useState("");
   const [showHidden, setShowHidden] = useState(false);
 
-  // Inline Creation state: { parentPath, type: 'file' | 'directory' }
   const [creatingIn, setCreatingIn] = useState<{
     parentPath: string;
     type: "file" | "directory";
   } | null>(null);
   const [newEntryName, setNewEntryName] = useState("");
 
-  // Inline Rename state: { oldPath, currentName }
   const [renamingPath, setRenamingPath] = useState<string | null>(null);
   const [renameValue, setRenameValue] = useState("");
 
-  // Context Menu
   const [contextMenu, setContextMenu] = useState<ContextMenuState | null>(null);
   const menuRef = useRef<HTMLDivElement>(null);
 
-  // Close context menu on external click
   useEffect(() => {
     const handleClickOutside = (e: MouseEvent) => {
       if (menuRef.current && !menuRef.current.contains(e.target as Node)) {
@@ -139,7 +135,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
     return <File className="w-3.5 h-3.5 text-zinc-400 shrink-0" />;
   };
 
-  // Filter nodes according to exclusion rules and filter query
   const filterNode = (node: FileNode): boolean => {
     if (!showHidden) {
       if (node.name.startsWith(".") && node.name !== ".env.example" && node.name !== ".gitignore") {
@@ -268,7 +263,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
               )}
             </div>
 
-            {/* Quick Actions Hover */}
             <div className="hidden group-hover:flex items-center gap-1 opacity-80">
               {isDir && onCreateItem && (
                 <>
@@ -314,7 +308,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </div>
           </div>
 
-          {/* Inline creation input if active in this directory */}
           {creatingIn && creatingIn.parentPath === node.path && (
             <div
               style={{ paddingLeft: `${(level + 1) * 14 + 18}px` }}
@@ -344,7 +337,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
             </div>
           )}
 
-          {/* Children */}
           {isDir && isExpanded && node.children && node.children.length > 0 && (
             <div className="flex flex-col">{renderNodes(node.children, level + 1)}</div>
           )}
@@ -355,7 +347,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
 
   return (
     <div className="flex flex-col h-full text-xs select-none">
-      {/* Explorer Controls: Quick Search, Filter, Hidden Files, Refresh */}
       <div className="flex items-center gap-1 mb-2 px-1">
         <div className="relative flex-1">
           <input
@@ -411,7 +402,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
         </button>
       </div>
 
-      {/* Inline root creation */}
       {creatingIn && creatingIn.parentPath === "" && (
         <div className="px-2 py-1 mb-1 flex items-center gap-1.5 bg-zinc-900 border border-indigo-500/50 rounded">
           {creatingIn.type === "directory" ? (
@@ -438,7 +428,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
         </div>
       )}
 
-      {/* Nodes List */}
       <div className="flex-1 overflow-y-auto">
         {nodes.length === 0 ? (
           <div className="text-zinc-500 text-center py-6 text-xs">No files in workspace</div>
@@ -447,7 +436,6 @@ export const FileTree: React.FC<FileTreeProps> = ({
         )}
       </div>
 
-      {/* Right-click Context Menu */}
       {contextMenu && (
         <div
           ref={menuRef}

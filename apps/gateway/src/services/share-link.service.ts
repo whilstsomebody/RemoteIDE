@@ -131,7 +131,6 @@ export class ShareLinkService {
       });
     }
 
-    // Expiry check
     if (new Date(link.expiresAt).getTime() < Date.now()) {
       auditService.record(AuditEventType.SHARE_LINK_EXPIRED, link.createdBy, {
         targetId: link.id,
@@ -139,7 +138,6 @@ export class ShareLinkService {
       throw new AppError(ErrorCode.UNAUTHORIZED, "Share link has expired", { statusCode: 410 });
     }
 
-    // One-time redemption check
     if (link.oneTimeRedemption && link.usedCount > 0) {
       throw new AppError(
         ErrorCode.UNAUTHORIZED,
@@ -148,7 +146,6 @@ export class ShareLinkService {
       );
     }
 
-    // PIN check if configured
     if (link.pinHash) {
       if (!dto.pin) {
         throw new AppError(ErrorCode.UNAUTHORIZED, "This link requires a PIN/Passphrase", {
@@ -169,7 +166,6 @@ export class ShareLinkService {
       }
     }
 
-    // Max concurrent sessions check
     if (
       link.maxConcurrentSessions > 0 &&
       authService.countSessionsForShareLink(link.id) >= link.maxConcurrentSessions
@@ -185,7 +181,6 @@ export class ShareLinkService {
     link.lastUsedAt = new Date().toISOString();
     this.persist();
 
-    // Create independently authenticated session
     // Cap session duration by link expiry (or max 8 hours)
     const linkRemainingMs = Math.max(1000, new Date(link.expiresAt).getTime() - Date.now());
     const sessionDurationSec = Math.min(8 * 3600, Math.floor(linkRemainingMs / 1000));
@@ -222,7 +217,6 @@ export class ShareLinkService {
     link.revokedAt = new Date().toISOString();
     this.persist();
 
-    // Invalidate existing sessions immediately
     authService.revokeAllSessionsForShareLink(linkId);
 
     auditService.record(AuditEventType.SHARE_LINK_REVOKED, actorId, {

@@ -18,9 +18,6 @@ export class TelemetryService {
   private latencies: number[] = [];
   private readonly maxLatencySamples = 5000;
 
-  /**
-   * Record HTTP request latency and status.
-   */
   public recordHttpRequest(method: string, route: string, status: number, durationMs: number): void {
     const key = `${method.toUpperCase()}:${route}:${status}`;
     this.requestCounts.set(key, (this.requestCounts.get(key) || 0) + 1);
@@ -31,16 +28,10 @@ export class TelemetryService {
     this.latencies.push(durationMs);
   }
 
-  /**
-   * Record an application error occurrence.
-   */
   public recordError(code: string): void {
     this.errorCounts.set(code, (this.errorCounts.get(code) || 0) + 1);
   }
 
-  /**
-   * Calculate latency percentiles from sample window.
-   */
   public getLatencyStats(): LatencyStats {
     if (this.latencies.length === 0) {
       return { p50: 0, p90: 0, p95: 0, p99: 0, count: 0, avg: 0 };
@@ -65,9 +56,6 @@ export class TelemetryService {
     };
   }
 
-  /**
-   * Comprehensive JSON snapshot of operational metrics.
-   */
   public getMetricsSnapshot(): Record<string, unknown> {
     const redis = redisService.getMetrics();
     const kafka = kafkaService.getMetrics();
@@ -114,9 +102,6 @@ export class TelemetryService {
     };
   }
 
-  /**
-   * Export metrics in standard Prometheus text format.
-   */
   public getPrometheusMetrics(): string {
     const latency = this.getLatencyStats();
     const redis = redisService.getMetrics();

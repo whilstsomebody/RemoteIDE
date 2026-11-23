@@ -48,7 +48,6 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
           setLocalSetupToken(body.data.localSetupToken);
         }
 
-        // Check if current user is logged in
         const token = localStorage.getItem("remote_ide_token") || "";
         if (token) {
           const sessRes = await gatewayFetch(`${gatewayUrl}/api/v1/auth/sessions`, {
@@ -216,7 +215,6 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-md bg-[#18181b] border border-zinc-800 rounded-lg shadow-2xl overflow-hidden flex flex-col"
       >
-        {/* Modal Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-zinc-800 bg-zinc-900/50">
           <div className="flex items-center gap-2">
             <Shield className="w-4 h-4 text-emerald-400" />
@@ -236,7 +234,6 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
           </button>
         </div>
 
-        {/* Modal Body */}
         <div className="p-5 space-y-4 text-xs">
           {error && (
             <div className="p-3 bg-red-950/40 border border-red-800/80 rounded-md flex items-start gap-2.5 text-red-300">

@@ -53,7 +53,6 @@ export class WorkspaceService {
       throw new AppError(ErrorCode.BAD_REQUEST, "At least one folder path must be provided");
     }
 
-    // Validate that all folder paths exist on host and are directories
     const verifiedFolders: WorkspaceFolder[] = [];
     for (const rawPath of folderPaths) {
       const resolvedPath = path.resolve(rawPath);
@@ -69,7 +68,6 @@ export class WorkspaceService {
         throw new AppError(ErrorCode.INVALID_WORKSPACE_PATH, `Path is not a directory: ${rawPath}`);
       }
 
-      // Canonicalize path (resolves any symlinks in the root path itself)
       const realCanonicalPath = fs.realpathSync(resolvedPath);
       if (this.allowedRoots.length && !this.allowedRoots.some((root) => {
         const canonical = fs.realpathSync(path.resolve(root));
@@ -93,7 +91,6 @@ export class WorkspaceService {
     const now = new Date().toISOString();
     const foldersJson = JSON.stringify(verifiedFolders);
 
-    // If this is the first workspace, make it active
     const existingWorkspaces = this.listWorkspaces();
     const shouldBeActive = existingWorkspaces.length === 0 ? 1 : 0;
 
@@ -176,10 +173,8 @@ export class WorkspaceService {
   public setActiveWorkspace(id: string): Workspace {
     const target = this.getWorkspace(id);
 
-    // Deactivate all
     this.db.exec("UPDATE workspaces SET is_active = 0");
 
-    // Activate selected
     const stmt = this.db.prepare(`
       UPDATE workspaces
       SET is_active = 1, updated_at = ?
@@ -229,7 +224,7 @@ export class WorkspaceService {
   }
 
   public removeWorkspace(id: string): void {
-    // Only removes from RemoteIDE registry, never touches host disk!
+    // Only removes the registry entry; files on the host disk are never touched.
     const target = this.getWorkspace(id);
 
     const deleteStmt = this.db.prepare("DELETE FROM workspaces WHERE id = ?");

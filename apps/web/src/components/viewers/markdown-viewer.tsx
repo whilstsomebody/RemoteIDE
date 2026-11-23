@@ -246,7 +246,6 @@ export function parseMarkdown(content: string): ParsedBlock[] {
     const line = lines[i];
     if (line === undefined) break;
 
-    // Fenced code block
     if (line.trim().startsWith("```")) {
       const lang = line.trim().slice(3).trim();
       const codeLines: string[] = [];
@@ -262,7 +261,6 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       continue;
     }
 
-    // Heading
     if (line.startsWith("#")) {
       const match = /^(#{1,6})\s+(.*)$/.exec(line);
       if (match && match[1] && match[2]) {
@@ -276,7 +274,6 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       }
     }
 
-    // Blockquote
     if (line.startsWith(">")) {
       blocks.push({
         type: "blockquote",
@@ -286,14 +283,12 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       continue;
     }
 
-    // Horizontal rule
     if (/^(---|___|\*\*\*)$/.test(line.trim())) {
       blocks.push({ type: "hr" });
       i++;
       continue;
     }
 
-    // Table
     const nextLine = lines[i + 1];
     if (line.includes("|") && nextLine && /^\s*\|?[-:| ]+\|?\s*$/.test(nextLine)) {
       const parseCells = (row: string) =>
@@ -315,7 +310,6 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       continue;
     }
 
-    // Unordered list / Task list
     if (/^\s*[-*]\s+/.test(line)) {
       const items: { text: string; checked?: boolean }[] = [];
       while (i < lines.length) {
@@ -337,7 +331,6 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       continue;
     }
 
-    // Ordered list
     if (/^\s*\d+\.\s+/.test(line)) {
       const items: { text: string }[] = [];
       while (i < lines.length) {
@@ -351,13 +344,11 @@ export function parseMarkdown(content: string): ParsedBlock[] {
       continue;
     }
 
-    // Empty line
     if (!line.trim()) {
       i++;
       continue;
     }
 
-    // Paragraph
     const paraLines: string[] = [line];
     i++;
     while (i < lines.length) {

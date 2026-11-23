@@ -71,17 +71,14 @@ describe("FilesystemService & Security", () => {
 
   describe("File CRUD & Atomic Writes", () => {
     it("creates, reads, and updates a file atomically", () => {
-      // 1. Create and write
       const writeRes = fsService.writeFile(workspaceId, "src/app.ts", "const a = 10;");
       expect(writeRes.eTag).toBeDefined();
       expect(fs.existsSync(path.join(workspaceDir, "src", "app.ts"))).toBe(true);
 
-      // 2. Read
       const readRes = fsService.readFile(workspaceId, "src/app.ts");
       expect(readRes.content).toBe("const a = 10;");
       expect(readRes.isBinary).toBe(false);
 
-      // 3. Update with matching expectedETag
       const updateRes = fsService.writeFile(workspaceId, "src/app.ts", "const a = 20;", {
         expectedETag: writeRes.eTag,
       });
@@ -94,10 +91,8 @@ describe("FilesystemService & Security", () => {
     it("throws CONCURRENCY_CONFLICT on stale ETag during write", () => {
       const res1 = fsService.writeFile(workspaceId, "doc.txt", "Version 1");
 
-      // External update modifies the file
       fs.writeFileSync(path.join(workspaceDir, "doc.txt"), "Version 1 Modified Out-of-band");
 
-      // Attempt write with old ETag
       expect(() =>
         fsService.writeFile(workspaceId, "doc.txt", "Version 2", {
           expectedETag: res1.eTag,
@@ -153,7 +148,6 @@ describe("FilesystemService & Security", () => {
       const maliciousSymlink = path.join(workspaceDir, "malicious_link");
       fs.symlinkSync(secretFile, maliciousSymlink);
 
-      // Attempt to read through symlink must be rejected with SYMLINK_ESCAPE_DETECTED
       expect(() => fsService.readFile(workspaceId, "malicious_link")).toThrowError(
         expect.objectContaining({
           code: ErrorCode.SYMLINK_ESCAPE_DETECTED,

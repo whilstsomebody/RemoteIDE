@@ -53,21 +53,19 @@ export class FilesystemService {
   ): { fullPath: string; canonicalRoot: string; relativeToFolder: string; folderName: string } {
     const workspace = this.workspaceService.getWorkspace(workspaceId);
 
-    // Normalize relative path, reject null bytes
     if (relativePath.includes("\0")) {
       throw new AppError(ErrorCode.PATH_NOT_ALLOWED, "Invalid path: null byte detected");
     }
 
     const cleanRelative = path.normalize(relativePath).replace(/^(\/|\\)+/, "");
 
-    // Pick first matching folder (for multi-root, folder prefix or first folder)
+    // Multi-root paths may be prefixed with a folder name; otherwise use the first folder.
     let selectedFolder = workspace.folders[0];
     if (!selectedFolder) {
       throw new AppError(ErrorCode.WORKSPACE_NOT_FOUND, "Workspace has no folders registered");
     }
 
     let subPath = cleanRelative;
-    // Check if the relative path starts with a folder name in a multi-root workspace
     if (workspace.folders.length > 1) {
       for (const folder of workspace.folders) {
         if (
@@ -85,7 +83,6 @@ export class FilesystemService {
     const canonicalRoot = fs.realpathSync(selectedFolder.path);
     const candidatePath = path.resolve(canonicalRoot, subPath);
 
-    // 1. Path traversal check: Candidate must start with canonical root
     if (
       candidatePath !== canonicalRoot &&
       !candidatePath.startsWith(`${canonicalRoot}${path.sep}`)
@@ -96,7 +93,6 @@ export class FilesystemService {
       );
     }
 
-    // 2. Symlink escape check for existing paths
     if (fs.existsSync(candidatePath)) {
       const canonicalCandidate = fs.realpathSync(candidatePath);
       if (
@@ -116,7 +112,6 @@ export class FilesystemService {
       };
     }
 
-    // 3. For new files that don't exist yet, verify parent directory's canonical resolution
     if (options.allowMissing) {
       // Inspect every existing ancestor, including dangling symlinks. Checking only
       // the immediate parent misses link/new-directory/new-file escapes.
@@ -155,9 +150,6 @@ export class FilesystemService {
     throw new AppError(ErrorCode.FILE_NOT_FOUND, `File or directory not found: ${relativePath}`);
   }
 
-  /**
-   * Inspects buffer to determine if it contains binary data.
-   */
   public isBinaryBuffer(buffer: Buffer): boolean {
     const checkLength = Math.min(buffer.length, 8192);
     for (let i = 0; i < checkLength; i++) {
@@ -168,9 +160,6 @@ export class FilesystemService {
     return false;
   }
 
-  /**
-   * Computes deterministic ETag for a file.
-   */
   public computeETag(stat: fs.Stats, content?: Buffer): string {
     if (content) {
       const hash = crypto.createHash("sha1").update(content).digest("hex").slice(0, 16);
@@ -179,9 +168,6 @@ export class FilesystemService {
     return `"${stat.size.toString(16)}-${Math.floor(stat.mtimeMs).toString(16)}"`;
   }
 
-  /**
-   * Lists directory contents as a file tree node.
-   */
   public listDirectory(
     workspaceId: string,
     relativeDir: string = "",
@@ -226,12 +212,11 @@ export class FilesystemService {
         if (isSymlink) {
           try {
             const realTarget = fs.realpathSync(itemFullPath);
-            // Verify symlink does not escape
             if (
               realTarget !== canonicalRoot &&
               !realTarget.startsWith(`${canonicalRoot}${path.sep}`)
             ) {
-              continue; // Skip dangerous symlinks
+              continue;
             }
             const targetStat = fs.statSync(realTarget);
             isDirectory = targetStat.isDirectory();
@@ -261,7 +246,6 @@ export class FilesystemService {
       }
     }
 
-    // Sort: directories first, then alphabetical
     return nodes.sort((a, b) => {
       if (a.type === "directory" && b.type !== "directory") return -1;
       if (a.type !== "directory" && b.type === "directory") return 1;
@@ -269,9 +253,6 @@ export class FilesystemService {
     });
   }
 
-  /**
-   * Retrieves full file stat metadata and ETag.
-   */
   public getFileStat(workspaceId: string, relativePath: string): FileStat {
     const { fullPath, relativeToFolder } = this.resolveSafePath(workspaceId, relativePath);
     const lstat = fs.lstatSync(fullPath);
@@ -302,9 +283,6 @@ export class FilesystemService {
     };
   }
 
-  /**
-   * Reads file contents with safety checks.
-   */
   public readFile(
     workspaceId: string,
     relativePath: string,
@@ -369,7 +347,6 @@ export class FilesystemService {
 
     const isExisting = fs.existsSync(fullPath);
 
-    // Optimistic concurrency check
     if (isExisting) {
       const currentStat = fs.statSync(fullPath);
       if (currentStat.isDirectory()) {
@@ -396,7 +373,6 @@ export class FilesystemService {
       throw new AppError(ErrorCode.CONCURRENCY_CONFLICT, "File was deleted since it was read");
     }
 
-    // Prepare buffer
     const encoding = options.encoding ?? "utf-8";
     const buffer = Buffer.from(content, encoding);
 
@@ -407,7 +383,6 @@ export class FilesystemService {
       );
     }
 
-    // Ensure parent directories exist
     const parentDir = path.dirname(fullPath);
     if (!fs.existsSync(parentDir)) {
       if (options.createParents !== false) {
@@ -420,7 +395,7 @@ export class FilesystemService {
       }
     }
 
-    // Atomic write pattern: Write to temp file then rename atomically
+    // Write to a sibling temp file and rename so readers never observe a partial write.
     const tempFileName = `.${path.basename(fullPath)}.tmp.${crypto.randomUUID()}`;
     const tempFilePath = path.join(parentDir, tempFileName);
 
@@ -443,7 +418,6 @@ export class FilesystemService {
       fs.rmSync(tempFilePath, { force: true });
     }
 
-    // Suppress watcher echo loop
     if (this.watcherService) {
       this.watcherService.markInternalSave(workspaceId, relativeToFolder);
     }
@@ -451,7 +425,6 @@ export class FilesystemService {
     const newStat = fs.statSync(fullPath);
     const newETag = this.computeETag(newStat, buffer);
 
-    // Record in local change journal
     if (this.journalService) {
       this.journalService.recordChange(
         workspaceId,
@@ -470,9 +443,6 @@ export class FilesystemService {
     };
   }
 
-  /**
-   * Creates a file or directory.
-   */
   public createItem(
     workspaceId: string,
     relativePath: string,
@@ -504,9 +474,6 @@ export class FilesystemService {
     return { path: relativeToFolder };
   }
 
-  /**
-   * Renames or moves a file/directory.
-   */
   public moveItem(
     workspaceId: string,
     fromPath: string,
@@ -553,9 +520,6 @@ export class FilesystemService {
     return { from: source.relativeToFolder, to: destination.relativeToFolder };
   }
 
-  /**
-   * Deletes a file or directory with recursive authorization.
-   */
   public deleteItem(
     workspaceId: string,
     relativePath: string,
@@ -597,9 +561,6 @@ export class FilesystemService {
     return { path: relativeToFolder };
   }
 
-  /**
-   * Searches filenames and text contents inside the workspace.
-   */
   public searchFiles(
     workspaceId: string,
     options: {
@@ -654,7 +615,6 @@ export class FilesystemService {
             } else if (type === "content") {
               try {
                 const stat = fs.statSync(itemPath);
-                // Skip files > 5MB for text content search
                 if (stat.size > 5 * 1024 * 1024) continue;
 
                 const buffer = fs.readFileSync(itemPath);

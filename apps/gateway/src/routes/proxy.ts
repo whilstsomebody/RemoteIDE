@@ -16,9 +16,7 @@ import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 import { auditService } from "../services/audit.service.js";
 
 export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
-  // Shared proxy handler forwarding RPC requests across the reverse tunnel
   const handleProxy = async (req: FastifyRequest, reply: FastifyReply) => {
-    // 1. Session authentication
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
     let token = authHeader?.replace(/^Bearer\s+/i, "");
@@ -35,7 +33,6 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         const isLoopback = isLocalRequest(req);
 
         if (isLoopback && !authService.isOwnerBootstrapped()) {
-          // Fallback local unauthenticated session for initial onboarding
           session = {
             id: "local-dev-session",
             userId: "local-owner",
@@ -86,10 +83,8 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    // 2. Capability verification (Gateway layer)
     const requiredPerm = requiredRequestPermission(req.method, req.url, req.body);
 
-    // Strict owner-only terminal protection
     if (requiredPerm === Permission.TERMINAL_ACCESS && session.role !== UserRole.OWNER) {
       auditService.record(AuditEventType.CAPABILITY_CHECK_FAILED, session.userId, {
         ipAddress: req.ip,
@@ -152,7 +147,6 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         );
     }
 
-    // 3. Workspace scope boundary restriction
     if (session.allowedWorkspaceIds && session.allowedWorkspaceIds.length > 0) {
       // Extract workspace ID from URL: e.g. /api/v1/workspaces/:id/...
       const match = segments[2] === "workspaces" && segments[3] ? ["", segments[3]] : null;
@@ -181,7 +175,6 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
       }
     }
 
-    // 4. Forward across reverse tunnel to Host Agent with auth context
     try {
       const response = await tunnelRelayService.forwardRequest(session.hostId, {
         method: req.method,
@@ -202,7 +195,6 @@ export const proxyRoutes: FastifyPluginAsync = async (fastify) => {
         },
       });
 
-      // Set headers from agent response
       if (response.headers) {
         for (const [k, v] of Object.entries(response.headers)) {
           reply.header(k, v);

@@ -4,7 +4,6 @@ import { createSuccessEnvelope, TunnelMessageType } from "@remote-ide/shared";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 
 export const tunnelRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Host Agent Outbound Tunnel WebSocket Endpoint
   fastify.get("/api/v1/tunnel/agent", { websocket: true }, (socket, req) => {
     fastify.log.info({ ip: req.ip }, "Host agent establishing reverse tunnel connection");
 

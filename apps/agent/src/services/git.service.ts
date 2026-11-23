@@ -21,9 +21,6 @@ const execFileAsync = promisify(execFile);
 export class GitService {
   constructor(private readonly allowedPaths: string[] = []) {}
 
-  /**
-   * Validate that the repo path exists and is within allowed workspace roots.
-   */
   public validateRepoPath(repoPath: string): string {
     const resolved = path.resolve(repoPath);
     if (!fs.existsSync(resolved)) {
@@ -64,7 +61,7 @@ export class GitService {
         cwd,
         env: {
           ...process.env,
-          LC_ALL: "C", // Ensure deterministic output across locales
+          LC_ALL: "C", // Deterministic output for the parsers below
         },
         maxBuffer: 10 * 1024 * 1024, // 10MB
       });
@@ -84,9 +81,6 @@ export class GitService {
     }
   }
 
-  /**
-   * Get detailed repository status.
-   */
   public async getStatus(repoPath: string): Promise<GitStatus> {
     const { stdout } = await this.runGit(repoPath, ["status", "--porcelain=v1", "-b", "-uall"]);
 
@@ -131,7 +125,6 @@ export class GitService {
       const y = line[1];
       const filePath = line.substring(3).trim();
 
-      // Check for conflicts
       const isConflict =
         (x === "U" && y === "U") ||
         (x === "A" && y === "A") ||
@@ -145,13 +138,11 @@ export class GitService {
         continue;
       }
 
-      // Untracked
       if (x === "?" && y === "?") {
         untracked.push(filePath);
         continue;
       }
 
-      // Staged changes (column X)
       if (x !== " " && x !== "?") {
         let status: GitFileChange["status"] = "modified";
         if (x === "A") status = "added";
@@ -162,7 +153,6 @@ export class GitService {
         staged.push({ path: filePath, status, staged: true });
       }
 
-      // Unstaged changes (column Y)
       if (y !== " " && y !== "?") {
         let status: GitFileChange["status"] = "modified";
         if (y === "D") status = "deleted";
@@ -190,9 +180,6 @@ export class GitService {
     };
   }
 
-  /**
-   * Stage specific files or all changes.
-   */
   public async stage(repoPath: string, paths?: string[], all = false): Promise<void> {
     if (all || !paths || paths.length === 0) {
       await this.runGit(repoPath, ["add", "-A"]);
@@ -201,9 +188,6 @@ export class GitService {
     }
   }
 
-  /**
-   * Unstage specific files or all staged changes.
-   */
   public async unstage(repoPath: string, paths?: string[], all = false): Promise<void> {
     if (all || !paths || paths.length === 0) {
       await this.runGit(repoPath, ["reset", "HEAD"]);
@@ -212,9 +196,6 @@ export class GitService {
     }
   }
 
-  /**
-   * Discard changes (destructive operation requiring confirmation).
-   */
   public async discard(repoPath: string, paths: string[], confirmed: boolean): Promise<void> {
     if (!confirmed) {
       throw new AppError(
@@ -224,14 +205,12 @@ export class GitService {
     }
     if (paths.length === 0) return;
 
-    // Discard tracked changes
     try {
       await this.runGit(repoPath, ["restore", "--", ...paths]);
     } catch {
-      // Some paths might be untracked
+      // Some paths might be untracked; `git clean` below handles those.
     }
 
-    // Clean untracked files
     try {
       await this.runGit(repoPath, ["clean", "-f", "--", ...paths]);
     } catch {
@@ -239,9 +218,6 @@ export class GitService {
     }
   }
 
-  /**
-   * Commit staged changes.
-   */
   public async commit(repoPath: string, message: string, amend = false): Promise<GitCommit> {
     if (!message || message.trim().length === 0) {
       throw new AppError(ErrorCode.BAD_REQUEST, "Commit message cannot be empty.");
@@ -252,7 +228,6 @@ export class GitService {
 
     await this.runGit(repoPath, args);
 
-    // Fetch the newly created commit
     const { stdout } = await this.runGit(repoPath, [
       "log",
       "-1",
@@ -271,9 +246,6 @@ export class GitService {
     };
   }
 
-  /**
-   * Get file or hunk diffs.
-   */
   public async getDiff(repoPath: string, file?: string, staged = false): Promise<GitDiffFile[]> {
     const args = ["diff"];
     if (staged) args.push("--cached");
@@ -332,9 +304,6 @@ export class GitService {
     return files;
   }
 
-  /**
-   * Get commit history.
-   */
   public async getHistory(repoPath: string, maxCount = 50): Promise<GitCommit[]> {
     const { stdout } = await this.runGit(repoPath, [
       "log",
@@ -361,9 +330,6 @@ export class GitService {
       });
   }
 
-  /**
-   * Get list of local and remote branches.
-   */
   public async getBranches(repoPath: string): Promise<GitBranch[]> {
     const { stdout } = await this.runGit(repoPath, [
       "branch",
@@ -387,9 +353,6 @@ export class GitService {
       });
   }
 
-  /**
-   * Switch or create branch.
-   */
   public async checkout(repoPath: string, branch: string, createNew = false): Promise<void> {
     this.validateOperand(branch);
     const args = ["checkout"];
@@ -398,9 +361,6 @@ export class GitService {
     await this.runGit(repoPath, args);
   }
 
-  /**
-   * Delete branch (destructive operation requiring confirmation).
-   */
   public async deleteBranch(
     repoPath: string,
     branch: string,
@@ -418,17 +378,11 @@ export class GitService {
     await this.runGit(repoPath, ["branch", flag, branch]);
   }
 
-  /**
-   * Fetch from remote.
-   */
   public async fetch(repoPath: string, remote = "origin"): Promise<void> {
     this.validateOperand(remote);
     await this.runGit(repoPath, ["fetch", "--", remote]);
   }
 
-  /**
-   * Pull changes.
-   */
   public async pull(repoPath: string, remote = "origin", branch?: string): Promise<void> {
     this.validateOperand(remote);
     if (branch) this.validateOperand(branch);
@@ -437,9 +391,6 @@ export class GitService {
     await this.runGit(repoPath, args);
   }
 
-  /**
-   * Push changes (force-push requires explicit confirmation).
-   */
   public async push(
     repoPath: string,
     remote = "origin",
@@ -461,9 +412,6 @@ export class GitService {
     await this.runGit(repoPath, args);
   }
 
-  /**
-   * Git stash operations.
-   */
   public async stash(
     repoPath: string,
     action: "push" | "pop" | "drop" | "list",
@@ -484,7 +432,6 @@ export class GitService {
       await this.runGit(repoPath, args);
     }
 
-    // Always return updated stash list
     const { stdout } = await this.runGit(repoPath, [
       "stash",
       "list",
@@ -508,9 +455,6 @@ export class GitService {
       });
   }
 
-  /**
-   * Git blame for a file.
-   */
   public async blame(repoPath: string, file: string): Promise<GitBlameLine[]> {
     const { stdout } = await this.runGit(repoPath, ["blame", "--line-porcelain", "--", file]);
 

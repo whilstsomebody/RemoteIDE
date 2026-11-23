@@ -33,16 +33,13 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
     expect(session.status).toBe("running");
     expect(session.pid).toBeGreaterThan(0);
 
-    // Attach listener to capture output
     let received = "";
     const { unsubscribe } = service.attach(session.id, (chunk) => {
       received += chunk;
     });
 
-    // Write interactive command to PTY stdin
     service.writeTerminal(session.id, "echo REMOTE_IDE_PTY_OK\n");
 
-    // Wait for output stream
     await new Promise<void>((resolve) => {
       const check = setInterval(() => {
         if (received.includes("REMOTE_IDE_PTY_OK")) {
@@ -51,7 +48,6 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
         }
       }, 50);
 
-      // 5s timeout safety
       setTimeout(() => {
         clearInterval(check);
         resolve();
@@ -75,19 +71,15 @@ describe("Phase 4 - Host Agent Interactive Terminal & PTY Service", () => {
       "owner-123"
     );
 
-    // Client 1 writes something and disconnects
     service.writeTerminal(session.id, "echo PERSISTENT_REPLAY_TEST\n");
 
-    // Wait for PTY to process and write to buffer
     await new Promise((resolve) => setTimeout(resolve, 600));
 
-    // Client 2 connects fresh
     const { replayBuffer, unsubscribe } = service.attach(session.id, () => {});
     unsubscribe();
 
     expect(replayBuffer).toContain("PERSISTENT_REPLAY_TEST");
 
-    // Verify session still running (not terminated by client detachment)
     const current = service.getTerminal(session.id);
     expect(current.status).toBe("running");
 

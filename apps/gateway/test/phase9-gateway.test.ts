@@ -7,7 +7,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
   it("enforces granular permissions across Viewer, Editor, Developer, Operator, and Owner", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Viewer Session
     const { sessionToken: viewerToken } = authService.createSessionInternal({
       userId: "viewer-p9",
       hostId: "local-host-agent",
@@ -21,8 +20,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
       durationSeconds: 3600,
     });
 
-    // Viewer can read host metrics
-    // Viewer is denied Docker list / read
     const viewerDockerRes = await app.inject({
       method: "GET",
       url: "/api/v1/docker/containers",
@@ -30,7 +27,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(viewerDockerRes.statusCode).toBe(403);
 
-    // Viewer is denied Database read
     const viewerDbRes = await app.inject({
       method: "GET",
       url: "/api/v1/database/profiles",
@@ -38,7 +34,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(viewerDbRes.statusCode).toBe(403);
 
-    // Viewer is denied DevOps read
     const viewerDevOpsRes = await app.inject({
       method: "GET",
       url: "/api/v1/devops/overview",
@@ -46,7 +41,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(viewerDevOpsRes.statusCode).toBe(403);
 
-    // 2. Developer Session
     const { sessionToken: devToken } = authService.createSessionInternal({
       userId: "developer-p9",
       hostId: "local-host-agent",
@@ -60,7 +54,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
       durationSeconds: 3600,
     });
 
-    // Developer is denied Docker Control (container start/stop/restart)
     const devDockerControlRes = await app.inject({
       method: "POST",
       url: "/api/v1/docker/containers/c123/restart",
@@ -69,7 +62,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(devDockerControlRes.statusCode).toBe(403);
 
-    // Developer is denied Database queries
     const devDbQueryRes = await app.inject({
       method: "POST",
       url: "/api/v1/database/query",
@@ -78,7 +70,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(devDbQueryRes.statusCode).toBe(403);
 
-    // Developer is denied DevOps control (e.g. PM2 restart)
     const devPm2ControlRes = await app.inject({
       method: "POST",
       url: "/api/v1/devops/pm2/restart",
@@ -87,7 +78,6 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     });
     expect(devPm2ControlRes.statusCode).toBe(403);
 
-    // 3. Operator Session
     const { sessionToken: operatorToken } = authService.createSessionInternal({
       userId: "operator-p9",
       hostId: "local-host-agent",
@@ -113,4 +103,3 @@ describe("Phase 9 — Gateway DevOps, Docker, and Database Authorization", () =>
     await app.close();
   });
 });
-

@@ -79,8 +79,6 @@ export const DebugSessionSchema = z.object({
 });
 export type DebugSession = z.infer<typeof DebugSessionSchema>;
 
-// --- Debug DTOs ---
-
 export const LaunchDebugDtoSchema = z.object({
   workspaceId: z.string().min(1),
   name: z.string().default("Debug Session"),

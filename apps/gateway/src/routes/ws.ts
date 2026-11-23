@@ -21,7 +21,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/ws", { websocket: true }, (socket, req) => {
     fastify.log.info({ requestId: req.requestId }, "WebSocket connection attempt");
 
-    // Extract session token
     const query = req.query as Record<string, string | undefined>;
     const token =
       query.token ||
@@ -74,7 +73,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     const activeDeviceId = query.deviceId || session.deviceName || "default-device";
     catchupService.recordPresence({ deviceId: activeDeviceId, state: DevicePresenceState.ACTIVE });
 
-    // Send connection greeting
     socket.send(
       JSON.stringify(
         createWsMessage(
@@ -130,7 +128,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
         const msg = validation.data as WsEnvelope;
 
-        // Handle standard message types
         switch (msg.type) {
           case WsMessageType.PING:
             socket.send(
@@ -181,7 +178,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
             }
             break;
 
-          // Collaborative Editing (Phase 11)
           case WsMessageType.COLLAB_JOIN: {
             const p = msg.payload as any;
             if (p && p.workspaceId && p.filePath) {
@@ -408,7 +404,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // Streaming interactive terminal session WebSocket route over reverse tunnel
   fastify.get<{ Params: { id: string } }>(
     "/api/v1/terminals/:id/stream",
     { websocket: true },
@@ -465,7 +460,6 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
 
       const hostId = session.hostId || "local-host-agent";
 
-      // Subscribe to terminal output frames coming back across reverse tunnel from host agent
       const unsubscribe = tunnelRelayService.subscribeTerminal(sessionId, (msg: any) => {
         if (socket.readyState === 1 /* OPEN */) {
           if (msg.type === TunnelMessageType.TERMINAL_DATA) {
@@ -478,13 +472,11 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
         }
       });
 
-      // Send attach request to host agent over tunnel
       tunnelRelayService.sendTerminalMessage(hostId, TunnelMessageType.TERMINAL_ATTACH, {
         sessionId,
         authContext: { role: session.role },
       });
 
-      // Forward client input and window resize frames to host agent over tunnel
       socket.on("message", (raw: Buffer | string) => {
         if (
           (token && !authService.getSessionByToken(token)) ||

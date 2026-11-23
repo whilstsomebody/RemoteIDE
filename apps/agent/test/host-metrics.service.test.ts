@@ -27,28 +27,23 @@ describe("Phase 9 — Host Monitoring & Metrics Collection", () => {
     expect(metrics.platform).toBeDefined();
     expect(metrics.systemUptimeSeconds).toBeGreaterThan(0);
 
-    // CPU checks
     expect(metrics.cpu.cores).toBeGreaterThan(0);
     expect(metrics.cpu.usagePercent).toBeGreaterThanOrEqual(0);
     expect(metrics.cpu.usagePercent).toBeLessThanOrEqual(100);
     expect(metrics.cpu.loadAverage.length).toBe(3);
 
-    // RAM checks
     expect(metrics.memory.totalBytes).toBeGreaterThan(0);
     expect(metrics.memory.usedBytes).toBeGreaterThan(0);
     expect(metrics.memory.freeBytes).toBeGreaterThan(0);
     expect(metrics.memory.usedPercent).toBeGreaterThanOrEqual(0);
     expect(metrics.memory.usedPercent).toBeLessThanOrEqual(100);
 
-    // Disk checks
     expect(metrics.disk.totalBytes).toBeGreaterThan(0);
     expect(metrics.disk.usedPercent).toBeGreaterThanOrEqual(0);
     expect(metrics.disk.usedPercent).toBeLessThanOrEqual(100);
 
-    // Network checks
     expect(Array.isArray(metrics.network.interfaces)).toBe(true);
 
-    // App Overview
     expect(metrics.appOverview).toBeDefined();
     expect(metrics.appOverview.activeWorkspacesCount).toBeGreaterThanOrEqual(0);
   });
@@ -72,7 +67,6 @@ describe("Phase 9 — Host Monitoring & Metrics Collection", () => {
   });
 
   it("triggers and acknowledges alerts according to configured thresholds", () => {
-    // Record an alert
     const alert = service.recordCustomAlert(
       "disk_space_low",
       "critical",
@@ -88,7 +82,6 @@ describe("Phase 9 — Host Monitoring & Metrics Collection", () => {
     expect(alerts.length).toBe(1);
     expect(alerts[0]!.type).toBe("disk_space_low");
 
-    // Acknowledge alert
     const acked = service.acknowledgeAlert(alert.id);
     expect(acked).toBe(true);
 

@@ -7,7 +7,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
   it("stages workspace handoff, lists active devices, and consumes handoff on target device", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Create desktop session for user
     const { sessionToken: desktopToken, session: desktopSession } = authService.createSessionInternal({
       userId: "user-continuity-1",
       hostId: "local-host-agent",
@@ -21,7 +20,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
       durationSeconds: 3600,
     });
 
-    // 2. Create mobile phone session for same user
     const { sessionToken: mobileToken, session: mobileSession } = authService.createSessionInternal({
       userId: "user-continuity-1",
       hostId: "local-host-agent",
@@ -35,7 +33,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
       durationSeconds: 3600,
     });
 
-    // 3. List active devices from desktop session
     const devicesRes = await app.inject({
       method: "GET",
       url: "/api/v1/devices/active",
@@ -56,7 +53,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
     expect(phoneDev.type).toBe("phone");
     expect(phoneDev.isCurrent).toBe(false);
 
-    // 4. Desktop stages handoff targeted to phone
     const stageRes = await app.inject({
       method: "POST",
       url: "/api/v1/handoff",
@@ -83,7 +79,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
     expect(stageBody.data.layout.activeFilePath).toBe("src/index.ts");
     expect(stageBody.data.layout.cursorPosition.line).toBe(42);
 
-    // 5. Phone checks pending handoff
     const pendingRes = await app.inject({
       method: "GET",
       url: `/api/v1/handoff/pending?deviceId=${mobileSession.id}`,
@@ -96,7 +91,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
     expect(pendingBody.data.id).toBe(handoffId);
     expect(pendingBody.data.sourceDeviceName).toBe("MacBook Pro");
 
-    // 6. Phone accepts/consumes handoff
     const consumeRes = await app.inject({
       method: "POST",
       url: `/api/v1/handoff/${handoffId}/consume`,
@@ -107,7 +101,6 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
     expect(consumeBody.success).toBe(true);
     expect(consumeBody.data.layout.openFilePaths).toContain("src/index.ts");
 
-    // 7. Verify one-time consumption (subsequent consume fails with 404)
     const secondConsume = await app.inject({
       method: "POST",
       url: `/api/v1/handoff/${handoffId}/consume`,
@@ -118,4 +111,3 @@ describe("Phase 10 — Cross-Device Handoff & Continuity", () => {
     await app.close();
   });
 });
-

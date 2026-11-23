@@ -13,7 +13,6 @@ import { authenticateClient } from "../services/request-auth.js";
 import { aiAssistantService } from "../services/ai-assistant.service.js";
 
 export const aiRoutes: FastifyPluginAsync = async (fastify) => {
-  // 1. Get AI Settings
   fastify.get("/api/v1/ai/settings", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -34,7 +33,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 2. Set or Update API Key
   fastify.post("/api/v1/ai/settings", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -70,7 +68,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 3. Clear API Key
   fastify.delete("/api/v1/ai/settings", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -85,7 +82,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse({ cleared: true }, { requestId: request.requestId });
   });
 
-  // 4. List Conversations
   fastify.get("/api/v1/ai/conversations", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -106,7 +102,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // 5. Create Conversation
   fastify.post("/api/v1/ai/conversations", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -133,7 +128,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
       parseResult.data.title
     );
 
-    // If initial message provided, save it
     if (parseResult.data.initialMessage) {
       await aiAssistantService.addMessage(
         conversation.id,
@@ -148,7 +142,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
       .send(createSuccessResponse(conversation, { requestId: request.requestId }));
   });
 
-  // 6. Get Conversation with History
   fastify.get("/api/v1/ai/conversations/:id", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -176,7 +169,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     });
   });
 
-  // 7. Rename Conversation
   fastify.patch("/api/v1/ai/conversations/:id", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -215,7 +207,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse(updated, { requestId: request.requestId });
   });
 
-  // 8. Delete Conversation
   fastify.delete("/api/v1/ai/conversations/:id", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -240,7 +231,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     return createSuccessResponse({ deleted: true }, { requestId: request.requestId });
   });
 
-  // 9. Send Prompt & Stream Response (Server-Sent Events)
   fastify.post("/api/v1/ai/conversations/:id/messages", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {
@@ -268,7 +258,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
 
     const { prompt, context, model } = parseResult.data;
 
-    // Check if client requests SSE streaming
     const acceptsSse = request.headers.accept?.includes("text/event-stream");
 
     if (acceptsSse) {
@@ -341,7 +330,6 @@ export const aiRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 10. Cancel Active Generation Stream
   fastify.post("/api/v1/ai/messages/:id/cancel", async (request, reply) => {
     const session = authenticateClient(request);
     if (!session) {

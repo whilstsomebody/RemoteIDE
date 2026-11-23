@@ -1,10 +1,6 @@
 import { z } from "zod";
 import { UserRole, Permission } from "./capabilities.js";
 
-// ==========================================
-// 1. Share Link Contracts
-// ==========================================
-
 export const CreateShareLinkDtoSchema = z.object({
   name: z.string().min(1).max(64).default("Temporary Access Link"),
   role: z.nativeEnum(UserRole).default(UserRole.VIEWER),
@@ -47,10 +43,6 @@ export const RedeemShareLinkDtoSchema = z.object({
 
 export type RedeemShareLinkDto = z.infer<typeof RedeemShareLinkDtoSchema>;
 
-// ==========================================
-// 2. Authentication & Session Contracts
-// ==========================================
-
 export const BootstrapOwnerDtoSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8).max(128),
@@ -87,10 +79,6 @@ export const RemoteSessionSchema = z.object({
 
 export type RemoteSession = z.infer<typeof RemoteSessionSchema>;
 
-// ==========================================
-// 3. Audit Record Contracts
-// ==========================================
-
 export enum AuditEventType {
   OWNER_BOOTSTRAP = "owner.bootstrap",
   LOGIN_SUCCESS = "auth.login.success",
@@ -120,10 +108,6 @@ export const AuditRecordSchema = z.object({
 });
 
 export type AuditRecord = z.infer<typeof AuditRecordSchema>;
-
-// ==========================================
-// 4. Reverse Tunnel RPC Contracts
-// ==========================================
 
 export enum TunnelMessageType {
   AGENT_REGISTER = "tunnel.agent.register",

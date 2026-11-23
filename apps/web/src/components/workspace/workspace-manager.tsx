@@ -25,7 +25,6 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
 }) => {
   const [isSwitcherOpen, setIsSwitcherOpen] = useState(false);
 
-  // If no folder/workspace is open, show VS Code's standard "No Folder Opened" panel
   if (!activeWorkspace || workspaces.length === 0) {
     return (
       <div className="flex flex-col gap-4 p-4 text-xs select-none">
@@ -59,7 +58,6 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
     );
   }
 
-  // When a folder IS open: VS Code style workspace header with quick switcher
   return (
     <div className="flex flex-col text-xs select-none relative">
       <div
@@ -78,7 +76,6 @@ export const WorkspaceManager: React.FC<WorkspaceManagerProps> = ({
         />
       </div>
 
-      {/* Dropdown Menu for Workspaces */}
       {isSwitcherOpen && (
         <div className="absolute top-8 left-0 right-0 z-40 bg-[#252526] border border-[#3c3c3c] rounded-md shadow-2xl py-1 text-xs text-zinc-200 animate-in fade-in-0">
           <div className="px-3 py-1 text-[10px] uppercase tracking-wider text-zinc-400 font-semibold border-b border-zinc-800">

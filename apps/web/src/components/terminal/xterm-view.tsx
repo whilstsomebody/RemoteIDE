@@ -178,14 +178,12 @@ export const XtermView: React.FC<XtermViewProps> = ({
       fitAddonRef.current = fitAddon;
       searchAddonRef.current = searchAddon;
 
-      // Handle user keystrokes / input
       inputDisposable = term.onData((data) => {
         if (wsRef.current && wsRef.current.readyState === WebSocket.OPEN) {
           wsRef.current.send(JSON.stringify({ type: "input", data }));
         }
       });
 
-      // Synchronize dimensions on container resize
       resizeObserver = new ResizeObserver(() => {
         if (containerRef.current && fitAddonRef.current && termRef.current) {
           try {
@@ -223,7 +221,6 @@ export const XtermView: React.FC<XtermViewProps> = ({
     };
   }, [connectWebSocket]);
 
-  // Search shortcuts (Cmd+F / Ctrl+F)
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if ((e.metaKey || e.ctrlKey) && e.key.toLowerCase() === "f") {
       e.preventDefault();
@@ -249,7 +246,6 @@ export const XtermView: React.FC<XtermViewProps> = ({
       onKeyDown={handleKeyDown}
       tabIndex={0}
     >
-      {/* Top Banner (Status, Reconnect, Search Trigger) */}
       <div className="h-6 bg-[#121215] border-b border-zinc-800/80 px-2 flex items-center justify-between text-[11px] select-none shrink-0">
         <div className="flex items-center gap-2">
           {connectionState === "connected" && (
@@ -300,7 +296,6 @@ export const XtermView: React.FC<XtermViewProps> = ({
         </div>
       </div>
 
-      {/* Floating In-Terminal Search Overlay */}
       {isSearchOpen && (
         <div className="absolute top-7 right-3 z-20 bg-[#18181b] border border-zinc-700 rounded shadow-xl p-1 flex items-center gap-1 text-xs">
           <input
@@ -346,7 +341,6 @@ export const XtermView: React.FC<XtermViewProps> = ({
         </div>
       )}
 
-      {/* Error Message Alert */}
       {errorMessage && (
         <div className="bg-red-950/60 border-b border-red-800/80 px-3 py-1.5 flex items-center justify-between text-xs text-red-300">
           <div className="flex items-center gap-2">
@@ -362,7 +356,6 @@ export const XtermView: React.FC<XtermViewProps> = ({
         </div>
       )}
 
-      {/* Terminal Viewport */}
       <div ref={containerRef} className="flex-1 w-full h-full overflow-hidden p-1 bg-[#09090b]" />
     </div>
   );

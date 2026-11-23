@@ -44,7 +44,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
   const [stagedHandoff, setStagedHandoff] = useState<{ id: string; url: string } | null>(null);
   const [isCopied, setIsCopied] = useState(false);
 
-  // Fetch registered active personal devices
   const fetchActiveDevices = useCallback(async () => {
     setIsLoading(true);
     setError(null);
@@ -70,7 +69,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
     }
   }, [isOpen, fetchActiveDevices]);
 
-  // Stage handoff snapshot
   const handleStageHandoff = async (targetDeviceId?: string) => {
     setIsLoading(true);
     setError(null);
@@ -124,7 +122,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
       <div className="bg-zinc-900 border border-zinc-800 rounded-lg max-w-md w-full shadow-2xl flex flex-col overflow-hidden text-zinc-100 select-none">
-        {/* Modal Header */}
         <div className="px-4 py-3 border-b border-zinc-800 flex items-center justify-between bg-zinc-950/60">
           <div className="flex items-center gap-2">
             <Share2 className="w-4 h-4 text-zinc-400" />
@@ -138,7 +135,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
           </button>
         </div>
 
-        {/* Tab Navigation */}
         <div className="flex border-b border-zinc-800 bg-zinc-900/40 text-xs font-mono">
           <button
             onClick={() => setActiveTab("devices")}
@@ -176,7 +172,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
           </div>
         )}
 
-        {/* Tab Content */}
         <div className="p-4 flex-1 overflow-y-auto">
           {activeTab === "devices" && (
             <div className="space-y-3">
@@ -266,7 +261,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
                 Scan with your phone or tablet camera to seamlessly resume this workspace session.
               </p>
 
-              {/* QR Code visual representation */}
               <div className="p-4 bg-white rounded-xl shadow-lg border border-zinc-700 flex items-center justify-center mb-4">
                 <svg
                   viewBox="0 0 120 120"
@@ -328,7 +322,6 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
           )}
         </div>
 
-        {/* Modal Footer */}
         <div className="px-4 py-3 border-t border-zinc-800 bg-zinc-950/60 flex items-center justify-between text-[11px] text-zinc-500 font-mono">
           <span>Snapshot excludes authentication secrets.</span>
           <button

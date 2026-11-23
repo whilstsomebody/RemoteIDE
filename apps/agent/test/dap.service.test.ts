@@ -204,19 +204,16 @@ console.log("CALCULATION_RESULT:", result);
     const paused = dap.getSession(session.id);
     expect(paused.status).toBe(DebugSessionStatus.PAUSED);
 
-    // Inspect call stack
     const stack = dap.getStackTrace(session.id);
     expect(stack.length).toBeGreaterThan(0);
     expect(stack[0]!.name).toContain("calculateSum");
     expect(stack[0]!.line).toBe(5);
 
-    // Inspect scopes
     const scopes = dap.getScopes(session.id, 0);
     expect(scopes.length).toBeGreaterThan(0);
     const localScope = scopes.find((s) => s.name === "Local");
     expect(localScope).toBeDefined();
 
-    // Inspect local variables
     const vars = await dap.getVariables(session.id, localScope!.variablesReference);
     expect(vars.length).toBeGreaterThan(0);
     const xVar = vars.find((v) => v.name === "x");
@@ -234,11 +231,9 @@ console.log("CALCULATION_RESULT:", result);
     });
     expect(evalResult.result).toBe("200");
 
-    // Step over
     await dap.stepOver(session.id);
     await new Promise((r) => setTimeout(r, 100));
 
-    // Terminate session cleanly
     await dap.stop(session.id);
     const remaining = dap.listSessions("ws-dap");
     expect(remaining.length).toBe(0);

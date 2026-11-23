@@ -30,7 +30,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
   } = config;
   const baseUrl = gatewayUrl.replace(/\/+$/, "");
 
-  // 1. Initial document didOpen sync
   let hasOpened = false;
   const syncListener = EditorView.updateListener.of((update) => {
     if (!hasOpened) {
@@ -49,7 +48,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     }
 
     if (update.docChanged) {
-      // Debounced change sync
       const content = update.state.doc.toString();
       fetch(`${baseUrl}/api/v1/lsp/change`, {
         method: "POST",
@@ -64,7 +62,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     }
   });
 
-  // 2. Autocompletion Source
   const lspCompletionSource = async (
     context: CompletionContext
   ): Promise<CompletionResult | null> => {
@@ -125,7 +122,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     defaultKeymap: true,
   });
 
-  // 3. Hover Tooltip
   const hoverExt = hoverTooltip(async (view, pos) => {
     const line = view.state.doc.lineAt(pos);
     const lineNumber = line.number - 1;
@@ -175,7 +171,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     }
   });
 
-  // 4. Linter & Diagnostics
   const linterExt = linter(
     async (view) => {
       try {
@@ -225,9 +220,6 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
   return [syncListener, autocompleteExt, hoverExt, linterExt, lintGutter()];
 }
 
-/**
- * Execute Go to Definition for symbol at cursor.
- */
 export async function executeGoToDefinition(
   gatewayUrl: string,
   workspaceId: string,
@@ -262,9 +254,6 @@ export async function executeGoToDefinition(
   return null;
 }
 
-/**
- * Rename symbol across workspace.
- */
 export async function executeRename(
   gatewayUrl: string,
   workspaceId: string,

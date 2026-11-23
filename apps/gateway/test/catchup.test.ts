@@ -33,7 +33,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     outbox = outboxService;
     catchupService = singletonCatchupService;
 
-    // Reset service state
     (catchupService as any).devices.clear();
     (catchupService as any).devicePresence.clear();
     (catchupService as any).syncCursors.clear();
@@ -289,7 +288,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     it("satisfies the full acceptance test scenario (Steps 1–10)", async () => {
       const workspaceId = "ws_project_alpha";
 
-      // 1. Open a workspace from Laptop A and Phone B
       const laptopA = catchupService.registerDevice({
         deviceId: "dev_laptop_a",
         userId: "user_owner",
@@ -306,7 +304,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       expect(laptopA.id).toBe("dev_laptop_a");
       expect(phoneB.id).toBe("dev_phone_b");
 
-      // Populate events 1 to 20
       for (let rev = 1; rev <= 20; rev++) {
         await outbox.recordWorkspaceEvent({
           workspaceId,
@@ -317,7 +314,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         });
       }
 
-      // 2. Disconnect Phone B at revision 20
       catchupService.updateSyncCursor("dev_phone_b", workspaceId, 20);
       catchupService.recordPresence({
         deviceId: "dev_phone_b",
@@ -337,10 +333,8 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         });
       }
 
-      // Verify Phone B's acknowledged cursor is 20
       expect(catchupService.getChangelogCursor("dev_phone_b", workspaceId)).toBe(20);
 
-      // 3 & 4. Modify and create files from Laptop A: generate multiple events until revision 35
       for (let rev = 21; rev <= 35; rev++) {
         const isCreate = rev % 3 === 0;
         await outbox.recordWorkspaceEvent({
@@ -354,14 +348,12 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
 
       expect(outbox.getCurrentRevision(workspaceId)).toBe(35);
 
-      // 5. Reconnect Phone B
       catchupService.recordPresence({
         deviceId: "dev_phone_b",
         workspaceId,
         state: DevicePresenceState.ACTIVE,
       });
 
-      // 6. Display a compact summary for revisions 21–35
       const summary = catchupService.generateCatchupSummary({
         deviceId: "dev_phone_b",
         workspaceId,
@@ -375,7 +367,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       expect(summary.historyExpired).toBe(false);
       expect(summary.netChanges.filesModified.some((f) => f.path === "src/main.ts")).toBe(true);
 
-      // 7. Acknowledge the summary
       const ackResult = catchupService.acknowledgeChangelog({
         deliveryId: summary.deliveryId,
         deviceId: "dev_phone_b",
@@ -384,17 +375,14 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       expect(ackResult.acknowledged).toBe(true);
       expect(ackResult.acknowledgedRevision).toBe(35);
 
-      // Verify cursor is strictly at 35
       expect(catchupService.getChangelogCursor("dev_phone_b", workspaceId)).toBe(35);
 
-      // 8. Reconnect Phone B again
       catchupService.recordPresence({
         deviceId: "dev_phone_b",
         workspaceId,
         state: DevicePresenceState.ACTIVE,
       });
 
-      // 9. Do not show the same summary
       const reconnectedSummary = catchupService.generateCatchupSummary({
         deviceId: "dev_phone_b",
         workspaceId,
@@ -403,7 +391,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       expect(reconnectedSummary.fromRevision).toBe(35);
       expect(reconnectedSummary.toRevision).toBe(35);
 
-      // 10. Create revision 36 and verify it appears as new activity
       await outbox.recordWorkspaceEvent({
         workspaceId,
         hostId: "host_mac",
@@ -426,7 +413,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     it("enforces monotonic cursor advancement when new revisions arrive during review", async () => {
       const workspaceId = "ws_race_test";
 
-      // Populate revs 1–10
       for (let i = 1; i <= 10; i++) {
         await outbox.recordWorkspaceEvent({
           workspaceId,
@@ -437,7 +423,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         });
       }
 
-      // Device generates summary for revs 1–10
       const summary = catchupService.generateCatchupSummary({
         deviceId: "dev_reviewing",
         workspaceId,
@@ -461,7 +446,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       });
       expect(outbox.getCurrentRevision(workspaceId)).toBe(12);
 
-      // User clicks "Mark as Seen" on the delivered summary
       const ackRes = catchupService.acknowledgeChangelog({
         deliveryId: summary.deliveryId,
         deviceId: "dev_reviewing",
@@ -523,7 +507,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         payload: { path: "critical.ts" },
       });
 
-      // Device fetches summary
       const firstSummary = catchupService.generateCatchupSummary({
         deviceId: "dev_flake",
         workspaceId,
@@ -537,7 +520,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         state: DevicePresenceState.DISCONNECTED,
       });
 
-      // Device reconnects
       catchupService.recordPresence({
         deviceId: "dev_flake",
         workspaceId,
@@ -556,7 +538,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     it("detects expired history and sets reconciliationRequired flag", async () => {
       const workspaceId = "ws_expired";
 
-      // Set cursor at revision 5
       catchupService.updateSyncCursor("dev_old", workspaceId, 5);
       catchupService.updateChangelogCursor("dev_old", workspaceId, 5);
 
@@ -572,7 +553,7 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       }
 
       // Manually set oldest revision to 50
-      outbox.pruneWorkspaceEventsOlderThan(workspaceId, new Date("2099-01-01").toISOString()); // or test history boundary
+      outbox.pruneWorkspaceEventsOlderThan(workspaceId, new Date("2099-01-01").toISOString());
 
       const summary = catchupService.generateCatchupSummary({
         deviceId: "dev_old",
@@ -642,7 +623,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     });
 
     it("retrieves and acknowledges catch-up summaries via /api/v1/catchup/summary and /ack", async () => {
-      // Record an event
       await outbox.recordWorkspaceEvent({
         workspaceId: "ws_http_flow",
         hostId: "host_1",
@@ -651,7 +631,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
         payload: { path: "api-test.ts" },
       });
 
-      // Query summary
       const sumRes = await app.inject({
         method: "GET",
         url: "/api/v1/catchup/summary?deviceId=dev_http_flow&workspaceId=ws_http_flow&workspaceName=TestFlow",
@@ -665,7 +644,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       const deliveryId = sumBody.data.deliveryId;
       expect(deliveryId).toBeDefined();
 
-      // Acknowledge summary
       const ackRes = await app.inject({
         method: "POST",
         url: "/api/v1/catchup/ack",
@@ -682,7 +660,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
     });
 
     it("inspects authorized text diffs and rejects directory traversal", async () => {
-      // Normal diff
       const validDiff = await app.inject({
         method: "GET",
         url: "/api/v1/catchup/diff?workspaceId=ws_diff&path=src/app.tsx&fromRevision=1&toRevision=5",
@@ -691,7 +668,6 @@ describe("Phase 7 — Per-Device Catch-Up Changelog and Recovery", () => {
       expect(validDiff.statusCode).toBe(200);
       expect(validDiff.json().data.path).toBe("src/app.tsx");
 
-      // Traversal attempt
       const traversalDiff = await app.inject({
         method: "GET",
         url: "/api/v1/catchup/diff?workspaceId=ws_diff&path=../../etc/shadow",

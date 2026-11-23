@@ -25,7 +25,6 @@ export const MobileTerminalView: React.FC<MobileTerminalViewProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 select-none overflow-hidden">
-      {/* Mobile Terminal Top Control / Accessory Bar */}
       <div className="h-10 bg-zinc-900 border-b border-zinc-800 flex items-center px-2 gap-1.5 overflow-x-auto shrink-0 select-none">
         <span className="text-[10px] uppercase font-mono text-zinc-500 px-1 font-bold shrink-0">
           Keys:
@@ -46,7 +45,6 @@ export const MobileTerminalView: React.FC<MobileTerminalViewProps> = ({
         ))}
       </div>
 
-      {/* Full-screen Terminal Shell */}
       <div className="flex-1 overflow-hidden relative">
         <TerminalContainer gatewayUrl={gatewayUrl} className="h-full border-none" />
       </div>

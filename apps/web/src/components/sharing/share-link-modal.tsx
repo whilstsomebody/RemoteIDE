@@ -122,7 +122,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-[#252526] border border-[#3c3c3c] rounded-xl shadow-2xl overflow-hidden flex flex-col text-xs text-zinc-200"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#1e1e1e] border-b border-[#3c3c3c]">
           <div className="flex items-center gap-2">
             <Share2 className="w-4 h-4 text-indigo-400" />
@@ -136,17 +135,14 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
         {!generatedLink ? (
           <form onSubmit={handleGenerate} className="p-5 space-y-4">
-            {/* Description */}
             <p className="text-zinc-400 leading-relaxed text-[11px]">
               Generate a temporary, cryptographically authenticated access link. Remote users can
               safely browse or edit workspaces directly on your host without inbound router port
               forwarding.
             </p>
 
-            {/* Name */}
             <div className="space-y-1.5">
               <label className="font-medium text-zinc-300">Link Label</label>
               <Input
@@ -158,7 +154,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               />
             </div>
 
-            {/* Role / Capabilities */}
             <div className="space-y-1.5">
               <label className="font-medium text-zinc-300 flex items-center gap-1.5">
                 <Shield className="w-3.5 h-3.5 text-indigo-400" />
@@ -209,7 +204,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               </div>
             </div>
 
-            {/* Expiry Selector */}
             <div className="space-y-1.5">
               <label className="font-medium text-zinc-300 flex items-center gap-1.5">
                 <Clock className="w-3.5 h-3.5 text-indigo-400" />
@@ -238,7 +232,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               </div>
             </div>
 
-            {/* Workspace Restrictions */}
             {workspaces.length > 0 && (
               <div className="space-y-1.5">
                 <label className="font-medium text-zinc-300 flex items-center gap-1.5">
@@ -273,7 +266,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               </div>
             )}
 
-            {/* Security Options: One-Time & PIN */}
             <div className="pt-2 border-t border-[#3c3c3c] space-y-2">
               <label className="flex items-center gap-2 cursor-pointer text-xs">
                 <input
@@ -308,7 +300,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               </div>
             )}
 
-            {/* Actions */}
             <div className="flex items-center justify-end gap-2 pt-2 border-t border-[#3c3c3c]">
               <Button
                 type="button"
@@ -330,7 +321,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
             </div>
           </form>
         ) : (
-          /* Link Generated State */
           <div className="p-5 space-y-4">
             <div className="flex items-center gap-2 p-3 bg-emerald-950/40 border border-emerald-900/60 rounded-lg text-emerald-300 text-xs">
               <Check className="w-4 h-4 text-emerald-400 shrink-0" />
@@ -365,7 +355,6 @@ export const ShareLinkModal: React.FC<ShareLinkModalProps> = ({
               </span>
             </div>
 
-            {/* QR Code Toggle */}
             <div className="pt-2 border-t border-[#3c3c3c] flex flex-col items-center gap-2">
               <button
                 type="button"

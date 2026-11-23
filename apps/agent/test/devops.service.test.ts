@@ -18,7 +18,6 @@ describe("Phase 9 — DevOps Service", () => {
   });
 
   it("manages SSH profiles with safe credential storage and tests connectivity", async () => {
-    // 1. Add SSH Profile
     const profile = service.addSshProfile({
       name: "Local Test Server",
       host: "127.0.0.1",
@@ -31,17 +30,14 @@ describe("Phase 9 — DevOps Service", () => {
     expect(profile.name).toBe("Local Test Server");
     expect(profile.status).toBe("configured");
 
-    // 2. List Profiles
     const list = service.listSshProfiles();
     expect(list.some((p) => p.id === profile.id)).toBe(true);
 
-    // 3. Test Connectivity (TCP probe with fast timeout)
     const testResult = await service.testSshConnection(profile.id);
     expect(testResult).toBeDefined();
     expect(["connected", "error"]).toContain(testResult.status);
     expect(testResult.lastTestedAt).toBeDefined();
 
-    // 4. Delete Profile
     service.deleteSshProfile(profile.id);
     expect(service.listSshProfiles().some((p) => p.id === profile.id)).toBe(false);
   });

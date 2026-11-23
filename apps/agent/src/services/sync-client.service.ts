@@ -52,9 +52,6 @@ export class SyncClientService {
     }
   }
 
-  /**
-   * Flush pending entries from local SQLite journal to Gateway control plane.
-   */
   public async flushPendingEvents(batchSize: number = 50): Promise<{
     syncedCount: number;
     duplicateCount: number;
@@ -111,7 +108,6 @@ export class SyncClientService {
         const acceptedSet = new Set(body.data.acceptedEventIds);
         const dupSet = new Set(body.data.duplicateEventIds);
 
-        // Collect sequence numbers for accepted or duplicate events
         const sequenceNumbersToDeliver = pending
           .filter((p) => acceptedSet.has(p.eventId) || dupSet.has(p.eventId))
           .map((p) => p.sequenceNumber);

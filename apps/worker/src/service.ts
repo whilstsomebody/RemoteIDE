@@ -25,7 +25,6 @@ export class WorkerService {
     this.env = env;
     this.logger = logger || pino({ level: env.LOG_LEVEL, name: "worker-service" });
 
-    // Initialize Kafka client
     try {
       const brokers = (env.KAFKA_BROKERS || "localhost:9092").split(",").map((b) => b.trim());
       this.kafka = new Kafka({
@@ -49,7 +48,6 @@ export class WorkerService {
       );
     }
 
-    // Initialize Redis client
     try {
       this.redis = new Redis(env.REDIS_URL || "redis://localhost:6379", {
         lazyConnect: true,
@@ -96,7 +94,6 @@ export class WorkerService {
   }
 
   private async processEventOnce<T extends Record<string, unknown>>(event: DurableEvent<T>): Promise<boolean> {
-    // 1. Deduplication check
     if (this.processedEventIds.has(event.id)) {
       this.logger.debug({ eventId: event.id }, "Duplicate event suppressed in worker");
       return false;
@@ -126,7 +123,7 @@ export class WorkerService {
       }
     }
 
-    // 2. Broadcast to Redis Pub/Sub for connected gateway fan-out
+    // Broadcast to Redis Pub/Sub for connected gateway fan-out
     if (this.isRedisConnected && this.redis) {
       try {
         const payloadStr = JSON.stringify(event);
@@ -158,7 +155,6 @@ export class WorkerService {
       "Worker service started"
     );
 
-    // Attempt connecting to Redis
     if (this.redis) {
       try {
         await this.redis.connect();
@@ -168,7 +164,6 @@ export class WorkerService {
       }
     }
 
-    // Attempt connecting to Kafka consumer
     if (this.consumer) {
       try {
         await this.consumer.connect();

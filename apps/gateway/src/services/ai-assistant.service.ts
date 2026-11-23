@@ -56,9 +56,6 @@ export class AiAssistantService {
     }
   }
 
-  /**
-   * Set custom mock generator for automated testing.
-   */
   public setMockGenerator(fn: MockGeneratorFn | null): void {
     this.mockGenerator = fn;
   }
@@ -93,9 +90,6 @@ export class AiAssistantService {
     return `${prefix}...${suffix}`;
   }
 
-  /**
-   * Get user AI configuration and key status.
-   */
   public async getSettings(userId: string): Promise<AiSettings> {
     try {
       if (this.db) {
@@ -127,7 +121,6 @@ export class AiAssistantService {
       };
     }
 
-    // Check environment fallback key if user hasn't supplied one
     const envKey = process.env.GEMINI_API_KEY;
     if (envKey) {
       return {
@@ -160,7 +153,6 @@ export class AiAssistantService {
     const masked = this.maskKey(trimmed);
     const selectedModel = model && SUPPORTED_GEMINI_MODELS.includes(model as any) ? model : DEFAULT_GEMINI_MODEL;
 
-    // Always update in-memory
     this.inMemorySettings.set(userId, {
       encryptedApiKey: encrypted,
       maskedKey: masked,
@@ -204,9 +196,6 @@ export class AiAssistantService {
     };
   }
 
-  /**
-   * Remove stored API key.
-   */
   public async clearApiKey(userId: string): Promise<void> {
     this.inMemorySettings.delete(userId);
     try {
@@ -230,7 +219,6 @@ export class AiAssistantService {
    * NEVER returns key to frontend.
    */
   private async getDecryptedKey(userId: string): Promise<string | null> {
-    // 1. Check DB
     try {
       if (this.db) {
         const rows = await this.db.select().from(aiSettings).where(eq(aiSettings.userId, userId)).limit(1);
@@ -241,19 +229,14 @@ export class AiAssistantService {
       }
     } catch {}
 
-    // 2. Check in-memory
     const mem = this.inMemorySettings.get(userId);
     if (mem && mem.encryptedApiKey) {
       return decryptSecret(mem.encryptedApiKey);
     }
 
-    // 3. Fallback env key
     return process.env.GEMINI_API_KEY || null;
   }
 
-  /**
-   * Create a new chat conversation.
-   */
   public async createConversation(
     workspaceId: string,
     userId: string,
@@ -287,7 +270,6 @@ export class AiAssistantService {
       this.logger.warn({ err }, "Could not persist conversation to DB, cached in-memory");
     }
 
-    // Emit milestone
     this.publishMilestone(
       DomainEventType.AI_CHAT_CREATED,
       { conversationId: id, workspaceId, userId, title: conversation.title },
@@ -297,9 +279,6 @@ export class AiAssistantService {
     return conversation;
   }
 
-  /**
-   * List conversations for a user & workspace.
-   */
   public async listConversations(workspaceId: string, userId: string): Promise<AiConversation[]> {
     try {
       if (this.db) {
@@ -334,9 +313,6 @@ export class AiAssistantService {
     return list.sort((a, b) => new Date(b.updatedAt).getTime() - new Date(a.updatedAt).getTime());
   }
 
-  /**
-   * Get conversation and its full message history.
-   */
   public async getConversation(
     conversationId: string,
     userId: string
@@ -396,9 +372,6 @@ export class AiAssistantService {
     return { conversation: conv, messages: msgs };
   }
 
-  /**
-   * Rename a conversation.
-   */
   public async renameConversation(
     conversationId: string,
     userId: string,
@@ -435,9 +408,6 @@ export class AiAssistantService {
     return mem;
   }
 
-  /**
-   * Delete a conversation and its messages.
-   */
   public async deleteConversation(conversationId: string, userId: string): Promise<boolean> {
     const mem = this.inMemoryConversations.get(conversationId);
     if (mem && mem.userId !== userId) return false;
@@ -465,9 +435,6 @@ export class AiAssistantService {
     return true;
   }
 
-  /**
-   * Add a message to the conversation history.
-   */
   public async addMessage(
     conversationId: string,
     role: "user" | "assistant" | "system",
@@ -497,7 +464,6 @@ export class AiAssistantService {
       createdAt: now,
     };
 
-    // Store in-memory
     const existing = this.inMemoryMessages.get(conversationId) || [];
     existing.push(message);
     this.inMemoryMessages.set(conversationId, existing);
@@ -530,9 +496,6 @@ export class AiAssistantService {
     return message;
   }
 
-  /**
-   * Cancel an active generation stream by message ID.
-   */
   public abortStream(messageId: string): boolean {
     const controller = this.activeControllers.get(messageId);
     if (controller) {
@@ -559,7 +522,6 @@ export class AiAssistantService {
     this.activeControllers.set(assistantMessageId, controller);
 
     try {
-      // 1. Verify API Key
       const apiKey = await this.getDecryptedKey(userId);
       if (!apiKey && !this.mockGenerator) {
         yield {
@@ -574,11 +536,9 @@ export class AiAssistantService {
       // 2. Save user message to DB
       await this.addMessage(conversationId, AiRole.USER, userPrompt, context);
 
-      // 3. Retrieve conversation history
       const historyData = await this.getConversation(conversationId, userId);
       const pastMessages = historyData?.messages || [];
 
-      // Build context prompt
       let contextPrefix = "";
       if (context) {
         if (context.type === "selection" && context.codeSnippet) {
@@ -601,7 +561,6 @@ export class AiAssistantService {
 
       let fullAssistantText = "";
 
-      // 4. Execution branch: Mock generator (tests) vs Real Gemini SDK
       if (this.mockGenerator) {
         const historyForMock = pastMessages.slice(0, -1).map((m) => ({
           role: m.role,
@@ -625,7 +584,6 @@ export class AiAssistantService {
         const selectedModel = modelOverride || DEFAULT_GEMINI_MODEL;
         const ai = new GoogleGenAI({ apiKey: apiKey! });
 
-        // Map prior messages into Gemini contents
         const contents: Array<{ role: "user" | "model"; parts: Array<{ text: string }> }> = [];
 
         // Add last 10 messages for context window management
@@ -678,7 +636,6 @@ export class AiAssistantService {
         return;
       }
 
-      // 5. Persist completed assistant message
       if (fullAssistantText.trim().length > 0) {
         await this.addMessage(conversationId, AiRole.ASSISTANT, fullAssistantText);
 
@@ -701,7 +658,6 @@ export class AiAssistantService {
       let errorMsg = err?.message || "An error occurred while communicating with Gemini.";
       let errorCode = "GEMINI_ERROR";
 
-      // Translate known error scenarios
       if (err?.status === 429 || errorMsg.includes("429") || errorMsg.includes("RESOURCE_EXHAUSTED")) {
         errorCode = "QUOTA_EXCEEDED";
         errorMsg = "Gemini API rate limit or quota exceeded. Please wait a moment or check your Google AI Studio plan.";

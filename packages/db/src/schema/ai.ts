@@ -18,9 +18,6 @@ export const aiSettings = pgTable("ai_settings", {
 export type AiSettingsEntity = typeof aiSettings.$inferSelect;
 export type NewAiSettingsEntity = typeof aiSettings.$inferInsert;
 
-/**
- * AI conversation metadata.
- */
 export const aiConversations = pgTable(
   "ai_conversations",
   {
@@ -39,9 +36,6 @@ export const aiConversations = pgTable(
 export type AiConversationEntity = typeof aiConversations.$inferSelect;
 export type NewAiConversationEntity = typeof aiConversations.$inferInsert;
 
-/**
- * AI chat messages belonging to a conversation.
- */
 export const aiMessages = pgTable(
   "ai_messages",
   {

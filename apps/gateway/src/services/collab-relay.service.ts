@@ -77,9 +77,6 @@ export class CollabRelayService {
     return this.rooms.get(this.getRoomKey(workspaceId, filePath));
   }
 
-  /**
-   * Registers a client socket into a collaborative file room.
-   */
   public join(
     socket: WebSocket,
     payload: { workspaceId: string; filePath: string; clientStateVector?: string },
@@ -92,7 +89,6 @@ export class CollabRelayService {
   } {
     const room = this.getOrCreateRoom(payload.workspaceId, payload.filePath);
 
-    // Remove any previous registration of this socket in this room
     room.participants.delete(socket);
 
     const participant: CollabRoomParticipant = {
@@ -130,7 +126,6 @@ export class CollabRelayService {
       ({ socket: _s, sessionId: _sess, ...p }) => p
     );
 
-    // Notify other participants that this user joined
     this.broadcastToRoom(
       room,
       createWsMessage(WsMessageType.COLLAB_AWARENESS, {
@@ -195,7 +190,6 @@ export class CollabRelayService {
     const updateBytes = Buffer.from(payload.update, "base64");
     Y.applyUpdate(room.doc, updateBytes, session.userId);
 
-    // Fan-out update to all other room participants
     this.broadcastToRoom(
       room,
       createWsMessage(WsMessageType.COLLAB_UPDATE, {
@@ -210,9 +204,6 @@ export class CollabRelayService {
     return { applied: true };
   }
 
-  /**
-   * Handles cursor/selection awareness updates.
-   */
   public handleAwareness(
     socket: WebSocket,
     payload: {
@@ -241,7 +232,6 @@ export class CollabRelayService {
       participant.followingParticipantId = payload.followingParticipantId || undefined;
     }
 
-    // Broadcast cursor/selection state to peers
     this.broadcastToRoom(
       room,
       createWsMessage(WsMessageType.COLLAB_AWARENESS, {
@@ -300,7 +290,6 @@ export class CollabRelayService {
       }
     }
 
-    // Broadcast updated participant roster
     const participantsList = Array.from(room.participants.values()).map(
       ({ socket: _s, sessionId: _sess, ...p }) => p
     );
@@ -381,9 +370,6 @@ export class CollabRelayService {
     });
   }
 
-  /**
-   * Removes a socket when participant leaves a room.
-   */
   public handleLeave(socket: WebSocket, workspaceId: string, filePath: string): void {
     const room = this.getRoom(workspaceId, filePath);
     if (!room) return;
@@ -419,9 +405,6 @@ export class CollabRelayService {
     }
   }
 
-  /**
-   * Cleans up all rooms a socket was participating in on disconnection.
-   */
   public handleDisconnect(socket: WebSocket): void {
     const userRooms = this.socketToRooms.get(socket);
     if (!userRooms) return;
@@ -435,9 +418,6 @@ export class CollabRelayService {
     this.socketToRooms.delete(socket);
   }
 
-  /**
-   * Broadcasts a message to all active participants in a room.
-   */
   public broadcastToRoom(room: CollabRoom, message: unknown, excludeSocket?: WebSocket): void {
     const serialized = typeof message === "string" ? message : JSON.stringify(message);
     for (const [ws] of room.participants.entries()) {

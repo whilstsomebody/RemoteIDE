@@ -27,14 +27,12 @@ class RemoteCursorWidget extends WidgetType {
     const wrap = document.createElement("span");
     wrap.className = "cm-remote-cursor-wrap pointer-events-none relative inline-block";
 
-    // Vertical cursor line
     const cursor = document.createElement("span");
     cursor.className = "cm-remote-cursor absolute -top-0.5 bottom-0 w-[2px] rounded-full";
     cursor.style.backgroundColor = this.color;
     cursor.style.boxShadow = `0 0 4px ${this.color}`;
     wrap.appendChild(cursor);
 
-    // Floating name tag badge
     const tag = document.createElement("span");
     tag.className =
       "cm-remote-cursor-tag absolute -top-4 left-0 text-[10px] font-sans font-medium px-1.5 py-0.2 rounded shadow-md text-white whitespace-nowrap z-50 transition-opacity select-none";
@@ -72,7 +70,6 @@ export interface YjsCollabExtensionOptions {
 export function buildYjsCollabExtension(options: YjsCollabExtensionOptions): Extension[] {
   const { doc, yText, getParticipants, currentUserId } = options;
 
-  // 1. Synchronize CodeMirror changes -> Yjs
   const cmToYjsSync = EditorView.updateListener.of((update: ViewUpdate) => {
     if (
       update.docChanged &&
@@ -93,7 +90,6 @@ export function buildYjsCollabExtension(options: YjsCollabExtensionOptions): Ext
     }
   });
 
-  // 2. Synchronize Yjs -> CodeMirror view
   const yjsToCmSync = ViewPlugin.fromClass(
     class {
       private observer: (event: Y.YTextEvent) => void;
@@ -134,7 +130,6 @@ export function buildYjsCollabExtension(options: YjsCollabExtensionOptions): Ext
     }
   );
 
-  // 3. Remote colored cursors and selection highlight decorations
   const remoteCursorsPlugin = ViewPlugin.fromClass(
     class {
       decorations: DecorationSet;
@@ -167,7 +162,6 @@ export function buildYjsCollabExtension(options: YjsCollabExtensionOptions): Ext
             const col = Math.min(Math.max(1, p.cursor.col), line.length + 1);
             const headPos = line.from + (col - 1);
 
-            // Selection range decoration if selectionLength > 0
             if (p.cursor.selectionLength && p.cursor.selectionLength > 0) {
               const selFrom = Math.min(headPos, view.state.doc.length);
               const selTo = Math.min(
@@ -187,7 +181,6 @@ export function buildYjsCollabExtension(options: YjsCollabExtensionOptions): Ext
               }
             }
 
-            // Remote cursor caret widget
             decorationsList.push({
               from: headPos,
               to: headPos,

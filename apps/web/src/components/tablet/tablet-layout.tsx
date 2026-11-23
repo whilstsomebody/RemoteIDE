@@ -30,7 +30,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
   const containerRef = useRef<HTMLDivElement>(null);
   const isDraggingRef = useRef(false);
 
-  // External keyboard listener for tablet external keyboards
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMeta = e.metaKey || e.ctrlKey;
@@ -56,7 +55,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [onSave, onQuickOpen, onCommandPalette]);
 
-  // Handle resizer dragging for mouse and trackpad
   const handleMouseDown = (e: React.MouseEvent) => {
     e.preventDefault();
     isDraggingRef.current = true;
@@ -88,7 +86,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
 
   return (
     <div className="flex h-full w-full bg-zinc-950 text-zinc-100 overflow-hidden select-none">
-      {/* Collapsible Persistent Sidebar / Project Explorer */}
       {showSidebar && (
         <aside className="w-64 border-r border-zinc-800 bg-zinc-900/60 flex flex-col shrink-0 overflow-hidden">
           <div className="h-9 px-3 border-b border-zinc-800 flex items-center justify-between text-xs font-mono text-zinc-400 shrink-0">
@@ -105,9 +102,7 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
         </aside>
       )}
 
-      {/* Main Content Area */}
       <div className="flex flex-col flex-1 min-w-0 overflow-hidden">
-        {/* Tablet Top Control Bar */}
         <div className="h-8 px-2 bg-zinc-900 border-b border-zinc-800 flex items-center justify-between text-xs shrink-0">
           <div className="flex items-center gap-1.5">
             {!showSidebar && (
@@ -143,7 +138,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
           </div>
         </div>
 
-        {/* Split Container: Editor & Terminal */}
         <div
           ref={containerRef}
           className={cn(
@@ -151,7 +145,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
             isPortrait ? "flex-col" : "flex-row"
           )}
         >
-          {/* Primary Pane: Code Editor */}
           <div
             style={{
               [isPortrait ? "height" : "width"]:
@@ -162,7 +155,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
             {editorContent}
           </div>
 
-          {/* Resizer Divider */}
           {activeRightPanel !== "hidden" && (
             <div
               onMouseDown={handleMouseDown}
@@ -175,7 +167,6 @@ export const TabletLayout: React.FC<TabletLayoutProps> = ({
             />
           )}
 
-          {/* Secondary Pane: Terminal / Tools */}
           {activeRightPanel !== "hidden" && (
             <div
               style={{

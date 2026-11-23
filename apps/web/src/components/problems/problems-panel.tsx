@@ -25,7 +25,6 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
   const [groupByFile, setGroupByFile] = useState(true);
   const [expandedFiles, setExpandedFiles] = useState<Record<string, boolean>>({});
 
-  // Filtered problems
   const filtered = useMemo(() => {
     return problems.filter((p) => {
       if (filterSeverity !== "all" && p.severity !== filterSeverity) return false;
@@ -40,12 +39,10 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
     });
   }, [problems, filterSeverity, searchQuery]);
 
-  // Counts
   const errorCount = problems.filter((p) => p.severity === "error").length;
   const warningCount = problems.filter((p) => p.severity === "warning").length;
   const infoCount = problems.filter((p) => p.severity === "info" || p.severity === "hint").length;
 
-  // Group by file
   const groupedByFile = useMemo(() => {
     const map = new Map<string, ProblemItem[]>();
     for (const p of filtered) {
@@ -65,10 +62,8 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
 
   return (
     <div className="h-full flex flex-col bg-[#09090b] text-zinc-300 font-sans text-xs select-none">
-      {/* Filters Toolbar */}
       <div className="p-2 border-b border-zinc-800 bg-[#121214] flex flex-wrap items-center justify-between gap-2 shrink-0">
         <div className="flex items-center gap-1.5">
-          {/* Severity quick filters */}
           <button
             onClick={() => setFilterSeverity("all")}
             className={cn(
@@ -123,7 +118,6 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
           )}
         </div>
 
-        {/* Search & Grouping Controls */}
         <div className="flex items-center gap-2">
           <div className="relative flex items-center">
             <Search className="w-3 h-3 text-zinc-500 absolute left-2 pointer-events-none" />
@@ -149,7 +143,6 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
         </div>
       </div>
 
-      {/* Problems List */}
       <div className="flex-1 overflow-y-auto p-2 font-mono text-[11px] space-y-1">
         {filtered.length === 0 ? (
           <div className="text-zinc-600 italic py-6 text-center select-none font-sans">
@@ -162,7 +155,6 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
 
             return (
               <div key={filePath} className="space-y-0.5">
-                {/* File Group Header */}
                 <div
                   onClick={() => toggleFile(filePath)}
                   className="flex items-center gap-1.5 px-2 py-1 rounded bg-zinc-900/60 hover:bg-zinc-800/70 cursor-pointer transition-colors text-zinc-300"
@@ -180,7 +172,6 @@ export const ProblemsPanel: React.FC<ProblemsPanelProps> = ({ problems, onSelect
                   </span>
                 </div>
 
-                {/* Items in File */}
                 {isExpanded && (
                   <div className="pl-4 space-y-0.5">
                     {items.map((prob) => (
@@ -227,7 +218,6 @@ const ProblemRow: React.FC<{ problem: ProblemItem; onSelect: () => void }> = ({
         )}
       </div>
 
-      {/* Source Badge */}
       <span
         className={cn(
           "px-1 py-0.2 rounded text-[9px] uppercase font-bold shrink-0",

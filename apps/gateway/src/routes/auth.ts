@@ -15,7 +15,6 @@ import { authService } from "../services/auth.service.js";
 import { auditService } from "../services/audit.service.js";
 
 export const authRoutes: FastifyPluginAsync = async (fastify) => {
-  // Current user / session profile
   fastify.get("/api/v1/auth/me", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
@@ -85,7 +84,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
       })
     );
   });
-  // Check auth status
   fastify.get("/api/v1/auth/status", async (req, reply) => {
     const isBootstrapped = authService.isOwnerBootstrapped();
     const isLoopback =
@@ -101,7 +99,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 1. Owner account bootstrap (loopback only)
   fastify.post("/api/v1/auth/bootstrap", async (req, reply) => {
     const validation = BootstrapOwnerDtoSchema.safeParse(req.body);
     if (!validation.success) {
@@ -119,7 +116,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
         userAgent: req.headers["user-agent"],
       });
 
-      // Set secure session cookie
       reply.header(
         "Set-Cookie",
         `remoteide_session=${result.sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${
@@ -152,7 +148,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 2. Owner / User login
   fastify.post("/api/v1/auth/login", async (req, reply) => {
     const validation = LoginDtoSchema.safeParse(req.body);
     if (!validation.success) {
@@ -200,7 +195,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 3. Logout (revokes current session)
   fastify.post("/api/v1/auth/logout", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
@@ -223,7 +217,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope({ loggedOut: true }));
   });
 
-  // 4. List active sessions (Owner, Operator, Developer)
   fastify.get("/api/v1/auth/sessions", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const cookieHeader = req.headers.cookie;
@@ -291,7 +284,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     );
   });
 
-  // 5. Revoke session (Owner or Operator only)
   fastify.delete("/api/v1/auth/sessions/:id", async (req, reply) => {
     const { id } = req.params as { id: string };
     const authHeader = req.headers.authorization;
@@ -325,7 +317,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope({ revoked: success, sessionId: id }));
   });
 
-  // 6. Audit records
   fastify.get("/api/v1/auth/audit", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace(/^Bearer\s+/i, "");
@@ -341,7 +332,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     return reply.send(createSuccessEnvelope(records));
   });
 
-  // 7. MFA Setup
   fastify.post("/api/v1/auth/mfa/setup", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace(/^Bearer\s+/i, "");
@@ -361,7 +351,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 8. MFA Verify and Enable
   fastify.post<{ Body: { code?: string } }>("/api/v1/auth/mfa/verify", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace(/^Bearer\s+/i, "");
@@ -386,7 +375,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 9. MFA Disable
   fastify.post<{ Body: { code?: string } }>("/api/v1/auth/mfa/disable", async (req, reply) => {
     const authHeader = req.headers.authorization;
     const token = authHeader?.replace(/^Bearer\s+/i, "");
@@ -411,7 +399,6 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     }
   });
 
-  // 10. MFA Authenticate (Second factor during login)
   fastify.post<{ Body: { mfaTicket?: string; code?: string } }>("/api/v1/auth/mfa/authenticate", async (req, reply) => {
     const { mfaTicket, code } = req.body || {};
     if (!mfaTicket || !code) {

@@ -34,7 +34,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     await app.close();
   });
 
-  // 1. Two devices receiving the same change
   it("delivers workspace file modification events to multiple connected devices", async () => {
     const wsClientA = {
       // WebSocket.OPEN
@@ -59,7 +58,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
       role: "viewer",
     });
 
-    // Device A saves a file, triggering outbox event
     const event = await outbox.recordWorkspaceEvent({
       workspaceId: "ws_project_1",
       hostId: "host_mac",
@@ -68,7 +66,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
       payload: { path: "src/main.ts", size: 1024 },
     });
 
-    // Broadcast across relay
     relay.broadcastWorkspaceEvent("ws_project_1", event);
 
     expect(wsClientA.send).toHaveBeenCalledTimes(1);
@@ -83,7 +80,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(receivedB.payload.revision).toBe(1);
   });
 
-  // 2. External host filesystem modifications
   it("processes external host filesystem changes and notifies clients", async () => {
     const wsClient = {
       readyState: 1,
@@ -112,13 +108,11 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(res.acceptedEventIds).toContain("fsev_ext_001");
     expect(res.latestRevisions["ws_main"]).toBe(1);
 
-    // Reconcile checks
     const reconcile = await sync.reconcileClient("ws_main", 0);
     expect(reconcile.events.length).toBe(1);
     expect((reconcile.events[0] as any).id).toBe("fsev_ext_001");
   });
 
-  // 3. Concurrent file modifications & ordered workspace revisions
   it("allocates monotonically increasing, authoritative revisions for concurrent modifications", async () => {
     const p1 = outbox.recordWorkspaceEvent({
       workspaceId: "ws_concurrency",
@@ -153,9 +147,7 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(cachedRev).toBe(3);
   });
 
-  // 4. Redis restart / outage recovery
   it("continues operating smoothly with in-memory fallback during Redis outages", async () => {
-    // Cache session in resilient mode
     await redis.cacheSession({
       id: "sess_offline_test",
       userId: "u1",
@@ -176,7 +168,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(cached).not.toBeNull();
     expect(cached?.id).toBe("sess_offline_test");
 
-    // Rate limiting works resiliently
     const rl1 = await redis.checkRateLimit("user:101", 3, 60);
     const rl2 = await redis.checkRateLimit("user:101", 3, 60);
     const rl3 = await redis.checkRateLimit("user:101", 3, 60);
@@ -185,11 +176,9 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(rl1.allowed).toBe(true);
     expect(rl2.allowed).toBe(true);
     expect(rl3.allowed).toBe(true);
-    // Rate limit exceeded!
     expect(rl4.allowed).toBe(false);
   });
 
-  // 5. Kafka consumer restart / offline resilience
   it("buffers outbox events and resumes publishing without data loss", async () => {
     const event = await outbox.recordWorkspaceEvent({
       workspaceId: "ws_buffering",
@@ -202,7 +191,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     const statsBefore = outbox.getOutboxStats();
     expect(statsBefore.publishedCount).toBeGreaterThanOrEqual(1);
 
-    // Test subscribing to local bus
     const received: any[] = [];
     await kafka.subscribe(event.type, async (ev) => {
       received.push(ev);
@@ -213,7 +201,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(received[0].id).toBe(event.id);
   });
 
-  // 6. Duplicate event delivery & deduplication
   it("suppresses duplicate events when the same event ID is re-submitted", async () => {
     const rawEvents = [
       {
@@ -228,22 +215,18 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
       },
     ];
 
-    // First submission
     const res1 = await sync.syncAgentEvents("host_dup", rawEvents);
     expect(res1.acceptedEventIds).toEqual(["fsev_dup_test_100"]);
     expect(res1.duplicateEventIds).toEqual([]);
 
-    // Second submission with exact same event ID
     const res2 = await sync.syncAgentEvents("host_dup", rawEvents);
     expect(res2.acceptedEventIds).toEqual([]);
-    expect(res2.duplicateEventIds).toEqual(["fsev_dup_test_100"]); // Detected as duplicate!
+    expect(res2.duplicateEventIds).toEqual(["fsev_dup_test_100"]);
   });
 
-  // 7. Out-of-order and missing events reconciliation
   it("reconciles missing events for a client that disconnected and reconnected", async () => {
     const wsId = "ws_reconcile_test";
 
-    // 3 events happen while client is offline
     await outbox.recordWorkspaceEvent({
       workspaceId: wsId,
       hostId: "host_rec",
@@ -276,17 +259,14 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect((reconcile.events[1] as any).revision).toBe(3);
   });
 
-  // 8. Multiple gateway instances fan-out
   it("distributes events across multiple gateway instances using Redis Pub/Sub", async () => {
     const gatewayInstance1Received: any[] = [];
     const gatewayInstance2Received: any[] = [];
 
-    // Gateway 1 subscribes to workspace events
     await redis.subscribe(REDIS_CHANNELS.WORKSPACE_EVENTS("ws_shared"), (msg) => {
       gatewayInstance1Received.push(JSON.parse(msg));
     });
 
-    // Gateway 2 subscribes to same channel
     await redis.subscribe(REDIS_CHANNELS.WORKSPACE_EVENTS("ws_shared"), (msg) => {
       gatewayInstance2Received.push(JSON.parse(msg));
     });
@@ -301,7 +281,6 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
       payload: { message: "distributed sync" },
     });
 
-    // Outbox / publisher sends to Redis Pub/Sub
     await redis.publish(REDIS_CHANNELS.WORKSPACE_EVENTS("ws_shared"), event);
 
     expect(gatewayInstance1Received.length).toBe(1);
@@ -310,22 +289,18 @@ describe("Phase 6 — Distributed Event Infrastructure & Synchronization", () =>
     expect(gatewayInstance2Received[0].id).toBe("ev_fanout_01");
   });
 
-  // 9. Permission changes while a client is connected
   it("immediately invalidates cached permissions in Redis when permissions are revoked", async () => {
     const sessionId = "sess_perm_test";
 
-    // Cache initial permissions
     await redis.cachePermissions(sessionId, ["fs:read", "fs:write", "terminal:execute"]);
     const initialPerms = await redis.getCachedPermissions(sessionId);
     expect(initialPerms).toEqual(["fs:read", "fs:write", "terminal:execute"]);
 
-    // Invalidate immediately upon permission revocation
     await redis.invalidatePermissions(sessionId);
     const revokedPerms = await redis.getCachedPermissions(sessionId);
     expect(revokedPerms).toBeNull();
   });
 
-  // 10. Host disconnection and event replay
   it("replays host-local events safely preserving sequence numbers and allocating authoritative revisions", async () => {
     const disconnectedEvents = [
       {

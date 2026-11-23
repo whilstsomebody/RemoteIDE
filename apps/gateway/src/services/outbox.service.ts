@@ -126,7 +126,6 @@ export class OutboxService {
     const existing = this.memoryOutbox.get(eventId);
     if (existing) return existing.payload as DurableEvent<T>;
 
-    // Atomically increment authoritative revision for this workspace
     const currentRev = (this.memoryRevisions.get(params.workspaceId) || 0) + 1;
     this.memoryRevisions.set(params.workspaceId, currentRev);
 
@@ -147,7 +146,6 @@ export class OutboxService {
       correlationId: params.correlationId,
     });
 
-    // 1. Record in workspace_events
     this.memoryEvents.set(eventId, {
       id: eventId,
       workspaceId: params.workspaceId,
@@ -163,7 +161,6 @@ export class OutboxService {
       createdAt: now,
     });
 
-    // 2. Record in outbox_events
     this.memoryOutbox.set(eventId, {
       id: eventId,
       topic: KafkaTopic.WORKSPACE_EVENTS,
@@ -200,10 +197,8 @@ export class OutboxService {
     if (!record || record.status === "published" || this.publishing.has(id)) return false;
     this.publishing.add(id);
     try {
-      // 1. Forward event to Kafka (partitioned by partitionKey)
       await this.kafka.publishEvent(record.topic, record.payload);
 
-      // 3. Redis Pub/Sub fan-out to local and remote gateway instances
       if (record.payload.workspaceId) {
         await this.redis.publish(
           REDIS_CHANNELS.WORKSPACE_EVENTS(record.payload.workspaceId),
@@ -226,9 +221,6 @@ export class OutboxService {
     }
   }
 
-  /**
-   * Scans and forwards pending outbox events.
-   */
   public async publishPendingOutbox(limit = 100): Promise<{ published: number; failed: number }> {
     let published = 0;
     let failed = 0;
@@ -247,18 +239,12 @@ export class OutboxService {
     return { published, failed };
   }
 
-  /**
-   * Deduplication check: returns true if already processed.
-   */
   public isEventProcessed(eventId: string, consumerGroup = "default"): boolean {
     return (
       this.memoryEvents.has(eventId) || this.memoryProcessed.has(`${consumerGroup}:${eventId}`)
     );
   }
 
-  /**
-   * Marks event as processed idempotently.
-   */
   public markEventProcessed(eventId: string, consumerGroup = "default"): void {
     this.memoryProcessed.set(`${consumerGroup}:${eventId}`, {
       consumerGroup,
@@ -266,9 +252,6 @@ export class OutboxService {
     });
   }
 
-  /**
-   * Retrieves events for client reconciliation (sinceRevision).
-   */
   public getEventsSinceRevision(
     workspaceId: string,
     sinceRevision: number,

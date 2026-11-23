@@ -13,13 +13,11 @@ export const jobRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const { jobManagerService } = opts;
 
-  // List all background jobs
   fastify.get("/api/v1/jobs", async () => {
     const list = jobManagerService.listJobs();
     return createSuccessResponse(list);
   });
 
-  // Start / queue a background task
   fastify.post("/api/v1/jobs", async (request) => {
     const validation = CreateJobDtoSchema.safeParse(request.body);
     if (!validation.success) {
@@ -33,19 +31,16 @@ export const jobRoutes: FastifyPluginAsync<{
     return createSuccessResponse(job);
   });
 
-  // Get job details
   fastify.get<{ Params: { id: string } }>("/api/v1/jobs/:id", async (request) => {
     const job = jobManagerService.getJob(request.params.id);
     return createSuccessResponse(job);
   });
 
-  // Get job logs
   fastify.get<{ Params: { id: string } }>("/api/v1/jobs/:id/logs", async (request) => {
     const logs = jobManagerService.getJobLogs(request.params.id);
     return createSuccessResponse(logs);
   });
 
-  // Cancel running or queued job
   fastify.post<{ Params: { id: string }; Body: { reason?: string } }>(
     "/api/v1/jobs/:id/cancel",
     async (request) => {
@@ -55,7 +50,6 @@ export const jobRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Retry an approved job
   fastify.post<{ Params: { id: string } }>("/api/v1/jobs/:id/retry", async (request) => {
     const ownerId = (request.headers["x-owner-id"] as string) || "owner";
     const job = await jobManagerService.retryJob(request.params.id, ownerId);

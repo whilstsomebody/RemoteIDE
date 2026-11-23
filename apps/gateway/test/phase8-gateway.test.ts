@@ -7,7 +7,6 @@ describe("Phase 8 — Gateway LSP, Debugging, and Test Integration", () => {
   it("enforces separate permissions: denies debug execution to Viewer and Editor roles", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Viewer Session
     const { sessionToken: viewerToken } = authService.createSessionInternal({
       userId: "viewer-u",
       hostId: "local-host-agent",
@@ -21,7 +20,6 @@ describe("Phase 8 — Gateway LSP, Debugging, and Test Integration", () => {
       durationSeconds: 3600,
     });
 
-    // Viewer denied Debug launch
     const viewerDebugRes = await app.inject({
       method: "POST",
       url: "/api/v1/debug/launch",
@@ -30,7 +28,6 @@ describe("Phase 8 — Gateway LSP, Debugging, and Test Integration", () => {
     });
     expect(viewerDebugRes.statusCode).toBe(403);
 
-    // Viewer denied Test execution
     const viewerTestRes = await app.inject({
       method: "POST",
       url: "/api/v1/tests/run",
@@ -39,7 +36,6 @@ describe("Phase 8 — Gateway LSP, Debugging, and Test Integration", () => {
     });
     expect(viewerTestRes.statusCode).toBe(403);
 
-    // 2. Editor Session
     const { sessionToken: editorToken } = authService.createSessionInternal({
       userId: "editor-u",
       hostId: "local-host-agent",

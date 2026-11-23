@@ -16,7 +16,6 @@ export const debugRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.dapService || dapManagerService;
 
-  // List debug sessions
   fastify.get<{ Querystring: { workspaceId?: string } }>(
     "/api/v1/debug/sessions",
     async (request) => {
@@ -25,13 +24,11 @@ export const debugRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Get debug session details
   fastify.get<{ Params: { id: string } }>("/api/v1/debug/sessions/:id", async (request) => {
     const session = service.getSession(request.params.id);
     return createSuccessResponse(session);
   });
 
-  // Launch debuggee
   fastify.post("/api/v1/debug/launch", async (request) => {
     const val = LaunchDebugDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -43,7 +40,6 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse(session);
   });
 
-  // Attach to running debuggee
   fastify.post("/api/v1/debug/attach", async (request) => {
     const val = AttachDebugDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -55,7 +51,6 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse(session);
   });
 
-  // Set breakpoints
   fastify.post("/api/v1/debug/breakpoints", async (request) => {
     const val = SetBreakpointsDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -67,7 +62,6 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse(breakpoints);
   });
 
-  // Execution flow controls
   fastify.post<{ Params: { id: string } }>("/api/v1/debug/:id/continue", async (request) => {
     await service.continue(request.params.id);
     return createSuccessResponse({ success: true });
@@ -93,13 +87,11 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ success: true });
   });
 
-  // Call stack
   fastify.get<{ Params: { id: string } }>("/api/v1/debug/:id/stack-trace", async (request) => {
     const stack = service.getStackTrace(request.params.id);
     return createSuccessResponse(stack);
   });
 
-  // Scopes
   fastify.get<{ Params: { id: string }; Querystring: { frameId?: string } }>(
     "/api/v1/debug/:id/scopes",
     async (request) => {
@@ -109,7 +101,6 @@ export const debugRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Variables
   fastify.get<{ Params: { id: string }; Querystring: { variablesReference: string } }>(
     "/api/v1/debug/:id/variables",
     async (request) => {
@@ -122,7 +113,6 @@ export const debugRoutes: FastifyPluginAsync<{
     }
   );
 
-  // Evaluate watch expressions / REPL
   fastify.post("/api/v1/debug/evaluate", async (request) => {
     const val = EvaluateDtoSchema.safeParse(request.body);
     if (!val.success) {
@@ -134,7 +124,6 @@ export const debugRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // Stop / terminate debug session
   fastify.post<{ Params: { id: string } }>("/api/v1/debug/:id/stop", async (request) => {
     await service.stop(request.params.id);
     return createSuccessResponse({ terminated: true, id: request.params.id });

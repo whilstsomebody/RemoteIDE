@@ -14,7 +14,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
   it("enforces role capabilities and blocks forbidden operations", async () => {
     const app = await buildApp({ logger: false });
 
-    // Mock a connected host agent in tunnelRelayService
     (tunnelRelayService as any).connectedAgents.set("local-host-agent", {
       hostId: "local-host-agent",
       socket: {
@@ -25,7 +24,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       lastHeartbeatAt: new Date().toISOString(),
     });
 
-    // 1. Create a Viewer session
     const { sessionToken: viewerToken } = authService.createSessionInternal({
       userId: "viewer-user",
       hostId: "local-host-agent",
@@ -39,7 +37,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       durationSeconds: 3600,
     });
 
-    // Viewer trying to write a file -> 403 Forbidden
     const viewerWriteRes = await app.inject({
       method: "PUT",
       url: "/api/v1/workspaces/ws-1/files/write",
@@ -49,7 +46,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     expect(viewerWriteRes.statusCode).toBe(403);
     expect(JSON.parse(viewerWriteRes.payload).error.message).toContain("lacks capability");
 
-    // Viewer trying to delete a file -> 403 Forbidden
     const viewerDeleteRes = await app.inject({
       method: "DELETE",
       url: "/api/v1/workspaces/ws-1/files?path=src/index.ts",
@@ -57,7 +53,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(viewerDeleteRes.statusCode).toBe(403);
 
-    // 2. Create an Editor session
     const { sessionToken: editorToken } = authService.createSessionInternal({
       userId: "editor-user",
       hostId: "local-host-agent",
@@ -87,7 +82,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(editorTerminalRes.statusCode).toBe(403);
 
-    // 3. Create a Developer session
     const { sessionToken: devToken } = authService.createSessionInternal({
       userId: "dev-user",
       hostId: "local-host-agent",
@@ -115,7 +109,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
   it("prevents shared users from escaping authorized workspace boundaries", async () => {
     const app = await buildApp({ logger: false });
 
-    // Mock connected host agent
     (tunnelRelayService as any).connectedAgents.set("local-host-agent", {
       hostId: "local-host-agent",
       socket: { readyState: 1, send: () => {} },
@@ -123,7 +116,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       lastHeartbeatAt: new Date().toISOString(),
     });
 
-    // Session restricted exclusively to "workspace-frontend"
     const { sessionToken } = authService.createSessionInternal({
       userId: "contractor-1",
       hostId: "local-host-agent",
@@ -137,7 +129,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       durationSeconds: 3600,
     });
 
-    // Attempting to access unauthorized workspace "workspace-backend" -> 403
     const blockedRes = await app.inject({
       method: "GET",
       url: "/api/v1/workspaces/workspace-backend/files",
@@ -167,10 +158,8 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
       durationSeconds: 3600,
     });
 
-    // Revoke the session
     authService.revokeSession(session.id, "owner-admin");
 
-    // Any subsequent request is denied with 401
     const res = await app.inject({
       method: "GET",
       url: "/api/v1/workspaces",
@@ -184,7 +173,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
   it("strictly denies terminal execution to Viewer and Editor roles with 403 Forbidden", async () => {
     const app = await buildApp({ logger: false });
 
-    // 1. Viewer session
     const { sessionToken: viewerToken } = authService.createSessionInternal({
       userId: "viewer-user",
       hostId: "local-host-agent",
@@ -209,7 +197,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     const viewerBody = JSON.parse(viewerRes.payload);
     expect(viewerBody.error.message).toContain("strictly restricted to host owner");
 
-    // 2. Editor session
     const { sessionToken: editorToken } = authService.createSessionInternal({
       userId: "editor-user",
       hostId: "local-host-agent",
@@ -232,7 +219,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
 
     expect(editorRes.statusCode).toBe(403);
 
-    // 3. Denies job execution to Viewer
     const viewerJobRes = await app.inject({
       method: "POST",
       url: "/api/v1/jobs",
@@ -241,8 +227,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(viewerJobRes.statusCode).toBe(403);
 
-    // 4. Phase 5 Granular Capability Enforcement
-    // Viewer cannot commit or mutate git
     const viewerGitRes = await app.inject({
       method: "POST",
       url: "/api/v1/git/commit",
@@ -251,7 +235,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(viewerGitRes.statusCode).toBe(403);
 
-    // Developer cannot perform destructive Git discard
     const devGitDiscardRes = await app.inject({
       method: "POST",
       url: "/api/v1/git/discard",
@@ -275,7 +258,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(devGitDiscardRes.statusCode).toBe(403);
 
-    // Viewer cannot forward ports
     const viewerPortRes = await app.inject({
       method: "POST",
       url: "/api/v1/ports/forward",
@@ -284,7 +266,6 @@ describe("Phase 3 - Capability-Based Access Control & Dual-Layer Security", () =
     });
     expect(viewerPortRes.statusCode).toBe(403);
 
-    // Viewer cannot manage processes
     const viewerProcessRes = await app.inject({
       method: "POST",
       url: "/api/v1/processes",

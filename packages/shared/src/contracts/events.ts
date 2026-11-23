@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// 1. CloudEvents & Foundation Envelope
-
 export const EventEnvelopeSchema = <T extends z.ZodTypeAny>(dataSchema: T) =>
   z.object({
     id: z.string(),
@@ -39,7 +37,7 @@ export enum DomainEventType {
   TERMINAL_ACTIVITY = "remoteide.terminal.activity",
   AUDIT_LOG_RECORDED = "remoteide.audit.logged",
 
-  // Collaborative editing milestones (Phase 11)
+  // Collaborative editing milestones
   COLLAB_SESSION_STARTED = "remoteide.collab.session_started",
   COLLAB_PARTICIPANT_JOINED = "remoteide.collab.participant_joined",
   COLLAB_PARTICIPANT_LEFT = "remoteide.collab.participant_left",
@@ -49,7 +47,7 @@ export enum DomainEventType {
   COLLAB_CONFLICT_RESOLVED = "remoteide.collab.conflict_resolved",
   COLLAB_COMMENT_ADDED = "remoteide.collab.comment_added",
 
-  // Gemini AI Assistant milestones (Phase 12)
+  // Gemini AI Assistant milestones
   AI_CHAT_CREATED = "remoteide.ai.chat_created",
   AI_MESSAGE_COMPLETED = "remoteide.ai.message_completed",
   AI_CHAT_RENAMED = "remoteide.ai.chat_renamed",
@@ -78,8 +76,6 @@ export function createEventEnvelope<T>(
     data,
   };
 }
-
-// 2. Kafka Topics & Durable Event Schemas
 
 export enum KafkaTopic {
   WORKSPACE_EVENTS = "workspace.events",
@@ -202,8 +198,6 @@ export function createDurableEvent<T extends Record<string, unknown>>(
   };
 }
 
-// 3. Host Journal Submission & Synchronization DTOs
-
 export const HostPendingEventSchema = z.object({
   eventId: z.string(),
   sequenceNumber: z.number().int(),
@@ -246,8 +240,6 @@ export const ReconcileEventsResultSchema = z.object({
 });
 export type ReconcileEventsResult = z.infer<typeof ReconcileEventsResultSchema>;
 
-// 4. Redis Key Namespaces, TTLs & Pub/Sub
-
 export const REDIS_NAMESPACES = {
   SESSION: "remoteide:session",
   PRESENCE_HOST: "remoteide:presence:host",
@@ -279,8 +271,6 @@ export const REDIS_CHANNELS = {
   WORKSPACE_EVENTS: (workspaceId: string) => `remoteide:channel:workspace:${workspaceId}`,
   SESSION_EVENTS: (sessionId: string) => `remoteide:channel:session:${sessionId}`,
 } as const;
-
-// 5. Performance & Operational Metrics
 
 export interface EventInfrastructureMetrics {
   redis: {

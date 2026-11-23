@@ -36,16 +36,14 @@ describe("WorkerService", () => {
       payload: { path: "src/index.ts", action: "modify" },
     });
 
-    // 1. First delivery -> processed
     const firstResult = await worker.processEvent(event);
     expect(firstResult).toBe(true);
     expect(handler).toHaveBeenCalledTimes(1);
     expect(worker.getStatus().processedCount).toBe(1);
 
-    // 2. Duplicate delivery with same event ID -> suppressed by deduplication
+    // Duplicate delivery with same event ID is suppressed by deduplication
     const secondResult = await worker.processEvent(event);
     expect(secondResult).toBe(false);
-    // Not called again!
     expect(handler).toHaveBeenCalledTimes(1);
     expect(worker.getStatus().processedCount).toBe(1);
   });

@@ -49,7 +49,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
 }) => {
   return (
     <footer className="h-6 bg-ide-status border-t border-ide-border flex items-center justify-between px-3 text-[11px] text-zinc-400 select-none z-30 font-mono shrink-0">
-      {/* Left side: Branch, Sync status, Problems */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1.5 hover:text-zinc-200 cursor-pointer">
           <GitBranch className="w-3.5 h-3.5 text-indigo-400" />
@@ -105,7 +104,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({
         )}
       </div>
 
-      {/* Right side: Cursor pos, Spaces, Encoding, Language, Bottom panel toggle */}
       <div className="flex items-center gap-4">
         <div className="flex items-center gap-1 text-zinc-300">
           <span>

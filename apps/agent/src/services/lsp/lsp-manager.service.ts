@@ -60,7 +60,6 @@ export class LspManagerService {
   // Active external LSP processes: `${workspaceId}:${serverId}` -> ExternalLspProcess
   private externalServers = new Map<string, ExternalLspProcess>();
 
-  // Diagnostic listeners: (workspaceId: string, path: string, diagnostics: LspDiagnostic[]) => void
   private diagnosticListeners = new Set<
     (workspaceId: string, path: string, diagnostics: LspDiagnostic[]) => void
   >();
@@ -84,8 +83,6 @@ export class LspManagerService {
     this.serverStatuses.set("typescript", LanguageServerStatus.RUNNING);
   }
 
-  // --- 1. Language Server Registry & Toolchain Detection ---
-
   public detectToolchain(): LanguageServerMetadata[] {
     const isCmdAvailable = (cmd: string): boolean => {
       try {
@@ -96,7 +93,6 @@ export class LspManagerService {
       }
     };
 
-    // Node & TypeScript
     const nodeAvailable = isCmdAvailable("node");
     let nodeVersion = "Unknown";
     if (nodeAvailable) {
@@ -109,7 +105,6 @@ export class LspManagerService {
     const tsLspInstalled =
       isCmdAvailable("typescript-language-server") || isCmdAvailable("tsserver");
 
-    // Python
     const pythonAvailable = isCmdAvailable("python3") || isCmdAvailable("python");
     let pythonVersion = "Unavailable";
     if (pythonAvailable) {
@@ -122,23 +117,18 @@ export class LspManagerService {
     }
     const pyrightInstalled = isCmdAvailable("pyright") || isCmdAvailable("pylsp");
 
-    // Rust
     const rustAvailable = isCmdAvailable("rustc");
     const rustAnalyzerInstalled = isCmdAvailable("rust-analyzer");
 
-    // Go
     const goAvailable = isCmdAvailable("go");
     const goplsInstalled = isCmdAvailable("gopls");
 
-    // C/C++
     const clangAvailable = isCmdAvailable("clang") || isCmdAvailable("gcc");
     const clangdInstalled = isCmdAvailable("clangd");
 
-    // Java
     const javaAvailable = isCmdAvailable("java");
     const jdtlsInstalled = isCmdAvailable("jdtls");
 
-    // C#
     const dotnetAvailable = isCmdAvailable("dotnet");
     const omnisharpInstalled = isCmdAvailable("omnisharp") || isCmdAvailable("csharp-ls");
 
@@ -419,12 +409,9 @@ export class LspManagerService {
     };
   }
 
-  // --- 2. Lifecycle & Restart Policies ---
-
   public async restartServer(serverId: string, workspaceId = "default"): Promise<void> {
     logger.info({ serverId, workspaceId }, "Restarting language server");
 
-    // Clean up existing external server if any
     const key = `${workspaceId}:${serverId}`;
     const external = this.externalServers.get(key);
     if (external) {
@@ -436,7 +423,6 @@ export class LspManagerService {
       this.externalServers.delete(key);
     }
 
-    // Reset TS service cache
     if (serverId === "typescript") {
       this.tsServices.delete(workspaceId);
     }
@@ -444,17 +430,14 @@ export class LspManagerService {
     this.serverStatuses.set(serverId, LanguageServerStatus.STARTING);
     this.serverErrors.delete(serverId);
 
-    // Increment crash/restart count
     const prior = this.crashCounts.get(serverId) || 0;
     this.crashCounts.set(serverId, prior + 1);
 
-    // Re-initialize server
     await new Promise((resolve) => setTimeout(resolve, 100));
     this.serverStatuses.set(serverId, LanguageServerStatus.RUNNING);
   }
 
   public shutdownWorkspace(workspaceId: string): void {
-    // Terminate all external servers for this workspace
     for (const [key, ext] of this.externalServers.entries()) {
       if (key.startsWith(`${workspaceId}:`)) {
         try {
@@ -469,8 +452,6 @@ export class LspManagerService {
     this.documents.delete(workspaceId);
   }
 
-  // --- 3. Document Synchronization ---
-
   public onDidOpen(dto: LspTextDocumentDidOpenDto): void {
     const { workspaceId, path: filePath, version, text, languageId } = dto;
     let wsDocs = this.documents.get(workspaceId);
@@ -480,7 +461,6 @@ export class LspManagerService {
     }
     wsDocs.set(filePath, { version, content: text, languageId });
 
-    // Notify diagnostic listeners
     this.broadcastDiagnostics(workspaceId, filePath);
   }
 
@@ -529,8 +509,6 @@ export class LspManagerService {
       }
     }
   }
-
-  // --- 4. Built-in TypeScript LanguageService Implementation ---
 
   private getOrCreateTsService(workspaceId: string): ts.LanguageService {
     const cached = this.tsServices.get(workspaceId);
@@ -632,8 +610,6 @@ export class LspManagerService {
     const character = lines[lines.length - 1]!.length;
     return { line, character };
   }
-
-  // --- 5. LSP Operations ---
 
   public getCompletions(dto: LspCompletionDto): LspCompletionItem[] {
     const { workspaceId, path: filePath, position } = dto;

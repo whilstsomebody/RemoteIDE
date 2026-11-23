@@ -108,13 +108,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
       style={{ width: `${width}px` }}
       className="bg-ide-sidebar border-r border-ide-border flex flex-col h-full text-xs select-none shrink-0 relative transition-[width] duration-75"
     >
-      {/* Resizer Handle */}
       <div
         onMouseDown={handleMouseDown}
         className="w-1 bg-transparent hover:bg-indigo-500/80 cursor-col-resize transition-colors absolute top-0 bottom-0 right-0 z-30"
       />
 
-      {/* Header */}
       <div className="h-9 px-3 border-b border-ide-border flex items-center justify-between text-zinc-300 font-semibold uppercase tracking-wider text-[11px]">
         <span>
           {activeTab === "files"
@@ -131,7 +129,6 @@ export const Sidebar: React.FC<SidebarProps> = ({
         </span>
       </div>
 
-      {/* Content */}
       <div className="flex-1 overflow-y-auto p-2 text-zinc-400">
         {activeTab === "files" && (
           <div className="flex flex-col gap-3 h-full">

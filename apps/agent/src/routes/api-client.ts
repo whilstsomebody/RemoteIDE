@@ -15,7 +15,6 @@ export const apiClientRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.apiClientService || defaultApiClientService;
 
-  // Execute API Request on the host machine
   fastify.post("/api/v1/api-client/execute", async (req, reply) => {
     const parse = ExecuteApiRequestDtoSchema.safeParse(req.body);
     if (!parse.success) {

@@ -68,7 +68,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   const [selectedIndex, setSelectedIndex] = useState(0);
   const inputRef = useRef<HTMLInputElement>(null);
 
-  // Focus input when opened
   useEffect(() => {
     if (isOpen) {
       setSearch("");
@@ -77,7 +76,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     }
   }, [isOpen]);
 
-  // Flatten file nodes
   const flattenedFiles = useMemo(() => {
     const list: string[] = [];
     const traverse = (nodes: FileNode[]) => {
@@ -90,7 +88,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return list;
   }, [files]);
 
-  // Built-in commands
   const commands: CommandItem[] = useMemo(
     () => [
       {
@@ -274,7 +271,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
     return [...matchedFiles, ...matchedCommands];
   }, [search, commands, flattenedFiles]);
 
-  // Keyboard navigation
   const handleKeyDown = (e: React.KeyboardEvent) => {
     if (e.key === "ArrowDown") {
       e.preventDefault();
@@ -310,7 +306,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-xl bg-zinc-900 border border-zinc-700/80 rounded-lg shadow-2xl overflow-hidden flex flex-col font-sans animate-in fade-in-0 zoom-in-95"
       >
-        {/* Search Input */}
         <div className="flex items-center px-4 py-3 border-b border-zinc-800 bg-zinc-950">
           <Search className="w-4 h-4 text-zinc-400 mr-3 shrink-0" />
           <input
@@ -330,7 +325,6 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
           </kbd>
         </div>
 
-        {/* Results List */}
         <div className="max-h-80 overflow-y-auto p-1 text-xs">
           {items.length === 0 ? (
             <div className="py-8 text-center text-zinc-500">No matching commands or files</div>

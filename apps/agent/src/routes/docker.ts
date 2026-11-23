@@ -14,13 +14,11 @@ export const dockerRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.dockerService || dockerService;
 
-  // Overview
   fastify.get("/api/v1/docker/overview", async () => {
     const overview = await service.getOverview();
     return createSuccessResponse(overview);
   });
 
-  // Containers
   fastify.get<{
     Querystring: { all?: string };
   }>("/api/v1/docker/containers", async (request) => {
@@ -29,7 +27,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse(containers);
   });
 
-  // Container Start
   fastify.post<{
     Params: { id: string };
   }>("/api/v1/docker/containers/:id/start", async (request) => {
@@ -37,7 +34,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ success: true, id: request.params.id, action: "start" });
   });
 
-  // Container Stop
   fastify.post<{
     Params: { id: string };
   }>("/api/v1/docker/containers/:id/stop", async (request) => {
@@ -45,7 +41,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ success: true, id: request.params.id, action: "stop" });
   });
 
-  // Container Restart
   fastify.post<{
     Params: { id: string };
   }>("/api/v1/docker/containers/:id/restart", async (request) => {
@@ -53,7 +48,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ success: true, id: request.params.id, action: "restart" });
   });
 
-  // Container Logs
   fastify.get<{
     Params: { id: string };
     Querystring: { tail?: string; timestamps?: string; since?: string };
@@ -76,7 +70,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse({ containerId: request.params.id, logs });
   });
 
-  // Container Stats
   fastify.get<{
     Params: { id: string };
   }>("/api/v1/docker/containers/:id/stats", async (request) => {
@@ -84,7 +77,6 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse(stats);
   });
 
-  // Container Exec
   fastify.post<{
     Params: { id: string };
     Body: { command: string[] };
@@ -103,25 +95,21 @@ export const dockerRoutes: FastifyPluginAsync<{
     return createSuccessResponse(result);
   });
 
-  // Images
   fastify.get("/api/v1/docker/images", async () => {
     const images = await service.listImages();
     return createSuccessResponse(images);
   });
 
-  // Volumes
   fastify.get("/api/v1/docker/volumes", async () => {
     const volumes = await service.listVolumes();
     return createSuccessResponse(volumes);
   });
 
-  // Networks
   fastify.get("/api/v1/docker/networks", async () => {
     const networks = await service.listNetworks();
     return createSuccessResponse(networks);
   });
 
-  // Compose Projects
   fastify.get("/api/v1/docker/compose", async () => {
     const projects = await service.listComposeProjects();
     return createSuccessResponse(projects);

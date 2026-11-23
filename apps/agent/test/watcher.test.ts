@@ -42,7 +42,6 @@ describe("WatcherService", () => {
   it("detects external file modifications and logs to SQLite journal", async () => {
     const filePath = path.join(workspaceDir, "external.txt");
 
-    // Listen for watcher event
     const eventPromise = new Promise<{
       relativePath: string;
       eventType: string;
@@ -57,7 +56,6 @@ describe("WatcherService", () => {
     // Small delay to ensure macOS FSEvents stream is actively registered
     await new Promise((r) => setTimeout(r, 150));
 
-    // Simulate external edit outside RemoteIDE
     fs.writeFileSync(filePath, "Edited by vim directly on host");
 
     const event = await Promise.race([
@@ -70,7 +68,6 @@ describe("WatcherService", () => {
     expect(event).toBeDefined();
     expect(event?.relativePath).toContain("external.txt");
 
-    // Verify it was logged in SQLite journal
     const entries = journal.getWorkspaceEntries("ws-watch-1");
     expect(entries.length).toBeGreaterThanOrEqual(1);
   }, 12000);

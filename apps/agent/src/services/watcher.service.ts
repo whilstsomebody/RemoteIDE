@@ -79,7 +79,6 @@ export class WatcherService {
         const watcher = fs.watch(folder.path, { recursive: true }, (_event, filename) => {
           if (!filename) return;
 
-          // Check if any path segment is ignored
           const segments = filename.split(path.sep);
           if (segments.some((seg) => this.ignoredPatterns.has(seg))) {
             return;
@@ -171,12 +170,10 @@ export class WatcherService {
       }
     }
 
-    // Record in SQLite journal
     this.journalService.recordChange(workspaceId, relativePath, eventType, fileVersion, {
       source: "external_watcher",
     });
 
-    // Notify listeners
     const payload = {
       workspaceId,
       eventType,

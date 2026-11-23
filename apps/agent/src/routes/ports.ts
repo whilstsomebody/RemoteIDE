@@ -16,19 +16,16 @@ export const portRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.portForwardingService || defaultPortForwardingService;
 
-  // Detect listening ports on host
   fastify.get("/api/v1/ports/detected", async () => {
     const ports = await service.detectListeningPorts();
     return createSuccessResponse(ports);
   });
 
-  // List forwarded ports
   fastify.get("/api/v1/ports", async () => {
     const ports = service.listForwardedPorts();
     return createSuccessResponse(ports);
   });
 
-  // Forward a port
   fastify.post("/api/v1/ports/forward", async (req, reply) => {
     const parse = ForwardPortDtoSchema.safeParse(req.body);
     if (!parse.success) {
@@ -40,7 +37,6 @@ export const portRoutes: FastifyPluginAsync<{
     return createSuccessResponse(forwarded);
   });
 
-  // Toggle port forwarding
   fastify.post("/api/v1/ports/:port/toggle", async (req, reply) => {
     const port = parseInt((req.params as any).port, 10);
     const parse = TogglePortForwardDtoSchema.safeParse(req.body);
@@ -53,7 +49,6 @@ export const portRoutes: FastifyPluginAsync<{
     return createSuccessResponse(updated);
   });
 
-  // Unforward a port
   fastify.delete("/api/v1/ports/:port", async (req) => {
     const port = parseInt((req.params as any).port, 10);
     service.unforwardPort(port);

@@ -78,7 +78,6 @@ const result = calc.add(10, 20);
     });
     expect(Array.isArray(completions)).toBe(true);
 
-    // Modify document
     lsp.onDidChange({
       workspaceId: "test-ws",
       path: sampleTsFile,

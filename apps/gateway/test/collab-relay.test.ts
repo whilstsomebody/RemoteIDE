@@ -61,14 +61,12 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       { id: "sess-2", userId: "user-2", name: "Bob", role: "editor" }
     );
 
-    // Create client doc 1 and generate update
     const c1 = new Y.Doc();
     const t1 = c1.getText("contents");
     let updateBytes: Uint8Array;
     c1.on("update", (u) => (updateBytes = u));
     c1.transact(() => t1.insert(0, "Hello Gateway Collab"));
 
-    // Send update from ws1
     collabRelay.handleUpdate(
       ws1,
       {
@@ -79,7 +77,6 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       { role: "editor", userId: "user-1" }
     );
 
-    // Verify ws2 received the broadcast
     const broadcastMsgStr = ws2.sentMessages.find((m: string) =>
       m.includes(WsMessageType.COLLAB_UPDATE)
     );
@@ -117,7 +114,6 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       );
     }).toThrow(AppError);
 
-    // Viewer receives error envelope
     const errorMsgStr = wsViewer.sentMessages.find((m: string) =>
       m.includes("UNAUTHORIZED_WRITE")
     );
@@ -139,7 +135,6 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       { id: "sess-2", userId: "user-2", name: "Bob", role: "editor" }
     );
 
-    // Alice moves cursor to line 15, col 4
     collabRelay.handleAwareness(ws1, {
       workspaceId,
       filePath,
@@ -172,7 +167,6 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       { id: "sess-target", userId: "target-1", name: "Bob", role: "editor" }
     );
 
-    // Non-owner cannot assign roles
     expect(() => {
       collabRelay.handleRoleAssign(
         wsTarget,
@@ -181,7 +175,6 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
       );
     }).toThrow(AppError);
 
-    // Owner assigns role
     collabRelay.handleRoleAssign(
       wsOwner,
       { workspaceId, filePath, targetUserId: "target-1", newRole: "viewer" },
@@ -192,18 +185,15 @@ describe("Phase 11 — Gateway Collaborative Relay Service", () => {
     const targetParticipant = room.participants.get(wsTarget);
     expect(targetParticipant?.role).toBe("viewer");
 
-    // Owner kicks target participant
     collabRelay.handleKick(
       wsOwner,
       { workspaceId, filePath, targetUserId: "target-1" },
       { role: "owner" }
     );
 
-    // Target socket received kick message
     const kickMsg = wsTarget.sentMessages.find((m: string) => m.includes(WsMessageType.COLLAB_KICK));
     expect(kickMsg).toBeDefined();
 
-    // Target participant removed from room
     expect(room.participants.has(wsTarget)).toBe(false);
   });
 });

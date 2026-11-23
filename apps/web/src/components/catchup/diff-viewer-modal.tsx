@@ -80,7 +80,6 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-3xl max-h-[85vh] bg-[#252526] border border-[#3c3c3c] rounded-xl shadow-2xl overflow-hidden flex flex-col text-xs text-zinc-200"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 bg-[#1e1e1e] border-b border-[#3c3c3c]">
           <div className="flex items-center gap-2">
             <GitCompare className="w-4 h-4 text-indigo-400" />
@@ -99,7 +98,6 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           </button>
         </div>
 
-        {/* Content */}
         <div className="flex-1 overflow-y-auto p-4 font-mono text-[11px] leading-relaxed select-text">
           {isLoading && (
             <div className="py-12 flex flex-col items-center justify-center gap-2 text-zinc-400">
@@ -144,7 +142,6 @@ export const DiffViewerModal: React.FC<DiffViewerModalProps> = ({
           )}
         </div>
 
-        {/* Footer */}
         <div className="px-4 py-2.5 bg-[#1e1e1e] border-t border-[#3c3c3c] flex justify-end">
           <Button variant="secondary" size="sm" onClick={onClose} className="text-xs">
             Close Diff

@@ -85,7 +85,6 @@ export const GitStashEntrySchema = z.object({
 });
 export type GitStashEntry = z.infer<typeof GitStashEntrySchema>;
 
-// DTO Schemas
 export const GitStageDtoSchema = z.object({
   paths: z.array(z.string()).optional(),
   all: z.boolean().optional(),

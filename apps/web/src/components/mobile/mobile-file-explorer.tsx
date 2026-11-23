@@ -53,7 +53,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
     });
   };
 
-  // Flatten files for search filtering
   const flatFiles = useMemo(() => {
     const result: FileNode[] = [];
     const traverse = (nodes: FileNode[]) => {
@@ -142,7 +141,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
               <span className="text-sm truncate font-mono">{node.name}</span>
             </div>
 
-            {/* Quick delete touch button */}
             {onDeleteFile && (
               <button
                 type="button"
@@ -168,7 +166,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
 
   return (
     <div className="flex flex-col h-full bg-zinc-950 text-zinc-100 select-none overflow-hidden">
-      {/* Search and Action Bar */}
       <div className="p-2.5 border-b border-zinc-800 flex items-center gap-2 bg-zinc-900/60 shrink-0">
         <div className="relative flex-1">
           <Search className="w-4 h-4 text-zinc-400 absolute left-2.5 top-1/2 -translate-y-1/2" />
@@ -204,7 +201,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
         )}
       </div>
 
-      {/* Explorer Tree / Search Results */}
       <div className="flex-1 overflow-y-auto">
         {searchResults !== null ? (
           <div>
@@ -245,7 +241,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
         )}
       </div>
 
-      {/* Confirmation Modal for Destructive Delete */}
       {deleteConfirmPath && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <div className="bg-zinc-900 border border-zinc-800 rounded-lg p-5 max-w-sm w-full shadow-2xl">
@@ -276,7 +271,6 @@ export const MobileFileExplorer: React.FC<MobileFileExplorerProps> = ({
         </div>
       )}
 
-      {/* Create File / Folder Modal */}
       {isCreateModalOpen && (
         <div className="fixed inset-0 bg-black/70 backdrop-blur-sm z-50 flex items-center justify-center p-4">
           <form

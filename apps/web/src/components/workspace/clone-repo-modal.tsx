@@ -65,7 +65,6 @@ export const CloneRepoModal: React.FC<CloneRepoModalProps> = ({ isOpen, onClose,
         onClick={(e) => e.stopPropagation()}
         className="w-full max-w-lg bg-[#252526] border border-[#3c3c3c] rounded-lg shadow-2xl overflow-hidden flex flex-col font-sans"
       >
-        {/* Header */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-[#3c3c3c] bg-[#1e1e1e]">
           <div className="flex items-center gap-2 text-zinc-100 font-medium text-sm">
             <GitFork className="w-4 h-4 text-[#0e639c]" />
@@ -79,7 +78,6 @@ export const CloneRepoModal: React.FC<CloneRepoModalProps> = ({ isOpen, onClose,
           </button>
         </div>
 
-        {/* Form Body */}
         <form onSubmit={handleSubmit} className="p-5 space-y-4 text-xs text-zinc-300">
           <div className="space-y-1.5">
             <label className="font-medium text-zinc-200">Repository URL</label>
@@ -113,7 +111,6 @@ export const CloneRepoModal: React.FC<CloneRepoModalProps> = ({ isOpen, onClose,
             </div>
           )}
 
-          {/* Actions */}
           <div className="flex items-center justify-end gap-2 pt-3 border-t border-[#3c3c3c]">
             <Button
               type="button"

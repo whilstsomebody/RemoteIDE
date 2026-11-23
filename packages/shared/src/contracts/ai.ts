@@ -159,7 +159,8 @@ export function redactSecrets(input: string): string {
     "-----BEGIN PRIVATE KEY-----\n[REDACTED_PRIVATE_KEY]\n-----END PRIVATE KEY-----"
   );
 
-  // 6. Generic key/value password/secret assignments
+  // 6. Generic key/value password/secret assignments, including prefixed env-style keys
+  //    (DB_PASSWORD=, GITHUB_TOKEN=) and quoted JSON keys ("password": "...").
   result = result.replace(
     /\b((?:password|passwd|api_key|apikey|secret|token|auth_token|client_secret)\s*[:=]\s*["']?)([^"'\s\r\n]{6,})(["']?)/gi,
     "$1[REDACTED]$3"

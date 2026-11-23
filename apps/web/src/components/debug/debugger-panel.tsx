@@ -44,7 +44,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
   const [stopOnEntry] = useState<boolean>(true);
   const [isLoading, setIsLoading] = useState<boolean>(false);
 
-  // Debugger state
   const [callStack, setCallStack] = useState<StackFrame[]>([]);
   const [scopes, setScopes] = useState<Scope[]>([]);
   const [expandedScopes, setExpandedScopes] = useState<Record<string, boolean>>({ Local: true });
@@ -54,19 +53,16 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
   >([]);
   const [newBpLine, setNewBpLine] = useState<string>("");
 
-  // Watch expressions
   const [watchExprs, setWatchExprs] = useState<Array<{ expr: string; val?: string }>>([
     { expr: "typeof process" },
   ]);
   const [newWatchInput, setNewWatchInput] = useState<string>("");
 
-  // Debug Console / REPL
   const [consoleInput, setConsoleInput] = useState<string>("");
   const [consoleLogs, setConsoleLogs] = useState<
     Array<{ id: string; type: "input" | "output" | "error"; text: string }>
   >([]);
 
-  // Fetch active sessions
   const fetchSessions = async () => {
     try {
       const res = await fetch(
@@ -127,7 +123,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           const sc: Scope[] = json.data || [];
           setScopes(sc);
 
-          // Fetch variables for each scope
           for (const s of sc) {
             if (s.variablesReference > 0) {
               fetchVariables(s.variablesReference);
@@ -135,7 +130,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           }
         }
 
-        // Evaluate watch expressions
         evaluateAllWatch();
       } catch {
         // Ignore
@@ -190,7 +184,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     }
   };
 
-  // Launch Session
   const handleLaunch = async () => {
     setIsLoading(true);
     try {
@@ -265,7 +258,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     }
   };
 
-  // Flow control handlers
   const handleContinue = async () => {
     if (!activeSession) return;
     await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/continue`, { method: "POST" });
@@ -303,7 +295,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     await fetchSessions();
   };
 
-  // Add breakpoint
   const handleAddBreakpoint = async () => {
     const lineNum = parseInt(newBpLine, 10);
     if (isNaN(lineNum) || lineNum <= 0 || !currentFilePath) return;
@@ -329,7 +320,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     }
   };
 
-  // REPL Console Execute
   const handleConsoleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!consoleInput.trim() || !activeSession) return;
@@ -376,7 +366,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
 
   return (
     <div className="h-full flex flex-col bg-[#121214] text-zinc-200 text-xs font-sans select-none overflow-hidden">
-      {/* Header */}
       <div className="p-3 border-b border-zinc-800 flex items-center justify-between shrink-0 bg-[#18181b]">
         <div className="flex items-center gap-2">
           <Bug className="w-4 h-4 text-rose-400" />
@@ -398,7 +387,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
         )}
       </div>
 
-      {/* Control Toolbar */}
       <div className="p-2 border-b border-zinc-800/80 bg-zinc-900/60 flex items-center justify-between shrink-0">
         {!hasActive ? (
           <div className="flex items-center gap-2 w-full">
@@ -482,7 +470,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
         )}
       </div>
 
-      {/* Target Config Details */}
       {!hasActive && debugTarget === "custom" && (
         <div className="p-2 border-b border-zinc-800 bg-zinc-900/30 flex items-center gap-2">
           <input
@@ -507,9 +494,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
         </div>
       )}
 
-      {/* Main Panels Accordion */}
       <div className="flex-1 overflow-y-auto divide-y divide-zinc-800/60">
-        {/* 1. Call Stack */}
         <div className="p-2 space-y-1">
           <div className="flex items-center gap-1.5 font-semibold text-zinc-400 uppercase tracking-wider text-[10px]">
             <Layers className="w-3.5 h-3.5" />
@@ -548,7 +533,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           )}
         </div>
 
-        {/* 2. Variables Inspector */}
         <div className="p-2 space-y-1">
           <div className="flex items-center gap-1.5 font-semibold text-zinc-400 uppercase tracking-wider text-[10px]">
             <VariableIcon className="w-3.5 h-3.5" />
@@ -605,7 +589,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           )}
         </div>
 
-        {/* 3. Watch Expressions */}
         <div className="p-2 space-y-1.5">
           <div className="flex items-center justify-between font-semibold text-zinc-400 uppercase tracking-wider text-[10px]">
             <div className="flex items-center gap-1.5">
@@ -662,7 +645,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           </div>
         </div>
 
-        {/* 4. Breakpoints */}
         <div className="p-2 space-y-1.5">
           <div className="flex items-center justify-between font-semibold text-zinc-400 uppercase tracking-wider text-[10px]">
             <div className="flex items-center gap-1.5">
@@ -723,7 +705,6 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           </div>
         </div>
 
-        {/* 5. Debug Console / REPL */}
         <div className="p-2 space-y-1.5">
           <div className="flex items-center gap-1.5 font-semibold text-zinc-400 uppercase tracking-wider text-[10px]">
             <Terminal className="w-3.5 h-3.5" />

@@ -13,7 +13,6 @@ export const problemsRoutes: FastifyPluginAsync<{
 }> = async (fastify, opts) => {
   const service = opts.problemsService || problemsService;
 
-  // Get aggregated problems
   fastify.get<{
     Querystring: {
       workspaceId?: string;
@@ -43,7 +42,6 @@ export const problemsRoutes: FastifyPluginAsync<{
     return createSuccessResponse(res);
   });
 
-  // Record a manual/build problem
   fastify.post("/api/v1/problems", async (request) => {
     const body = request.body as Record<string, any>;
     if (!body || !body.workspaceId || !body.filePath || !body.message) {

@@ -32,7 +32,6 @@ const errorHandlerPluginImpl: FastifyPluginAsync = async (fastify) => {
       "API Error occurred"
     );
 
-    // Check if it's an AppError
     if (rawError instanceof AppError) {
       return reply.status(rawError.statusCode).send(
         createErrorResponse(rawError.code, rawError.message, {
@@ -57,7 +56,6 @@ const errorHandlerPluginImpl: FastifyPluginAsync = async (fastify) => {
       );
     }
 
-    // Default status code determination
     const statusCode =
       typeof error.statusCode === "number" && error.statusCode >= 400 && error.statusCode < 600
         ? error.statusCode

@@ -5,7 +5,7 @@ import { AgentEnvSchema, parseEnv } from "@remote-ide/shared";
 async function main(): Promise<void> {
   const env = parseEnv(AgentEnvSchema, process.env);
 
-  // Enforce loopback interface for Phase 1
+  // The local API has no authentication of its own; remote access goes through the tunnel.
   const bindHost = "127.0.0.1";
 
   const {

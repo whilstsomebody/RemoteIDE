@@ -23,7 +23,6 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
 }) => {
   return (
     <header className="h-11 bg-zinc-950 border-b border-zinc-800 flex items-center justify-between px-3 z-40 shrink-0 select-none pt-[env(safe-area-inset-top,0px)]">
-      {/* Left: Logo & Project Name */}
       <div className="flex items-center gap-2 min-w-0">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img src="/logo.png" alt="RemoteIDE" className="h-5 w-5 object-contain select-none shrink-0" />
@@ -32,9 +31,7 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
         </span>
       </div>
 
-      {/* Right: Network indicator, PWA install button, and Handoff button */}
       <div className="flex items-center gap-2">
-        {/* Network / Connection status dot */}
         <div className="flex items-center gap-1.5 px-2 py-0.5 rounded-full bg-zinc-900 border border-zinc-800 text-[10px] font-mono">
           <span
             className={cn(
@@ -51,7 +48,6 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </span>
         </div>
 
-        {/* PWA Install Button */}
         {isInstallable && onInstallPwa && (
           <button
             onClick={onInstallPwa}
@@ -62,7 +58,6 @@ export const MobileHeader: React.FC<MobileHeaderProps> = ({
           </button>
         )}
 
-        {/* Continue on Another Device (Handoff) */}
         {onOpenHandoff && (
           <button
             onClick={onOpenHandoff}

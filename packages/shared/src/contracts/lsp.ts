@@ -1,7 +1,5 @@
 import { z } from "zod";
 
-// --- Language Server Registry & Status ---
-
 export enum LanguageServerStatus {
   STOPPED = "stopped",
   STARTING = "starting",
@@ -43,8 +41,6 @@ export const LanguageServerMetadataSchema = z.object({
 });
 export type LanguageServerMetadata = z.infer<typeof LanguageServerMetadataSchema>;
 
-// --- Positions & Ranges ---
-
 export const LspPositionSchema = z.object({
   line: z.number().int().nonnegative(), // 0-based
   character: z.number().int().nonnegative(), // 0-based
@@ -63,8 +59,6 @@ export const LspLocationSchema = z.object({
   range: LspRangeSchema,
 });
 export type LspLocation = z.infer<typeof LspLocationSchema>;
-
-// --- Document Synchronization ---
 
 export const LspTextDocumentDidOpenDtoSchema = z.object({
   workspaceId: z.string().min(1),
@@ -95,8 +89,6 @@ export const LspTextDocumentDidCloseDtoSchema = z.object({
 });
 export type LspTextDocumentDidCloseDto = z.infer<typeof LspTextDocumentDidCloseDtoSchema>;
 
-// --- Completion ---
-
 export const LspCompletionDtoSchema = z.object({
   workspaceId: z.string().min(1),
   path: z.string().min(1),
@@ -116,8 +108,6 @@ export const LspCompletionItemSchema = z.object({
 });
 export type LspCompletionItem = z.infer<typeof LspCompletionItemSchema>;
 
-// --- Hover ---
-
 export const LspHoverDtoSchema = z.object({
   workspaceId: z.string().min(1),
   path: z.string().min(1),
@@ -130,8 +120,6 @@ export const LspHoverResultSchema = z.object({
   range: LspRangeSchema.optional(),
 });
 export type LspHoverResult = z.infer<typeof LspHoverResultSchema>;
-
-// --- Definition & References ---
 
 export const LspDefinitionDtoSchema = z.object({
   workspaceId: z.string().min(1),
@@ -147,8 +135,6 @@ export const LspReferencesDtoSchema = z.object({
   includeDeclaration: z.boolean().default(true),
 });
 export type LspReferencesDto = z.infer<typeof LspReferencesDtoSchema>;
-
-// --- Rename ---
 
 export const LspRenameDtoSchema = z.object({
   workspaceId: z.string().min(1),
@@ -168,8 +154,6 @@ export const LspWorkspaceEditSchema = z.object({
   changes: z.record(z.array(LspTextEditSchema)),
 });
 export type LspWorkspaceEdit = z.infer<typeof LspWorkspaceEditSchema>;
-
-// --- Symbols ---
 
 export const LspDocumentSymbolsDtoSchema = z.object({
   workspaceId: z.string().min(1),
@@ -191,8 +175,6 @@ export const LspWorkspaceSymbolsDtoSchema = z.object({
   query: z.string(),
 });
 export type LspWorkspaceSymbolsDto = z.infer<typeof LspWorkspaceSymbolsDtoSchema>;
-
-// --- Signature Help ---
 
 export const LspSignatureHelpDtoSchema = z.object({
   workspaceId: z.string().min(1),
@@ -219,8 +201,6 @@ export const LspSignatureHelpSchema = z.object({
 });
 export type LspSignatureHelp = z.infer<typeof LspSignatureHelpSchema>;
 
-// --- Diagnostics ---
-
 export const LspDiagnosticSeveritySchema = z.enum(["error", "warning", "info", "hint"]);
 export type LspDiagnosticSeverity = z.infer<typeof LspDiagnosticSeveritySchema>;
 
@@ -233,8 +213,6 @@ export const LspDiagnosticSchema = z.object({
   source: z.string().optional(),
 });
 export type LspDiagnostic = z.infer<typeof LspDiagnosticSchema>;
-
-// --- Code Actions & Formatting ---
 
 export const LspCodeActionDtoSchema = z.object({
   workspaceId: z.string().min(1),

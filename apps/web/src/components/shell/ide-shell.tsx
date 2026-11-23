@@ -65,7 +65,6 @@ const AGENT_BASE_URL = GATEWAY_URL;
 const GATEWAY_HTTP_URL = GATEWAY_URL;
 
 export const IdeShell: React.FC = () => {
-  // 1. Layout & Settings state (loaded from LocalStorage)
   const [editorSettings, setEditorSettings] = useState<EditorSettings>(DEFAULT_EDITOR_SETTINGS);
   const [uiLayout, setUiLayout] = useState<UiLayoutSettings>(DEFAULT_UI_LAYOUT);
   const [activeTab, setActiveTab] = useState<ActivityTab | null>("files");
@@ -73,17 +72,14 @@ export const IdeShell: React.FC = () => {
     "connected" | "connecting" | "disconnected" | "error"
   >("connecting");
 
-  // Host info
   const [hostId, setHostId] = useState<string>("local-host-agent");
   const [hostName, setHostName] = useState<string>("Local Host");
   const [platform, setPlatform] = useState<string>("macOS");
 
-  // Workspaces & Files
   const [workspaces, setWorkspaces] = useState<Workspace[]>([]);
   const [activeWorkspace, setActiveWorkspaceState] = useState<Workspace | null>(null);
   const [files, setFiles] = useState<FileNode[]>([]);
 
-  // 2. Multi-Tab & Multi-Pane Buffer State
   const [buffers, setBuffers] = useState<Record<string, FileBuffer>>({});
   const [primaryTabs, setPrimaryTabs] = useState<string[]>([]);
   const [primaryActiveTab, setPrimaryActiveTab] = useState<string | null>(null);
@@ -112,7 +108,6 @@ export const IdeShell: React.FC = () => {
     setActiveWorkspaceState(workspace);
   }, []);
 
-  // 3. Status Bar & Cursor Position
   const [cursorPos, setCursorPos] = useState<{
     line: number;
     col: number;
@@ -129,7 +124,6 @@ export const IdeShell: React.FC = () => {
     isCharging: boolean | null;
   } | null>(null);
 
-  // 4. Bottom Panel & Output Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [problems, setProblems] = useState<ProblemEntry[]>([]);
 
@@ -180,11 +174,9 @@ export const IdeShell: React.FC = () => {
     [cursorPos, primaryActiveTab, problems]
   );
 
-  // 5. Dialogs
   const [conflictPath, setConflictPath] = useState<string | null>(null);
   const [isCommandPaletteOpen, setIsCommandPaletteOpen] = useState<boolean>(false);
 
-  // 6. Coding Agent & Modals State
   const [isAgentOpen, setIsAgentOpen] = useState<boolean>(false);
   const [agentWidth, setAgentWidth] = useState<number>(360);
   const [isOpenFolderModalOpen, setIsOpenFolderModalOpen] = useState<boolean>(false);
@@ -211,7 +203,6 @@ export const IdeShell: React.FC = () => {
   const [untitledCount, setUntitledCount] = useState<number>(1);
   const [_workspaceRevision, setWorkspaceRevision] = useState<number>(0);
 
-  // Catch-Up & Device Revision Tracking
   const [deviceId] = useState<string>(() => {
     if (typeof window !== "undefined") {
       let id = localStorage.getItem("remote_ide_device_id");
@@ -228,7 +219,6 @@ export const IdeShell: React.FC = () => {
   const [unreadCatchupCount, setUnreadCatchupCount] = useState<number>(0);
   const [diffFilePath, setDiffFilePath] = useState<string | null>(null);
 
-  // Collaborative Editing (Phase 11)
   const [collabParticipants, setCollabParticipants] = useState<CollabParticipant[]>([]);
   const [collabConflict, setCollabConflict] = useState<CollabConflictStatus | null>(null);
   const [followingUserId, setFollowingUserId] = useState<string | null>(null);
@@ -236,7 +226,6 @@ export const IdeShell: React.FC = () => {
   const collabClientRef = useRef<CollabClient | null>(null);
   const wsRef = useRef<WebSocket | null>(null);
 
-  // Responsive Viewport, PWA, and Connection Recovery (Phase 10)
   const viewport = useViewport();
   const pwa = usePwa();
   const [mobileTab, setMobileTab] = useState<MobileTab>("editor");
@@ -246,7 +235,6 @@ export const IdeShell: React.FC = () => {
     new ConnectionRecoveryManager({ initialDelayMs: 1000, maxDelayMs: 30000, jitter: true })
   );
 
-  // Derive granular role-based capabilities
   const canCreateShareLink =
     isOwnerAuthenticated ||
     currentUserRole === UserRole.OWNER ||
@@ -262,7 +250,6 @@ export const IdeShell: React.FC = () => {
     isOwnerAuthenticated || currentUserRole === UserRole.OWNER || !currentUserRole;
   const isReadOnly = currentUserRole === UserRole.VIEWER;
 
-  // Helper: Append log entry
   const addLog = useCallback(
     (message: string, level: LogEntry["level"] = "info", source = "RemoteIDE") => {
       const now = new Date();
@@ -284,7 +271,6 @@ export const IdeShell: React.FC = () => {
     []
   );
 
-  // Load preferences from localStorage on mount
   useEffect(() => {
     const storedSettings = SettingsStorage.getEditorSettings();
     const storedLayout = SettingsStorage.getUiLayout();
@@ -292,7 +278,6 @@ export const IdeShell: React.FC = () => {
     setUiLayout(storedLayout);
   }, []);
 
-  // Update preferences
   const updateEditorSettings = (updated: Partial<EditorSettings>) => {
     const next = SettingsStorage.saveEditorSettings(updated);
     setEditorSettings(next);
@@ -303,7 +288,6 @@ export const IdeShell: React.FC = () => {
     setUiLayout(next);
   };
 
-  // Fetch verified user session profile from Gateway
   const fetchSessionProfile = useCallback(async () => {
     try {
       const token = localStorage.getItem("remote_ide_token") || "";
@@ -340,7 +324,6 @@ export const IdeShell: React.FC = () => {
     void fetchSessionProfile();
   }, [fetchSessionProfile]);
 
-  // Check agent health
   const checkAgentHealth = useCallback(async () => {
     try {
       const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/health`);
@@ -361,7 +344,6 @@ export const IdeShell: React.FC = () => {
     }
   }, []);
 
-  // Fetch workspaces
   const fetchWorkspaces = useCallback(async () => {
     try {
       const res = await gatewayFetch(`${AGENT_BASE_URL}/api/v1/workspaces`);
@@ -377,7 +359,6 @@ export const IdeShell: React.FC = () => {
     }
   }, [setActiveWorkspace]);
 
-  // Fetch file tree
   const fetchFiles = useCallback(async () => {
     if (!activeWorkspace) {
       setFiles([]);
@@ -396,7 +377,6 @@ export const IdeShell: React.FC = () => {
     }
   }, [activeWorkspace]);
 
-  // Initial load
   useEffect(() => {
     void checkAgentHealth();
     void fetchWorkspaces();
@@ -425,7 +405,6 @@ export const IdeShell: React.FC = () => {
     return () => clearInterval(metricsInterval);
   }, [checkAgentHealth, fetchWorkspaces]);
 
-  // Catch-Up Changelog queries & explicit user acknowledgement
   const fetchCatchupSummary = useCallback(
     async (autoOpen = true) => {
       if (!activeWorkspace) return;
@@ -481,11 +460,9 @@ export const IdeShell: React.FC = () => {
     }
   }, [catchupSummary, activeWorkspace, deviceId, addLog]);
 
-  // Inactivity & Tab Visibility / Focus Detection
   useEffect(() => {
     if (!activeWorkspace) return;
 
-    // Initial check when active workspace loads
     void fetchCatchupSummary(true);
 
     const handleVisibilityChange = () => {
@@ -522,7 +499,6 @@ export const IdeShell: React.FC = () => {
     };
   }, [activeWorkspace, fetchCatchupSummary, deviceId]);
 
-  // When active workspace changes
   useEffect(() => {
     if (activeWorkspace) {
       void fetchFiles();
@@ -530,7 +506,6 @@ export const IdeShell: React.FC = () => {
     }
   }, [activeWorkspace, fetchFiles, addLog]);
 
-  // 7. Live Distributed Synchronization via Gateway WebSocket
   useEffect(() => {
     let ws: WebSocket | null = null;
     let reconnectTimer: NodeJS.Timeout | null = null;
@@ -576,7 +551,6 @@ export const IdeShell: React.FC = () => {
                 }
               }
 
-              // Auto-refresh file tree when file changes occur
               if (
                 !activeWorkspace ||
                 !eventPayload.workspaceId ||
@@ -628,7 +602,6 @@ export const IdeShell: React.FC = () => {
     };
   }, [activeWorkspace, fetchFiles, addLog, deviceId, fetchCatchupSummary]);
 
-  // 8. Active Document Collaborative Editing Session (Phase 11)
   useEffect(() => {
     if (!primaryActiveTab || !activeWorkspace) {
       if (collabClientRef.current) {
@@ -667,12 +640,10 @@ export const IdeShell: React.FC = () => {
     };
   }, [primaryActiveTab, activeWorkspace, deviceId, hostName, isOwner, isReadOnly, addLog]);
 
-  // Open file into specified pane (defaults to primary)
   const openFile = useCallback(
     async (path: string, pane: "primary" | "secondary" = "primary", targetLine?: number) => {
       if (!activeWorkspace || workspaceIdRef.current !== activeWorkspace.id) return;
 
-      // Ensure tab is added to the specified pane
       if (pane === "primary") {
         setPrimaryTabs((prev) => (prev.includes(path) ? prev : [...prev, path]));
         setPrimaryActiveTab(path);
@@ -685,12 +656,10 @@ export const IdeShell: React.FC = () => {
         setCursorPos({ line: targetLine, col: 1, selLen: 0 });
       }
 
-      // Check if buffer is already loaded in memory
       if (buffers[path]) {
         return;
       }
 
-      // Load file from host agent
       setLoadingPaths((prev) => new Set([...prev, path]));
 
       try {
@@ -717,7 +686,6 @@ export const IdeShell: React.FC = () => {
         const readData = readBody.data;
         const statData = statBody.data;
 
-        // Check for local unsaved draft restoration
         let content = readData.content;
         let isDirty = false;
         const savedDraft = DraftStorage.getDraft(activeWorkspace.id, path);
@@ -785,7 +753,6 @@ export const IdeShell: React.FC = () => {
     });
   }, [activeWorkspace, openFile]);
 
-  // Create a new untitled in-memory text file (VS Code style)
   const handleCreateUntitledFile = useCallback(() => {
     if (isReadOnly) return;
     const filename = `Untitled-${untitledCount}.txt`;
@@ -812,7 +779,6 @@ export const IdeShell: React.FC = () => {
     addLog(`Created new file ${filename}`, "info", "Editor");
   }, [untitledCount, addLog, isReadOnly]);
 
-  // Close tab in specified pane
   const closeTab = useCallback(
     (path: string, pane: "primary" | "secondary" = "primary") => {
       const buffer = buffers[path];
@@ -847,12 +813,10 @@ export const IdeShell: React.FC = () => {
     [buffers, primaryActiveTab, secondaryActiveTab, activeWorkspace]
   );
 
-  // Update content of a buffer
   const updateBufferContent = useCallback(
     (path: string, newContent: string) => {
       if (isReadOnly) return;
 
-      // Diagnostic check for JSON problems
       if (path.endsWith(".json")) {
         try {
           JSON.parse(newContent);
@@ -918,7 +882,6 @@ export const IdeShell: React.FC = () => {
     });
   }, []);
 
-  // Save file to host agent atomically
   const saveFile = useCallback(
     async (path: string, forceOverwrite = false): Promise<void> => {
       if (isReadOnly || !activeWorkspace) return;
@@ -981,7 +944,6 @@ export const IdeShell: React.FC = () => {
     [activeWorkspace, buffers, addLog, isReadOnly]
   );
 
-  // Save all dirty files
   const saveAll = useCallback(async () => {
     if (isReadOnly) return;
     const dirtyPaths = Object.values(buffers)
@@ -995,7 +957,6 @@ export const IdeShell: React.FC = () => {
     }
   }, [buffers, saveFile, isReadOnly]);
 
-  // Periodic external change detection & stat polling
   useEffect(() => {
     if (!activeWorkspace) return;
 
@@ -1097,7 +1058,6 @@ export const IdeShell: React.FC = () => {
     };
   }, [activeWorkspace, primaryTabs, secondaryTabs, buffers, addLog]);
 
-  // Autosave delay effect
   useEffect(() => {
     if (isReadOnly || editorSettings.autosave !== "delay") return;
 
@@ -1116,7 +1076,6 @@ export const IdeShell: React.FC = () => {
     return () => clearTimeout(timer);
   }, [buffers, editorSettings.autosave, editorSettings.autosaveDelayMs, saveFile, isReadOnly]);
 
-  // Autosave on window blur
   useEffect(() => {
     if (isReadOnly || editorSettings.autosave !== "focus") return;
     const handleBlur = () => {
@@ -1126,7 +1085,6 @@ export const IdeShell: React.FC = () => {
     return () => window.removeEventListener("blur", handleBlur);
   }, [editorSettings.autosave, saveAll, isReadOnly]);
 
-  // Save session state to localStorage on tab change
   useEffect(() => {
     if (activeWorkspace && workspaceIdRef.current === activeWorkspace.id) {
       SettingsStorage.saveWorkspaceSession(activeWorkspace.id, {
@@ -1138,7 +1096,6 @@ export const IdeShell: React.FC = () => {
     }
   }, [activeWorkspace, primaryTabs, primaryActiveTab, secondaryTabs, secondaryActiveTab]);
 
-  // Keyboard shortcuts (Cmd+S, Cmd+Shift+S, Cmd+K, Cmd+P, Cmd+\, Cmd+J)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const isMod = e.metaKey || e.ctrlKey;
@@ -1179,7 +1136,6 @@ export const IdeShell: React.FC = () => {
     handleCreateUntitledFile,
   ]);
 
-  // Filesystem CRUD handlers
   const handleCreateItem = async (
     parentPath: string,
     name: string,
@@ -1235,13 +1191,11 @@ export const IdeShell: React.FC = () => {
 
     addLog(`Renamed ${oldPath} to ${newPath}`, "success", "Explorer");
 
-    // Update open tabs
     setPrimaryTabs((prev) => prev.map((p) => (p === oldPath ? newPath : p)));
     setSecondaryTabs((prev) => prev.map((p) => (p === oldPath ? newPath : p)));
     if (primaryActiveTab === oldPath) setPrimaryActiveTab(newPath);
     if (secondaryActiveTab === oldPath) setSecondaryActiveTab(newPath);
 
-    // Update buffer key
     if (buffers[oldPath]) {
       setBuffers((prev) => {
         const oldBuf = prev[oldPath];
@@ -1312,7 +1266,6 @@ export const IdeShell: React.FC = () => {
     await fetchWorkspaces();
   };
 
-  // Conflict resolution actions
   const handleOverwriteHost = async () => {
     if (conflictPath) {
       await saveFile(conflictPath, true);
@@ -1323,7 +1276,6 @@ export const IdeShell: React.FC = () => {
   const handleReloadFromHost = async () => {
     if (conflictPath && activeWorkspace) {
       DraftStorage.removeDraft(activeWorkspace.id, conflictPath);
-      // Re-read file
       const res = await gatewayFetch(
         `${AGENT_BASE_URL}/api/v1/workspaces/${activeWorkspace.id}/files/read?path=${encodeURIComponent(
           conflictPath
@@ -1360,7 +1312,6 @@ export const IdeShell: React.FC = () => {
     }
   };
 
-  // Check URL query parameters for handoff snapshot
   useEffect(() => {
     if (typeof window === "undefined") return;
     const urlParams = new URLSearchParams(window.location.search);
@@ -1370,7 +1321,6 @@ export const IdeShell: React.FC = () => {
     }
   }, []);
 
-  // Automatic connection recovery with exponential backoff & jitter
   useEffect(() => {
     const recovery = recoveryManager.current;
     if (connectionStatus === "disconnected") {
@@ -1389,7 +1339,6 @@ export const IdeShell: React.FC = () => {
     };
   }, [connectionStatus, checkAgentHealth, activeWorkspace, fetchFiles, fetchCatchupSummary]);
 
-  // Mobile symbol toolbar insertion handlers
   const handleInsertSymbol = (symbol: string) => {
     if (!primaryActiveTab || isReadOnly) return;
     const buf = buffers[primaryActiveTab];
@@ -1464,7 +1413,6 @@ export const IdeShell: React.FC = () => {
 
   return (
     <div className="h-screen w-screen flex flex-col bg-ide-bg text-zinc-100 select-none overflow-hidden font-sans">
-      {/* 1. Phone Experience Layout */}
       {viewport.isPhone ? (
         <>
           <MobileHeader
@@ -1752,9 +1700,7 @@ export const IdeShell: React.FC = () => {
             onOpenHandoff={() => setIsHandoffModalOpen(true)}
           />
 
-      {/* Main Middle Layout */}
       <div className="flex-1 flex overflow-hidden">
-        {/* Left Activity Bar */}
         <ActivityBar
           activeTab={activeTab}
           onSelectTab={(tab) => {
@@ -1769,7 +1715,6 @@ export const IdeShell: React.FC = () => {
           }}
         />
 
-        {/* Resizable Sidebar */}
         <Sidebar
           activeTab={activeTab}
           width={uiLayout.sidebarWidth}
@@ -1804,7 +1749,6 @@ export const IdeShell: React.FC = () => {
           onUpdateEditorSettings={updateEditorSettings}
         />
 
-        {/* Center Editor Area (Single or Split) */}
         <div className="flex-1 flex flex-col overflow-hidden">
           {primaryTabs.length === 0 && !uiLayout.isSplit ? (
             <WorkspaceCanvas
@@ -1812,7 +1756,6 @@ export const IdeShell: React.FC = () => {
             />
           ) : (
             <div className="flex-1 flex overflow-hidden">
-              {/* Primary Editor Pane */}
               <EditorPane
                 paneId="primary"
                 tabs={primaryTabs}
@@ -1871,7 +1814,6 @@ export const IdeShell: React.FC = () => {
                 }}
               />
 
-              {/* Secondary Editor Pane (Split View) */}
               {uiLayout.isSplit && (
                 <EditorPane
                   paneId="secondary"
@@ -1898,7 +1840,6 @@ export const IdeShell: React.FC = () => {
             </div>
           )}
 
-          {/* Bottom Panel (Terminal, Tasks, Output, Problems) */}
           <BottomPanel
             isOpen={uiLayout.bottomPanelOpen}
             activeTab={uiLayout.bottomPanelTab}
@@ -1917,7 +1858,6 @@ export const IdeShell: React.FC = () => {
           />
         </div>
 
-        {/* Gemini-Powered Read-Only AI Assistant Sidebar */}
         <AgentPanel
           isOpen={isAgentOpen}
           onClose={() => setIsAgentOpen(false)}
@@ -1938,7 +1878,6 @@ export const IdeShell: React.FC = () => {
         />
       </div>
 
-      {/* Bottom Status Bar */}
       <StatusBar
         branch={activeWorkspace ? activeWorkspace.name.toLowerCase().replace(/\s+/g, "-") : "main"}
         cursorLine={cursorPos.line}
@@ -1959,7 +1898,6 @@ export const IdeShell: React.FC = () => {
         </>
       )}
 
-      {/* Command Palette Modal (Cmd+K / Cmd+P) */}
       <CommandPalette
         isOpen={isCommandPaletteOpen}
         onClose={() => setIsCommandPaletteOpen(false)}
@@ -1987,7 +1925,6 @@ export const IdeShell: React.FC = () => {
         onTriggerAiAction={handleTriggerAiAction}
       />
 
-      {/* Concurrency Conflict Dialog */}
       <ConflictDialog
         isOpen={conflictPath !== null && !isReadOnly}
         filePath={conflictPath || ""}
@@ -1996,7 +1933,6 @@ export const IdeShell: React.FC = () => {
         onCancel={() => setConflictPath(null)}
       />
 
-      {/* Open Folder Modal */}
       <OpenFolderModal
         isOpen={isOpenFolderModalOpen && !isReadOnly}
         onClose={() => setIsOpenFolderModalOpen(false)}
@@ -2006,7 +1942,6 @@ export const IdeShell: React.FC = () => {
         defaultPath={activeWorkspace?.folders?.[0]?.path}
       />
 
-      {/* Clone Repository Modal */}
       <CloneRepoModal
         isOpen={isCloneRepoModalOpen && !isReadOnly}
         onClose={() => setIsCloneRepoModalOpen(false)}
@@ -2017,7 +1952,6 @@ export const IdeShell: React.FC = () => {
         }}
       />
 
-      {/* Share Link Modal */}
       {canCreateShareLink && (
         <ShareLinkModal
           isOpen={isShareModalOpen}
@@ -2028,7 +1962,6 @@ export const IdeShell: React.FC = () => {
         />
       )}
 
-      {/* Session Control Dashboard Modal */}
       {canViewSessions && (
         <SessionDashboardModal
           isOpen={isSessionDashboardOpen}
@@ -2037,7 +1970,6 @@ export const IdeShell: React.FC = () => {
         />
       )}
 
-      {/* Owner Auth & Bootstrap Modal */}
       <OwnerAuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}
@@ -2050,7 +1982,6 @@ export const IdeShell: React.FC = () => {
         }}
       />
 
-      {/* While You Were Away - Per-Device Catch-Up Modal */}
       <CatchupModal
         isOpen={isCatchupModalOpen}
         onClose={() => setIsCatchupModalOpen(false)}
@@ -2060,7 +1991,6 @@ export const IdeShell: React.FC = () => {
         onOpenFile={(filePath) => void openFile(filePath, "primary")}
       />
 
-      {/* Authorized Text File Diff Viewer Modal */}
       {diffFilePath && activeWorkspace && (
         <DiffViewerModal
           isOpen={diffFilePath !== null}
@@ -2072,7 +2002,6 @@ export const IdeShell: React.FC = () => {
         />
       )}
 
-      {/* Cross-Device Handoff Modal */}
       <DeviceHandoffModal
         isOpen={isHandoffModalOpen}
         onClose={() => setIsHandoffModalOpen(false)}

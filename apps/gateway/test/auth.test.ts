@@ -4,7 +4,6 @@ import { authService } from "../src/services/auth.service.js";
 
 describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
   beforeEach(() => {
-    // Reset service state
     (authService as any).users.clear();
     (authService as any).sessions.clear();
     (authService as any).tokenHashToSessionId.clear();
@@ -15,11 +14,10 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
     const app = await buildApp({ logger: false });
     const setupToken = authService.getSetupToken();
 
-    // 1. Attempt bootstrap from remote IP (should fail with 403)
     const remoteRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/bootstrap",
-      remoteAddress: "192.168.1.100", // Non-loopback
+      remoteAddress: "192.168.1.100",
       payload: {
         email: "owner@remoteide.com",
         password: "SuperSecurePassword123!",
@@ -33,7 +31,6 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
     expect(remoteBody.success).toBe(false);
     expect(remoteBody.error.message).toContain("loopback");
 
-    // 2. Bootstrap from loopback (127.0.0.1) with correct token (should succeed)
     const localRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/bootstrap",
@@ -52,7 +49,6 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
     expect(localBody.data.user.isOwner).toBe(true);
     expect(localBody.data.sessionToken).toBeDefined();
 
-    // 3. Second bootstrap attempt is rejected with 409
     const secondRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/bootstrap",
@@ -73,7 +69,6 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
     const app = await buildApp({ logger: false });
     const setupToken = authService.getSetupToken();
 
-    // Setup owner
     await app.inject({
       method: "POST",
       url: "/api/v1/auth/bootstrap",
@@ -86,7 +81,6 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
       },
     });
 
-    // 4 failed attempts
     for (let i = 0; i < 4; i++) {
       const res = await app.inject({
         method: "POST",
@@ -100,7 +94,6 @@ describe("Phase 3 - Owner Authentication & Local Setup Flow", () => {
       expect(res.statusCode).toBe(401);
     }
 
-    // 5th failed attempt -> locks account
     const fifthRes = await app.inject({
       method: "POST",
       url: "/api/v1/auth/login",

@@ -1,7 +1,5 @@
-// Errors
 export * from "./errors/app-error.js";
 
-// Contracts
 export * from "./contracts/envelope.js";
 export * from "./contracts/websocket.js";
 export * from "./contracts/capabilities.js";
@@ -29,7 +27,6 @@ export * from "./contracts/handoff.js";
 export * from "./contracts/collab.js";
 export * from "./contracts/ai.js";
 
-// Utils
 export * from "./utils/id.js";
 export * from "./utils/logger.js";
 export * from "./utils/crypto.js";
@@ -37,7 +34,6 @@ export * from "./utils/security.js";
 export * from "./utils/totp.js";
 export * from "./utils/circuit-breaker.js";
 
-// Config
 export * from "./config/env.js";
 
 export * from "./contracts/access-policy.js";

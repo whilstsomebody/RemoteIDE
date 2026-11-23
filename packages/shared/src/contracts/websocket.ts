@@ -51,7 +51,7 @@ export enum WsMessageType {
   HANDOFF_AVAILABLE = "handoff:available",
   HANDOFF_ACCEPTED = "handoff:accepted",
 
-  // Collaborative Editing (Phase 11)
+  // Collaborative Editing
   COLLAB_JOIN = "collab:join",
   COLLAB_JOINED = "collab:joined",
   COLLAB_LEAVE = "collab:leave",
@@ -69,7 +69,7 @@ export enum WsMessageType {
   COLLAB_PROPOSAL_ADD = "collab:proposal_add",
   COLLAB_PROPOSAL_ACTION = "collab:proposal_action",
 
-  // Gemini AI Assistant (Phase 12)
+  // Gemini AI Assistant
   AI_PROMPT = "ai:prompt",
   AI_STREAM_START = "ai:stream_start",
   AI_STREAM_CHUNK = "ai:stream_chunk",
