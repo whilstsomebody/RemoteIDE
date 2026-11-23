@@ -69,7 +69,9 @@
   - [2 Role-Based Access Control (RBAC) Matrix](#2-role-based-access-control-rbac-matrix)
   - [3 Server-Side Request Forgery (SSRF) Protection](#3-server-side-request-forgery-ssrf-protection)
   - [4 Filesystem Sandboxing & Symlink Jail](#4-filesystem-sandboxing-symlink-jail)
-  - [5 Sliding-Window Rate Limiting](#5-sliding-window-rate-limiting)
+  - [5 Sliding-Window Rate Limiting & Brute-Force Protection](#5-sliding-window-rate-limiting-brute-force-protection)
+  - [6 Host Agent Local API](#6-host-agent-local-api)
+  - [7 Secret Storage](#7-secret-storage)
 - [Error Handling & Observability](#error-handling-observability)
   - [1 Standardized Error Representation](#1-standardized-error-representation)
   - [2 Structured Logging](#2-structured-logging)
@@ -79,7 +81,7 @@
   - [2 End-to-End System Validation](#2-end-to-end-system-validation)
 - [Deployment & Production Setup](#deployment-production-setup)
   - [1 Single-Server Docker Compose Deployment](#1-single-server-docker-compose-deployment)
-  - [2 Caddy Automated TLS Reverse Proxy](#2-caddy-automated-tls-reverse-proxy)
+  - [2 Caddy Reverse Proxy & TLS](#2-caddy-reverse-proxy-tls)
   - [3 Host Agent Daemon Service Setup (macOS & Linux)](#3-host-agent-daemon-service-setup-macos-linux)
   - [4 High Availability & Multi-Node Scaling](#4-high-availability-multi-node-scaling)
 - [Performance Engineering & Fault Tolerance](#performance-engineering-fault-tolerance)
@@ -130,9 +132,9 @@ The developer's workstation retains complete authority over source code files, c
 ## Features & Functionality
 
 ### 1 Outbound Reverse Tunnel Transport
-- **Mechanism**: The Host Agent (`remoteide-agent`) initiates an outbound TLS WebSocket connection to `/ws/tunnel` on the API Gateway.
+- **Mechanism**: The Host Agent (`remoteide-agent`) initiates an outbound TLS WebSocket connection to `/api/v1/tunnel/agent` on the API Gateway.
 - **Multiplexed RPC**: File operations, Git executions, process controls, and preview proxies flow across the tunnel as bidirectional JSON-RPC frames over a single TCP socket.
-- **Heartbeats & Auto-Recovery**: Ping/pong heartbeats every 15 seconds. If connection drops, exponential backoff with randomized jitter reconnects automatically without disrupting active background shell jobs.
+- **Heartbeats & Auto-Recovery**: Heartbeats every 10 seconds. If connection drops, exponential backoff with randomized jitter reconnects automatically without disrupting active background shell jobs.
 
 ### 2 Responsive Mobile, Tablet & PWA Interface
 - **Three Adaptive Layouts**:
@@ -156,7 +158,7 @@ The developer's workstation retains complete authority over source code files, c
 - **Binary Hex Inspector**: Formats non-text binary assets into offset addresses, hexadecimal bytes, and ASCII representation to prevent file corruption.
 
 ### 5 Interactive PTY Terminals & Process Manager
-- **PTY Bridging**: High-throughput pseudo-terminal emulation (`node-pty`) streaming raw terminal data over `/ws/terminal` to client xterm.js instances.
+- **PTY Bridging**: High-throughput pseudo-terminal emulation (`node-pty`) streaming raw terminal data over the `/api/v1/terminals/:id/stream` WebSocket to client xterm.js instances.
 - **Terminal Re-attachment**: Terminal sessions persist independently on the host workstation. Clients can disconnect, reload, or hand off across devices and re-attach to the active shell without losing history.
 - **Process & Job Manager**: Start, monitor, restart, and terminate background build tasks and long-running daemons with CPU/memory resource gauges.
 
@@ -171,9 +173,9 @@ The developer's workstation retains complete authority over source code files, c
 - **Anti-SSRF Protection**: Prevents access to internal infrastructure ports (5432, 6379, 9092) and cloud instance metadata addresses (`169.254.169.254`).
 
 ### 8 Real-Time Yjs Collaborative Editing
-- **CRDT Synchronization**: Collaborative multi-user editing using Yjs document state matrices synchronized across `/ws/collab`.
+- **CRDT Synchronization**: Collaborative multi-user editing using Yjs document state matrices synchronized as `COLLAB_*` frames on the `/api/v1/ws` WebSocket.
 - **Awareness & Presence**: Remote cursor positions, text selection highlights, participant names, and assigned color markers.
-- **Cryptographic Role Enforcement**: Read-only `Viewer` connections are cryptographically rejected from submitting Yjs update frames or mutating document state.
+- **Cryptographic Role Enforcement**: Yjs update frames are rejected unless the socket has joined the room and neither its session role nor its in-room role is `viewer`, so demoted or kicked participants cannot keep writing.
 - **Batched Host Flushes**: Collaborative edits are debounced and committed atomically to the host filesystem to protect flash storage and avoid IO thrashing.
 
 ### 9 Event Sourcing, Outbox Pattern & Catch-Up Engine
@@ -239,7 +241,7 @@ flowchart TB
     end
 
     subgraph ControlPlane["RemoteIDE Control Plane"]
-        Gateway["Fastify API Gateway (:3001)\n• RBAC Capability Gate\n• Sliding-Window Rate Limiter\n• Reverse Tunnel Relay\n• Prometheus Telemetry\n• Outbox Publisher Engine"]
+        Gateway["Fastify API Gateway (:4000)\n• RBAC Capability Gate\n• Sliding-Window Rate Limiter\n• Reverse Tunnel Relay\n• Prometheus Telemetry\n• Outbox Publisher Engine"]
         Web["Next.js Web Server (:3000)\n• Static PWA App Shell\n• Service Worker Caching"]
         Worker["Event Worker Service\n• Kafka Consumer Group\n• Audit Event Sink\n• Retention Pruner"]
     end
@@ -257,10 +259,10 @@ flowchart TB
 
     Desk & Tab & Phone <-->|"HTTPS / WSS"| Caddy
     Caddy <-->|"HTTP :3000"| Web
-    Caddy <-->|"HTTP / WSS :3001"| Gateway
+    Caddy <-->|"HTTP / WSS :4000"| Gateway
     Gateway <--> PG & RD & KF
     Worker <--> PG & KF
-    Agent <-->|"Outbound WSS Tunnel (/ws/tunnel)\n(Multiplexed JSON-RPC)"| Gateway
+    Agent <-->|"Outbound WSS Tunnel (/api/v1/tunnel/agent)\n(Multiplexed JSON-RPC)"| Gateway
     Agent <--> Workspace
 ```
 
@@ -282,7 +284,7 @@ sequenceDiagram
     GW->>Redis: 2. Authenticate Session Token Hash
     Redis-->>GW: Return RemoteSession (Role: Developer, Capabilities)
     GW->>GW: 3. Verify Capability: FILE_READ permitted
-    GW->>Agent: 4. Forward RPC over /ws/tunnel (method: "fs.readFile")
+    GW->>Agent: 4. Forward RPC over /api/v1/tunnel/agent (method: "fs.readFile")
     Agent->>Agent: 5. Path Jail Verification (resolve symlinks via realpathSync)
     Agent->>Disk: 6. Read File & Calculate SHA-1 ETag
     Disk-->>Agent: File Buffer & Metadata
@@ -307,7 +309,7 @@ flowchart LR
 
     HostRPC --> Breaker{"Circuit Breaker\nState Check"}
     Breaker -- Open --> Err503["503 Host Agent Offline"]
-    Breaker -- Closed / Half-Open --> TunnelTx["Transmit JSON-RPC\nover /ws/tunnel"]
+    Breaker -- Closed / Half-Open --> TunnelTx["Transmit JSON-RPC\nover /api/v1/tunnel/agent"]
     TunnelTx --> HostJail{"Host Symlink &\nPath Traversal Jail"}
     HostJail -- Escaped --> ErrJail["403 Symlink Escape Detected"]
     HostJail -- Valid --> HostExec["Execute on Workstation Disk / PTY"]
@@ -514,13 +516,13 @@ RemoteIDE/
 
 ### Host Workstation (Where Code Lives)
 - **Operating System**: macOS (12.0+ Monterey or higher) or Linux (Ubuntu 20.04+, Debian 11+, Fedora 38+, Arch Linux).
-- **Node.js**: `>= 20.0.0` (Recommended: Node.js 22+ or 24 LTS).
+- **Node.js**: 24 LTS. The agent uses the built-in `node:sqlite` module, which Node.js 20 does not have.
 - **Git**: `>= 2.30.0` installed and accessible in `PATH`.
 - **Optional**: Docker Engine (for containerized workspace execution and debugging).
 
 ### Control Plane Server (Cloud or Self-Hosted)
-- **Node.js**: `>= 20.0.0`.
-- **pnpm**: `>= 9.0.0` (`npm install -g pnpm`).
+- **Node.js**: 24 LTS (the version used by CI and the Docker images).
+- **pnpm**: 12.18.0, pinned via `packageManager` (`corepack enable` installs it).
 - **PostgreSQL**: Version 16+.
 - **Redis**: Version 7+.
 - **Apache Kafka**: Version 3.6+ (KRaft mode enabled) or Redpanda.
@@ -553,39 +555,43 @@ pnpm dev
 
 The services will initialize on the following local endpoints:
 - **Web Frontend (PWA)**: `http://localhost:3000`
-- **API Gateway**: `http://localhost:3001`
+- **API Gateway**: `http://localhost:4000`
 - **Host Agent**: `http://localhost:4001` (Reverse tunnel connects automatically to Gateway)
 
 ## Environment Variables & Configuration
 
-RemoteIDE uses strongly-typed Zod schemas (`packages/shared/src/config/env.ts`) to validate environment variables at startup.
+RemoteIDE uses strongly-typed Zod schemas (`packages/shared/src/config/env.ts`) to validate most environment variables at startup; the secrets below (`ENCRYPTION_KEY`, `AGENT_AUTH_TOKEN`, `GEMINI_API_KEY`) are read directly by the services that use them.
 
 ### Gateway Configuration (`apps/gateway/.env`)
 
 | Variable | Description | Required | Default / Example |
 |---|---|:---:|---|
 | `NODE_ENV` | Application runtime environment (`development`, `production`, `test`) | Yes | `development` |
-| `PORT` | HTTP and WebSocket listening port | No | `3001` |
+| `PORT` | HTTP and WebSocket listening port | No | `4000` |
 | `HOST` | Network interface binding address | No | `0.0.0.0` |
 | `DATABASE_URL` | PostgreSQL connection string | Yes | `postgresql://remoteide:remoteide_dev_pass@localhost:5432/remoteide_db` |
 | `REDIS_URL` | Redis server connection string | Yes | `redis://localhost:6379` |
 | `KAFKA_BROKERS` | Comma-separated list of Kafka broker hostnames | Yes | `localhost:9092` |
 | `JWT_SECRET` | Secret key used to sign and verify session JWTs (minimum 16 characters) | Yes | `dev-super-secret-jwt-key-min-16-chars` |
 | `SETUP_TOKEN` | Initial bootstrap token for claiming the Owner account | No | Auto-generated in `~/.remoteide/setup-token` if unset |
-| `CORS_ORIGIN` | Allowed client origin for CORS and WebSocket handshake verification | No | `http://localhost:3000` |
+| `CORS_ORIGIN` | Allowed client origin for CORS and WebSocket handshake verification. Must be the public origin in production, or browser requests get 403 | No | `http://localhost:3000` |
+| `ENCRYPTION_KEY` | Key for AES-256-GCM encryption of stored secrets (MFA secrets, Gemini API keys). Falls back to `SESSION_SECRET`; required when `NODE_ENV=production` | Production | — |
+| `AGENT_AUTH_TOKEN` | Pre-shared token host agents must present on the tunnel | Yes | — |
+| `GATEWAY_STATE_PATH` | SQLite file holding the owner account, sessions and share links | No | `./data/gateway-state.sqlite` |
+| `GEMINI_API_KEY` | Server-wide Gemini key used when a user has not saved their own | No | — |
 | `LOG_LEVEL` | Pino logging threshold (`trace`, `debug`, `info`, `warn`, `error`) | No | `info` |
 
-### Host Agent Configuration (`apps/agent/.env` or `~/.remoteide/agent.json`)
+### Host Agent Configuration (`apps/agent/.env` or `~/.remoteide/config.json`)
 
 | Variable | Description | Required | Default / Example |
 |---|---|:---:|---|
 | `HOST_IDENTIFIER` | Unique machine identifier for this host workstation | No | `local-host-agent` |
 | `PORT` | Local agent HTTP listening port | No | `4001` |
 | `HOST` | Loopback binding address | No | `127.0.0.1` |
-| `GATEWAY_WS_URL` | WebSocket endpoint for the Gateway reverse tunnel | Yes | `ws://127.0.0.1:3001/ws/tunnel` |
+| `GATEWAY_WS_URL` | WebSocket endpoint for the Gateway reverse tunnel | Yes | `ws://127.0.0.1:4000/api/v1/tunnel/agent` |
 | `AGENT_AUTH_TOKEN` | Pre-shared token authorizing host connection to Gateway | Yes | `agt_sec_0192837465abcdef` |
-| `SQLITE_JOURNAL_PATH`| Filesystem path for the host SQLite change journal database | No | `~/.remoteide/state.sqlite` |
-| `ALLOWED_PROJECT_ROOTS`| Colon-delimited list of root paths allowed for workspace registration | No | Current working directory |
+| `SQLITE_JOURNAL_PATH`| Filesystem path for the host SQLite change journal database | No | `./data/agent-journal.sqlite` |
+| `ALLOWED_PROJECT_ROOTS`| Comma-separated list of root paths allowed for workspace registration. The filesystem root and the home directory itself are always refused | No | Current working directory |
 
 ## Running the Project & Available Commands
 
@@ -595,10 +601,9 @@ RemoteIDE leverages Turborepo to coordinate tasks across packages:
 # Development & Execution
 pnpm dev              # Start all packages in parallel watch mode
 pnpm build            # Compile production builds across all packages
-pnpm start            # Run compiled production binaries
 
 # Verification & Code Quality
-pnpm typecheck        # Run TypeScript type check across all 8 packages
+pnpm typecheck        # Build dependencies, then type check every package
 pnpm lint             # Run ESLint validation across all applications and packages
 pnpm test             # Run all Vitest unit and integration test suites
 pnpm test:e2e         # Execute Playwright browser automation tests
@@ -607,7 +612,7 @@ pnpm test:e2e         # Execute Playwright browser automation tests
 pnpm db:generate      # Generate Drizzle migration files from TypeScript schema
 pnpm db:migrate       # Apply pending migrations to PostgreSQL database
 pnpm db:push          # Push schema changes directly (prototyping)
-pnpm db:studio        # Open Drizzle Studio visual database inspector
+pnpm --filter @remote-ide/db db:studio  # Open Drizzle Studio visual database inspector
 
 # Infrastructure Management
 pnpm infra:up         # Launch PostgreSQL, Redis, and Kafka Docker containers
@@ -657,7 +662,7 @@ All REST API endpoints are served under `/api/v1` and return standardized JSON e
    ```
    Authorization: Bearer <token>
    ```
-3. **MFA Enforcement**: If a user account has MFA enabled, `POST /api/v1/auth/login` returns `{ "mfaRequired": true, "mfaTicket": "mfa_..." }`. The caller must supply the ticket and a 6-digit TOTP code to `POST /api/v1/auth/mfa/authenticate` to obtain their session token.
+3. **MFA Enforcement**: If a user account has MFA enabled, `POST /api/v1/auth/login` returns `{ "mfaRequired": true, "mfaTicket": "mfa_..." }` and sets no session cookie. The caller must supply the ticket and a 6-digit TOTP code to `POST /api/v1/auth/mfa/authenticate` to obtain their session token. A ticket allows 5 attempts, then it is discarded and the user must log in again.
 
 ### 3 Consolidated Endpoint Summary Table
 
@@ -695,7 +700,7 @@ All REST API endpoints are served under `/api/v1` and return standardized JSON e
 | `POST` | `/api/v1/ai/conversations/:id/stream` | Stream Gemini answer via SSE | `AI_CONVERSE` (Read-Only) |
 | `GET` | `/health` | Basic liveness probe | Public |
 | `GET` | `/health/readiness` | Deep readiness check (DB, Redis, Kafka)| Public |
-| `GET` | `/metrics` | Prometheus metrics scrape target | Public / Internal |
+| `GET` | `/metrics` | Prometheus metrics scrape target | Internal network only (Caddy returns 404) |
 
 ---
 
@@ -705,7 +710,7 @@ All REST API endpoints are served under `/api/v1` and return standardized JSON e
 Initialize the primary Owner account on first startup. Must be invoked from trusted loopback or supply valid setup token.
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/auth/bootstrap \
+curl -X POST http://localhost:4000/api/v1/auth/bootstrap \
   -H "Content-Type: application/json" \
   -d '{
     "email": "owner@remoteide.dev",
@@ -736,7 +741,7 @@ curl -X POST http://localhost:3001/api/v1/auth/bootstrap \
 Create an ephemeral, role-restricted, cryptographically hashed access link.
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/share-links \
+curl -X POST http://localhost:4000/api/v1/share-links \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -773,7 +778,7 @@ curl -X POST http://localhost:3001/api/v1/share-links \
 Read text or binary file contents with concurrency ETag.
 
 ```bash
-curl -X GET "http://localhost:3001/api/v1/workspaces/ws_123456/files/content?path=src/index.ts" \
+curl -X GET "http://localhost:4000/api/v1/workspaces/ws_123456/files/content?path=src/index.ts" \
   -H "Authorization: Bearer <sessionToken>"
 ```
 
@@ -797,7 +802,7 @@ curl -X GET "http://localhost:3001/api/v1/workspaces/ws_123456/files/content?pat
 Perform an atomic write with optimistic concurrency control.
 
 ```bash
-curl -X PUT http://localhost:3001/api/v1/workspaces/ws_123456/files/content \
+curl -X PUT http://localhost:4000/api/v1/workspaces/ws_123456/files/content \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -824,7 +829,7 @@ curl -X PUT http://localhost:3001/api/v1/workspaces/ws_123456/files/content \
 Run a non-interactive shell command on the host machine.
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/workspaces/ws_123456/exec \
+curl -X POST http://localhost:4000/api/v1/workspaces/ws_123456/exec \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -854,7 +859,7 @@ curl -X POST http://localhost:3001/api/v1/workspaces/ws_123456/exec \
 Retrieve repository branch status, staged, and unstaged modifications.
 
 ```bash
-curl -X GET http://localhost:3001/api/v1/workspaces/ws_123456/git/status \
+curl -X GET http://localhost:4000/api/v1/workspaces/ws_123456/git/status \
   -H "Authorization: Bearer <sessionToken>"
 ```
 
@@ -878,7 +883,7 @@ curl -X GET http://localhost:3001/api/v1/workspaces/ws_123456/git/status \
 Request dynamic port forwarding for application preview.
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/workspaces/ws_123456/ports \
+curl -X POST http://localhost:4000/api/v1/workspaces/ws_123456/ports \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -905,7 +910,7 @@ curl -X POST http://localhost:3001/api/v1/workspaces/ws_123456/ports \
 Retrieve a net-diff changelog of revisions missed during network disconnection.
 
 ```bash
-curl -X GET "http://localhost:3001/api/v1/catchup/summary?workspaceId=ws_123456&deviceId=phone-b" \
+curl -X GET "http://localhost:4000/api/v1/catchup/summary?workspaceId=ws_123456&deviceId=phone-b" \
   -H "Authorization: Bearer <sessionToken>"
 ```
 
@@ -932,7 +937,7 @@ curl -X GET "http://localhost:3001/api/v1/catchup/summary?workspaceId=ws_123456&
 Monotonically advance the device's acknowledged changelog cursor.
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/catchup/ack \
+curl -X POST http://localhost:4000/api/v1/catchup/ack \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -950,7 +955,7 @@ curl -X POST http://localhost:3001/api/v1/catchup/ack \
 Stream an answer from Google Gemini using Server-Sent Events (SSE).
 
 ```bash
-curl -X POST http://localhost:3001/api/v1/ai/conversations/conv_123/stream \
+curl -X POST http://localhost:4000/api/v1/ai/conversations/conv_123/stream \
   -H "Authorization: Bearer <sessionToken>" \
   -H "Content-Type: application/json" \
   -d '{
@@ -981,7 +986,7 @@ data: {}
 Deep dependency verification checking PostgreSQL connection, Redis ping, and Kafka broker state.
 
 ```bash
-curl -s http://localhost:3001/health/readiness
+curl -s http://localhost:4000/health/readiness
 ```
 
 **Response (`200 OK`)**:
@@ -1001,19 +1006,19 @@ curl -s http://localhost:3001/health/readiness
 Prometheus metrics scrape target reporting HTTP request durations (p50, p90, p95, p99), active WebSocket connections, and rate-limiting counters.
 
 ```bash
-curl -s http://localhost:3001/metrics
+curl -s http://localhost:4000/metrics
 ```
 
 ### 13 WebSocket Protocol Specification
 
-RemoteIDE maintains three dedicated WebSocket communication channels:
+RemoteIDE maintains three WebSocket channels:
 
 ```mermaid
 flowchart TD
     subgraph WsChannels["WebSocket Multiplexing"]
-        Tunnel["/ws/tunnel\n(Host Agent <-> Gateway)\n• Bidirectional JSON-RPC\n• Ping / Pong Keep-Alive (15s)"]
-        Terminal["/ws/terminal\n(Browser <-> PTY Shell)\n• Keystroke Streaming (xterm.js)\n• Window Resize Events"]
-        Collab["/ws/collab\n(Browser <-> Yjs CRDT Room)\n• Vector Clock Exchange\n• Awareness (Cursor & Color)\n• Cryptographic Viewer Lockout"]
+        Tunnel["/api/v1/tunnel/agent\n(Host Agent <-> Gateway)\n• Bidirectional JSON-RPC\n• Heartbeat every 10s"]
+        Terminal["/api/v1/terminals/:id/stream\n(Browser <-> PTY Shell)\n• Keystroke Streaming (xterm.js)\n• Window Resize Events"]
+        Client["/api/v1/ws\n(Browser <-> Gateway)\n• Events, presence & catch-up cursors\n• Yjs collab rooms (membership & role checked)\n• AI prompt streaming"]
     end
 ```
 
@@ -1032,7 +1037,7 @@ interface WsEnvelope<T = unknown> {
 ### 14 End-to-End Multi-Endpoint Workflow Examples
 
 #### Complete Scenario: Device Pairing & Catch-Up Workflow
-1. **Host Registers**: Workstation connects via `WSS /ws/tunnel`.
+1. **Host Registers**: Workstation connects via `WSS /api/v1/tunnel/agent`.
 2. **Client Logs In**: Developer logs in via `POST /api/v1/auth/login` and receives session token.
 3. **Workspace Selected**: Client calls `GET /api/v1/workspaces` and opens `src/app.ts` via `GET /api/v1/workspaces/:id/files/content`.
 4. **Edits Saved**: Developer updates file via `PUT /api/v1/workspaces/:id/files/content` passing `expectedETag`.
@@ -1074,51 +1079,72 @@ pnpm db:migrate
 
 ### 2 Role-Based Access Control (RBAC) Matrix
 
-| Capability | Description | Owner | Operator | Developer | Editor | Viewer |
+| Permission | Grants | Owner | Operator | Developer | Editor | Viewer |
 |---|---|:---:|:---:|:---:|:---:|:---:|
-| `WORKSPACE_READ` | Browse file tree and metadata | Yes | Yes | Yes | Yes | Yes |
-| `WORKSPACE_WRITE` | Modify workspace configuration | Yes | Yes | Yes | No | No |
-| `WORKSPACE_DELETE` | Delete workspace registration | Yes | No | No | No | No |
-| `FILE_READ` | Inspect file contents | Yes | Yes | Yes | Yes | Yes |
-| `FILE_WRITE` | Create, modify, or delete files | Yes | Yes | Yes | Yes | No |
-| `TERMINAL_ATTACH` | Attach to or observe terminal output | Yes | Yes | Yes | No | No |
-| `TERMINAL_EXEC` | Send keystrokes and run shell commands | Yes | Yes | Yes | No | No |
-| `GIT_READ` | View status, log, diff, and branches | Yes | Yes | Yes | Yes | Yes |
-| `GIT_WRITE` | Commit, branch, and stage modifications | Yes | Yes | Yes | No | No |
-| `PROCESS_CONTROL` | Start, restart, or kill processes | Yes | Yes | Yes | No | No |
-| `PREVIEW_ACCESS` | Access port-forwarded web previews | Yes | Yes | Yes | Yes | No |
-| `SHARE_MANAGE` | Create or revoke temporary share links | Yes | Yes | No | No | No |
-| `COLLAB_EDIT` | Inject Yjs CRDT collaborative edits | Yes | Yes | Yes | Yes | No |
+| `FS_READ` | Browse the file tree and read file contents | Yes | Yes | Yes | Yes | Yes |
+| `FS_WRITE` | Create and modify files | Yes | Yes | Yes | Yes | No |
+| `FS_DELETE` | Delete files and folders | Yes | Yes | Yes | No | No |
+| `FS_TRANSFER` | Upload and download files | Yes | Yes | Yes | Yes | No |
+| `GIT_READ` | View status, log, diff and branches | Yes | Yes | Yes | Yes | Yes |
+| `GIT_OPERATION` / `GIT_WRITE` | Stage, commit, branch and check out | Yes | Yes | Yes | Yes | No |
+| `GIT_PUSH` | Push and pull remotes | Yes | Yes | Yes | No | No |
+| `GIT_DESTRUCTIVE` | Force-push, hard reset and other destructive operations | Yes | Yes | No | No | No |
+| `TERMINAL_ACCESS` / `TERMINAL_EXECUTE` / `TERMINAL_READ` / `TERMINAL_WRITE` | Open, attach to and type into PTY shells | Yes | No | No | No | No |
+| `TASK_EXECUTE` | Run background jobs | Yes | Yes | Yes | No | No |
+| `PROCESS_CONTROL` | Manage running processes | Yes | Yes | Yes | No | No |
+| `PROCESS_SPAWN` / `PROCESS_KILL` | Start and kill arbitrary processes | Yes | Yes | No | No | No |
+| `PORT_FORWARD` | Forward host ports for preview | Yes | Yes | No | No | No |
+| `PREVIEW_ACCESS` | Open port-forwarded web previews | Yes | Yes | Yes | Yes | No |
+| `LSP_ACCESS` | Completions, diagnostics, hover and navigation | Yes | Yes | Yes | Yes | Yes |
+| `DEBUG_ACCESS` / `DEBUG_EXECUTE` | Start and drive debug sessions | Yes | Yes | Yes | No | No |
+| `TEST_EXECUTE` | Run test suites | Yes | Yes | Yes | Yes | No |
+| `HOST_METRICS_READ` | Read host metrics and alerts | Yes | Yes | Yes | Yes | Yes |
+| `DOCKER_READ` | List containers, images and logs | Yes | Yes | Yes | No | No |
+| `DOCKER_CONTROL` | Start, stop and restart containers | Yes | Yes | No | No | No |
+| `DOCKER_EXEC` | Execute commands inside containers | Yes | No | No | No | No |
+| `DATABASE_READ` | Browse database schemas and tables | Yes | Yes | Yes | No | No |
+| `DATABASE_QUERY` | Run read-only SQL queries | Yes | Yes | No | No | No |
+| `DEVOPS_READ` / `DEVOPS_CONTROL` | Inspect / control PM2 and SSH profiles | Yes | Yes | Read only | No | No |
+| `SETTINGS_WRITE` | Change host settings | Yes | No | No | No | No |
+
+The source of truth is `ROLE_PERMISSIONS` in `packages/shared/src/contracts/capabilities.ts`. Additional rules:
+- Only the Owner and Operator can create or revoke share links.
+- Sessions restricted to specific workspaces (`allowedWorkspaceIds`) cannot use host-wide tools (terminals, Docker, LSP, tests, metrics); the host agent enforces this again on every tunneled request.
+- Collaboration roles sent by a client are capped at the role of its authenticated session.
 
 ### 3 Server-Side Request Forgery (SSRF) Protection
-To prevent attackers from using the Host Agent or Gateway as a network pivot:
-- **Blocked Cloud Metadata IPs**: `169.254.169.254`, `metadata.google.internal`, `100.100.100.200`.
-- **Blocked Infrastructure Ports**: `5432` (PostgreSQL), `6379` (Redis), `9092` (Kafka), `2375/2376` (Docker daemon).
+To prevent attackers from using the Host Agent or Gateway as a network pivot (`packages/shared/src/utils/security.ts`):
+- **HTTP(S) only**: The API client rejects every other URL scheme (`file:`, `gopher:`, …); scheme matching is case-insensitive.
+- **Blocked metadata endpoints**: `169.254.169.254`, `metadata.google.internal`, `metadata.goog`, `instance-data`, `100.100.100.200`, the whole `169.254.0.0/16` link-local range, IPv6 link-local and `fd00:ec2::254`, plus multicast and broadcast addresses. Trailing-dot hostnames and IPv4 addresses embedded in IPv6 (`::ffff:`, `::`, `64:ff9b::`) are normalized before checking.
+- **DNS checks**: Hostnames are resolved and every resolved address is checked, so a DNS name (or rebinding record) pointing at a metadata address is refused.
+- **Blocked infrastructure ports (API client)**: `5432` (PostgreSQL), `6379` (Redis), `9092` (Kafka), `2375/2376` (Docker daemon).
+- **Port forwarding & previews**: Only `127.0.0.1` on the forwarded port is proxied, and a wider set of infrastructure ports (SSH, databases, Kubernetes, etcd, Elasticsearch, the gateway and agent ports) cannot be forwarded.
 
 ### 4 Filesystem Sandboxing & Symlink Jail
-Every filesystem access resolves symlinks (`fs.realpathSync`) and asserts strict containment within the authorized workspace root folder:
-```typescript
-export function validateWorkspacePath(workspaceRoot: string, targetPath: string): string {
-  const safeRoot = path.resolve(workspaceRoot);
-  const target = path.resolve(safeRoot, targetPath);
-  if (!target.startsWith(safeRoot + path.sep) && target !== safeRoot) {
-    throw new AppError(ErrorCode.FORBIDDEN, "Directory traversal detected");
-  }
-  if (fs.existsSync(target)) {
-    const real = fs.realpathSync(target);
-    if (!real.startsWith(safeRoot + path.sep) && real !== safeRoot) {
-      throw new AppError(ErrorCode.FORBIDDEN, "Symlink escape detected");
-    }
-    return real;
-  }
-  return target;
-}
-```
+Every filesystem access goes through `FilesystemService.resolveSafePath` (`apps/agent/src/services/filesystem.service.ts`), which:
+- Rejects null bytes and normalizes the client-supplied path relative to the workspace folder (multi-root workspaces select the folder by its name prefix).
+- Asserts the resolved path stays inside the canonical (`realpath`) workspace root, comparing against `root + path.sep` so sibling folders such as `/projects/app-secrets` do not match `/projects/app`.
+- Resolves symlinks with `fs.realpathSync` and rejects targets outside the root with `SYMLINK_ESCAPE_DETECTED` (HTTP 403).
+- Only reads regular files, so FIFOs and device files inside a workspace cannot block the agent.
 
-### 5 Sliding-Window Rate Limiting
-In-memory and Redis-backed sliding-window rate limiters enforce requests-per-minute quotas:
-- Authentication endpoints: 20 requests / 15 minutes per IP.
-- Standard API endpoints: 300 requests / minute per token/IP.
+Workspace registration itself refuses the filesystem root and the home directory, and is limited to `ALLOWED_PROJECT_ROOTS`.
+
+### 5 Sliding-Window Rate Limiting & Brute-Force Protection
+In-memory and Redis-backed sliding-window rate limiters enforce per-IP quotas, classified by the matched route (percent-encoded paths cannot slip into the wrong bucket):
+- Authentication endpoints (`/auth/login`, `/auth/bootstrap`, `/auth/mfa/authenticate`, `/share-links/redeem`): 15 requests / minute.
+- All other API endpoints: 600 requests / minute.
+
+Credential guessing is also limited per target:
+- **Password login**: 5 failures for the same email from the same IP lock that combination for 5 minutes.
+- **MFA**: 5 TOTP attempts per MFA ticket.
+- **Share-link PINs**: 5 wrong PINs lock the link (HTTP 429) until it is recreated.
+
+### 6 Host Agent Local API
+The agent's local HTTP API (`127.0.0.1:4001`) has no authentication of its own, so it only accepts requests whose `Host` is a loopback name and whose `Origin`, when present, is a local UI origin (`localhost`/`127.0.0.1` on ports 3000 or 4000). This blocks DNS rebinding, cross-site requests and cross-site WebSocket hijacking of terminals. Remote access always goes through the authenticated tunnel, where the agent re-checks the session's permissions against the canonical (dot-segment-resolved) request path before dispatching.
+
+### 7 Secret Storage
+- Session tokens, share-link tokens and PINs are stored only as SHA-256 hashes; PIN and setup-token checks use constant-time comparison.
+- MFA secrets and user Gemini API keys are encrypted with AES-256-GCM (random 12-byte IV, full 16-byte authentication tag). The gateway refuses to encrypt in production unless `ENCRYPTION_KEY` (or `SESSION_SECRET`) is set.
 
 ## Error Handling & Observability
 
@@ -1127,13 +1153,15 @@ All operational exceptions extend `AppError`:
 ```typescript
 export class AppError extends Error {
   constructor(
-    public readonly code: ErrorCode,
+    code: ErrorCode,
     message: string,
-    public readonly statusCode: number = 400,
-    public readonly details?: unknown
-  ) {
-    super(message);
-  }
+    options?: {
+      statusCode?: number;
+      details?: ErrorDetails[];
+      cause?: unknown;
+      isOperational?: boolean;
+    }
+  );
 }
 ```
 
@@ -1143,7 +1171,7 @@ Fastify and Host Agent utilize Pino for structured JSON logging:
 - Sensitive tokens and passwords are redacted from log outputs.
 
 ### 3 Prometheus Metrics & Observability
-- Endpoint: `GET /metrics`
+- Endpoint: `GET /metrics` (also `/api/v1/metrics`). It is unauthenticated, so the production Caddyfile returns 404 for it; scrape `gateway:4000/metrics` from the internal Docker network instead.
 - Tracks HTTP request durations (histograms for p50, p90, p95, p99), active WebSocket connection gauges, rate-limiting drops, and Kafka producer/consumer lag.
 
 ## Testing & Quality Assurance
@@ -1152,8 +1180,8 @@ Fastify and Host Agent utilize Pino for structured JSON logging:
 RemoteIDE maintains extensive automated test suites using Vitest:
 - `@remote-ide/shared`: Tests for envelopes, TOTP generation/verification, circuit breakers, and anti-SSRF guards.
 - `@remote-ide/db`: Schema verification, connection pooling, and migration tests.
-- `@remote-ide/agent`: Filesystem jail, PTY manager, Git operations, and SQLite journal tests (23 test files, 101 tests).
-- `@remote-ide/gateway`: Auth, rate limiting, share links, catch-up reconciliation, and AI streaming tests (15 test files, 70 tests).
+- `@remote-ide/agent`: Filesystem jail, PTY manager, Git operations, and SQLite journal tests (23 test files, 120 tests).
+- `@remote-ide/gateway`: Auth, rate limiting, share links, catch-up reconciliation, and AI streaming tests (15 test files, 76 tests).
 
 ```bash
 # Run all unit and integration test suites
@@ -1179,9 +1207,14 @@ Production deployments run in containerized environments defined in `infra/docke
 # Enter the infrastructure directory
 cd infra
 
-# Configure production environment secrets
-cp .env.example .env
-nano .env
+# Configure production environment secrets (compose refuses to start without them)
+cat > .env <<'EOF'
+PUBLIC_ORIGIN=https://ide.example.com
+POSTGRES_PASSWORD=<strong random value>
+JWT_SECRET=<strong random value, 16+ chars>
+ENCRYPTION_KEY=<strong random value>
+AGENT_AUTH_TOKEN=<strong random value>
+EOF
 
 # Build and launch all production containers
 docker compose -f docker-compose.prod.yml up -d --build
@@ -1190,12 +1223,17 @@ docker compose -f docker-compose.prod.yml up -d --build
 docker compose -f docker-compose.prod.yml ps
 ```
 
-### 2 Caddy Automated TLS Reverse Proxy
-Caddy manages automated Let's Encrypt certificates and injects strict security headers:
-- `Strict-Transport-Security: max-age=63072000; includeSubDomains; preload`
+`PUBLIC_ORIGIN` is used as the gateway's `CORS_ORIGIN` and is baked into the web build as `NEXT_PUBLIC_GATEWAY_URL` (Next.js inlines `NEXT_PUBLIC_*` values at build time, so rebuild the web image after changing it). Gateway state is persisted in the `gateway_data` volume.
+
+### 2 Caddy Reverse Proxy & TLS
+`infra/caddy/Caddyfile` routes `/api/*` and `/health*` to the gateway and everything else to the web app, and sets these security headers:
+- `Strict-Transport-Security: max-age=31536000; includeSubDomains; preload`
 - `X-Content-Type-Options: nosniff`
-- `X-Frame-Options: DENY`
+- `X-Frame-Options: SAMEORIGIN` (the preview tab embeds same-origin iframes)
 - `Referrer-Policy: strict-origin-when-cross-origin`
+- The `Server` header is removed, and `/metrics` returns 404.
+
+The site address is `:80, :443`. For automatic Let's Encrypt certificates, replace it with your domain name.
 
 ### 3 Host Agent Daemon Service Setup (macOS & Linux)
 The Host Agent CLI (`remoteide-agent`) installs background daemons that survive reboots and restarts:
@@ -1255,13 +1293,13 @@ To ensure sub-millisecond query execution under load:
 ### Diagnostic Checklist
 ```bash
 # Check Gateway health and readiness
-curl -s http://localhost:3001/health/readiness | jq .
+curl -s http://localhost:4000/health/readiness | jq .
 
 # Check Host Agent service status
 remoteide-agent status
 
 # Check real-time Prometheus HTTP latency metrics
-curl -s http://localhost:3001/metrics | grep remoteide_http_request
+curl -s http://localhost:4000/metrics | grep remoteide_http_request
 ```
 
 ### Common Issues & Remediation
@@ -1331,6 +1369,12 @@ We welcome contributions from the community!
 
 - **Browser Memory Limits on Massive Repositories**: Displaying file trees containing over 100,000 files in a single flat folder can cause browser DOM lag. Use `.gitignore` to omit `node_modules` and build directories.
 - **Single Host per Workspace**: A workspace is physically bound to one host machine at a time; cross-host distributed clustering is not supported.
+- **Rate limits behind a proxy**: The gateway does not trust `X-Forwarded-For`, so behind Caddy all clients share one rate-limit bucket (the proxy's IP).
+- **LSP paths**: Language-server requests are not yet confined to the workspace root, so an unrestricted session with `LSP_ACCESS` can point them at other files on the host.
+- **Browser token storage**: Session tokens are kept in `localStorage`, and WebSocket connections pass the token as a `?token=` query parameter.
+- **MFA login UI**: The web app does not yet prompt for the TOTP code after `mfaRequired`; MFA logins currently need the API.
+- **Handoff QR codes**: The QR code shown for device handoff is a visual placeholder and cannot be scanned; use the 6-digit claim code.
+- **cloudflared mode**: Because the agent only accepts loopback `Host` headers, a `cloudflared` tunnel must rewrite the Host header to `localhost`.
 
 ## License
 
