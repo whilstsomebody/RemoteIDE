@@ -1,3 +1,6 @@
+# Required environment (e.g. in infra/.env): PUBLIC_ORIGIN (https://ide.example.com),
+# POSTGRES_PASSWORD, JWT_SECRET, ENCRYPTION_KEY, AGENT_AUTH_TOKEN. Compose refuses to start without them
+# rather than falling back to well-known default secrets.
 services:
   # Ingress & TLS Termination Proxy
   caddy:
@@ -29,12 +32,17 @@ services:
     environment:
       PORT: 4000
       NODE_ENV: production
-      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:-remoteide_prod_secret}@postgres:5432/remoteide_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/remoteide_db
+      REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
-      JWT_SECRET: ${JWT_SECRET:-generate_secure_random_production_secret_32b}
+      JWT_SECRET: ${JWT_SECRET:?JWT_SECRET is required}
+      ENCRYPTION_KEY: ${ENCRYPTION_KEY:?ENCRYPTION_KEY is required}
+      AGENT_AUTH_TOKEN: ${AGENT_AUTH_TOKEN:?AGENT_AUTH_TOKEN is required}
+      CORS_ORIGIN: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
+      GATEWAY_STATE_PATH: /app/data/gateway-state.sqlite
       LOG_LEVEL: ${LOG_LEVEL:-info}
+    volumes:
+      - gateway_data:/app/data
     depends_on:
       postgres:
         condition: service_healthy
@@ -55,11 +63,12 @@ services:
     build:
       context: ..
       dockerfile: apps/web/Dockerfile
+      args:
+        NEXT_PUBLIC_GATEWAY_URL: ${PUBLIC_ORIGIN:?PUBLIC_ORIGIN is required}
     container_name: remoteide-web
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://localhost}
     depends_on:
       - gateway
     networks:
@@ -74,9 +83,8 @@ services:
     restart: unless-stopped
     environment:
       NODE_ENV: production
-      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:-remoteide_prod_secret}@postgres:5432/remoteide_db
-      REDIS_HOST: redis
-      REDIS_PORT: 6379
+      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}@postgres:5432/remoteide_db
+      REDIS_URL: redis://redis:6379
       KAFKA_BROKERS: kafka:9092
     depends_on:
       postgres:
@@ -93,7 +101,7 @@ services:
     restart: unless-stopped
     environment:
       POSTGRES_USER: remoteide
-      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-remoteide_prod_secret}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?POSTGRES_PASSWORD is required}
       POSTGRES_DB: remoteide_db
     volumes:
       - postgres_data:/var/lib/postgresql/data
@@ -160,6 +168,7 @@ networks:
 volumes:
   caddy_data:
   caddy_config:
+  gateway_data:
   postgres_data:
   redis_data:
   kafka_data:

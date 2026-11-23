@@ -10,6 +10,7 @@
         X-Content-Type-Options "nosniff"
         X-Frame-Options "SAMEORIGIN"
         Referrer-Policy "strict-origin-when-cross-origin"
+        -Server
     }
 
     # API and WebSocket routes directed to Gateway
@@ -25,8 +26,13 @@
         reverse_proxy gateway:4000
     }
 
+    # Telemetry is unauthenticated on the gateway; scrape it on the internal network (gateway:4000) instead.
     handle /metrics {
-        reverse_proxy gateway:4000
+        respond 404
+    }
+
+    handle /api/v1/metrics {
+        respond 404
     }
 
     # Everything else directed to Next.js Web Frontend

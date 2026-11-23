@@ -12,6 +12,11 @@ RUN pnpm install --frozen-lockfile
 RUN pnpm --filter @remote-ide/shared build
 RUN pnpm --filter @remote-ide/ui build
 ENV NEXT_TELEMETRY_DISABLED=1
+# NEXT_PUBLIC_* values are inlined into the client bundle at build time, so they must be build args.
+ARG NEXT_PUBLIC_GATEWAY_URL
+ARG NEXT_PUBLIC_GATEWAY_WS_URL
+ENV NEXT_PUBLIC_GATEWAY_URL=$NEXT_PUBLIC_GATEWAY_URL
+ENV NEXT_PUBLIC_GATEWAY_WS_URL=$NEXT_PUBLIC_GATEWAY_WS_URL
 RUN pnpm --filter @remote-ide/web build
 
 FROM node:20-alpine AS runner
