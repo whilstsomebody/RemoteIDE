@@ -41,21 +41,28 @@ export const SSRF_BLOCKED_PORTS = new Set([
   9092, // Apache Kafka
 ]);
 
+// IPv6 forms that embed an IPv4 address in their last 32 bits: IPv4-mapped (::ffff:),
+// deprecated IPv4-compatible (::) and NAT64 (64:ff9b::). The URL parser rewrites the
+// embedded address to two hex groups, e.g. [::ffff:169.254.169.254] -> ::ffff:a9fe:a9fe.
+const EMBEDDED_IPV4 =
+  /^(?:::ffff:|::|64:ff9b::)(?:(\d{1,3}(?:\.\d{1,3}){3})|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/;
+
 /**
- * Checks a literal IP address (IPv4, IPv6, or IPv4-mapped IPv6) against the
- * metadata / link-local / multicast blocklist. Used both for URL hosts and for
- * DNS-resolved addresses so a hostname cannot alias a blocked IP.
+ * Checks a literal IP address (IPv4, IPv6, or IPv6 with an embedded IPv4) or hostname
+ * against the metadata / link-local / multicast blocklist. Used both for URL hosts and
+ * for DNS-resolved addresses so a hostname cannot alias a blocked IP.
  */
 export function isSsrfBlockedAddress(address: string): { blocked: boolean; reason?: string } {
-  let host = address.toLowerCase().replace(/^\[|\]$/g, "");
+  // A trailing dot is the same DNS name ("metadata.google.internal.").
+  let host = address.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
 
-  const mapped = host.match(/^::ffff:(?:(\d{1,3}(?:\.\d{1,3}){3})|([0-9a-f]{1,4}):([0-9a-f]{1,4}))$/);
-  if (mapped) {
-    if (mapped[1]) {
-      host = mapped[1];
+  const embedded = host.match(EMBEDDED_IPV4);
+  if (embedded) {
+    if (embedded[1]) {
+      host = embedded[1];
     } else {
-      const hi = parseInt(mapped[2]!, 16);
-      const lo = parseInt(mapped[3]!, 16);
+      const hi = parseInt(embedded[2]!, 16);
+      const lo = parseInt(embedded[3]!, 16);
       host = `${hi >> 8}.${hi & 255}.${lo >> 8}.${lo & 255}`;
     }
   }
@@ -81,20 +88,23 @@ export function isSsrfBlockedAddress(address: string): { blocked: boolean; reaso
 
 /**
  * Validates whether a target URL violates Server-Side Request Forgery (SSRF) restrictions.
- * Returns true if the URL is dangerous/blocked.
+ * Scheme-less input is treated as http://. Returns `blocked: true` with a reason when the
+ * URL uses a non-HTTP scheme or targets a blocked host or port.
  */
 export function isSsrfDangerousTarget(rawUrl: string): { blocked: boolean; reason?: string } {
+  const trimmed = rawUrl.trim();
   let parsed: URL;
   try {
-    parsed = new URL(rawUrl.startsWith("http://") || rawUrl.startsWith("https://") ? rawUrl : `http://${rawUrl}`);
+    parsed = new URL(/^[a-z][a-z0-9+.-]*:\/\//i.test(trimmed) ? trimmed : `http://${trimmed}`);
   } catch {
     return { blocked: true, reason: "Malformed URL" };
   }
 
-  // A trailing dot is the same DNS name ("metadata.google.internal.").
-  const hostname = parsed.hostname.toLowerCase().replace(/^\[|\]$/g, "").replace(/\.+$/, "");
+  if (parsed.protocol !== "http:" && parsed.protocol !== "https:") {
+    return { blocked: true, reason: `Scheme "${parsed.protocol}" is not allowed; use http or https.` };
+  }
 
-  const addressCheck = isSsrfBlockedAddress(hostname);
+  const addressCheck = isSsrfBlockedAddress(parsed.hostname);
   if (addressCheck.blocked) return addressCheck;
 
   const port = parsed.port ? Number(parsed.port) : parsed.protocol === "https:" ? 443 : 80;

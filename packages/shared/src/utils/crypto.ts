@@ -1,14 +1,19 @@
 /**
- * Cryptographic utility functions for secure random tokens and SHA-256 hashes.
- * Works across both modern browser environments and Node.js runtimes.
+ * Cryptographic utility functions for secure random tokens, SHA-256 hashes and
+ * AES-256-GCM secret encryption.
  */
 // Static import: this package is ESM, where `require` is undefined. Browser bundles map
-// "crypto" to an empty module, so Node-only calls below throw and hit their fallbacks.
+// "crypto" to an empty module; the Node-only helpers below are only used server-side.
 import nodeCrypto from "crypto";
 
 const GCM_AUTH_TAG_BYTES = 16;
+const GCM_IV_BYTES = 12;
+const DEV_ONLY_VAULT_KEY = "remote-ide-default-vault-key-32b";
 
 export function generateSecureRandomToken(byteLength = 32): string {
+  if (!Number.isInteger(byteLength) || byteLength <= 0) {
+    throw new RangeError("byteLength must be a positive integer");
+  }
   if (typeof globalThis.crypto?.getRandomValues === "function") {
     const bytes = new Uint8Array(byteLength);
     globalThis.crypto.getRandomValues(bytes);
@@ -23,110 +28,73 @@ export function generateSecureRandomToken(byteLength = 32): string {
 }
 
 /**
- * Computes a SHA-256 hex hash of any string.
- * Uses Web Crypto in browser / worker or Node crypto if available.
+ * Computes a SHA-256 hex hash of any string using Web Crypto, or Node crypto when
+ * Web Crypto is unavailable. Never falls back to a non-cryptographic hash.
  */
 export async function sha256Hex(input: string): Promise<string> {
   if (typeof globalThis.crypto?.subtle?.digest === "function") {
-    const encoder = new TextEncoder();
-    const data = encoder.encode(input);
+    const data = new TextEncoder().encode(input);
     const hashBuffer = await globalThis.crypto.subtle.digest("SHA-256", data);
-    const hashArray = Array.from(new Uint8Array(hashBuffer));
-    return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
+    return Array.from(new Uint8Array(hashBuffer))
+      .map((b) => b.toString(16).padStart(2, "0"))
+      .join("");
   }
-
-  // Simple pure JS fallback for testing in non-crypto test harnesses
-  let h0 = 0x6a09e667,
-    h1 = 0xbb67ae85,
-    h2 = 0x3c6ef372,
-    h3 = 0xa54ff53a;
-  for (let i = 0; i < input.length; i++) {
-    const code = input.charCodeAt(i);
-    h0 = ((h0 << 5) - h0 + code) | 0;
-    h1 = ((h1 << 5) - h1 + h0) | 0;
-    h2 = ((h2 << 5) - h2 + h1) | 0;
-    h3 = ((h3 << 5) - h3 + h2) | 0;
-  }
-  return [h0, h1, h2, h3].map((h) => (h >>> 0).toString(16).padStart(8, "0")).join("");
+  return sha256Sync(input);
 }
 
 /**
- * Synchronous SHA-256 hex string hashing for node backend usage where node:crypto is available.
+ * Synchronous SHA-256 hex hash. Requires Node crypto: these hashes protect session,
+ * share-link and PIN secrets, so there is deliberately no weak fallback.
  */
 export function sha256Sync(input: string): string {
-  try {
-    return nodeCrypto.createHash("sha256").update(input).digest("hex");
-  } catch {
-    // In browser, this synchronous fallback generates a pseudo-hash
-    let h0 = 0x6a09e667,
-      h1 = 0xbb67ae85,
-      h2 = 0x3c6ef372,
-      h3 = 0xa54ff53a;
-    for (let i = 0; i < input.length; i++) {
-      const code = input.charCodeAt(i);
-      h0 = ((h0 << 5) - h0 + code) | 0;
-      h1 = ((h1 << 5) - h1 + h0) | 0;
-      h2 = ((h2 << 5) - h2 + h1) | 0;
-      h3 = ((h3 << 5) - h3 + h2) | 0;
-    }
-    return [h0, h1, h2, h3].map((h) => (h >>> 0).toString(16).padStart(8, "0")).join("");
+  return nodeCrypto.createHash("sha256").update(input).digest("hex");
+}
+
+function resolveVaultKey(masterKey?: string): Buffer {
+  const rawKey = masterKey || process.env.ENCRYPTION_KEY || process.env.SESSION_SECRET;
+  if (!rawKey && process.env.NODE_ENV === "production") {
+    throw new Error("ENCRYPTION_KEY (or SESSION_SECRET) must be set in production");
   }
+  return nodeCrypto.createHash("sha256").update(rawKey || DEV_ONLY_VAULT_KEY).digest();
 }
 
 /**
  * Encrypts sensitive secrets (such as user-provided API keys) using AES-256-GCM.
+ * Throws rather than storing the secret unencrypted when encryption is unavailable.
  */
 export function encryptSecret(plainText: string, masterKey?: string): string {
   if (!plainText) return "";
-  try {
-    const rawKey =
-      masterKey ||
-      process.env.ENCRYPTION_KEY ||
-      process.env.SESSION_SECRET ||
-      "remote-ide-default-vault-key-32b";
-    const key = nodeCrypto.createHash("sha256").update(rawKey).digest(); // exactly 32 bytes
-    const iv = nodeCrypto.randomBytes(12); // 12-byte IV standard for GCM
-    const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
-    let encrypted = cipher.update(plainText, "utf8", "hex");
-    encrypted += cipher.final("hex");
-    const authTag = cipher.getAuthTag().toString("hex");
-    return `enc_gcm_v1:${iv.toString("hex")}:${authTag}:${encrypted}`;
-  } catch {
-    // Fallback base64 encoding for testing environments without Node crypto
-    return `enc_plain_v1:${Buffer.from(plainText, "utf8").toString("base64")}`;
-  }
+  const key = resolveVaultKey(masterKey);
+  const iv = nodeCrypto.randomBytes(GCM_IV_BYTES);
+  const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
+  let encrypted = cipher.update(plainText, "utf8", "hex");
+  encrypted += cipher.final("hex");
+  const authTag = cipher.getAuthTag().toString("hex");
+  return `enc_gcm_v1:${iv.toString("hex")}:${authTag}:${encrypted}`;
 }
 
 /**
- * Decrypts sensitive secrets using AES-256-GCM.
+ * Decrypts secrets produced by encryptSecret. Returns "" for malformed or tampered
+ * ciphertexts.
  */
 export function decryptSecret(cipherText: string, masterKey?: string): string {
   if (!cipherText) return "";
+  // Read-only compatibility: earlier builds silently stored secrets as base64 under
+  // this prefix. They are decoded so existing data keeps working; nothing writes it now.
   if (cipherText.startsWith("enc_plain_v1:")) {
-    const b64 = cipherText.slice("enc_plain_v1:".length);
-    return Buffer.from(b64, "base64").toString("utf8");
+    return Buffer.from(cipherText.slice("enc_plain_v1:".length), "base64").toString("utf8");
   }
   if (!cipherText.startsWith("enc_gcm_v1:")) {
     return cipherText;
   }
   try {
-    const parts = cipherText.split(":");
-    if (parts.length !== 4) return cipherText;
-    const ivHex = parts[1];
-    const authTagHex = parts[2];
-    const encryptedHex = parts[3];
-    if (!ivHex || !authTagHex || !encryptedHex) return cipherText;
-    const rawKey =
-      masterKey ||
-      process.env.ENCRYPTION_KEY ||
-      process.env.SESSION_SECRET ||
-      "remote-ide-default-vault-key-32b";
-    const key = nodeCrypto.createHash("sha256").update(rawKey).digest();
+    const [, ivHex, authTagHex, encryptedHex, ...rest] = cipherText.split(":");
+    if (!ivHex || !authTagHex || encryptedHex === undefined || rest.length > 0) return "";
     const iv = Buffer.from(ivHex, "hex");
     const authTag = Buffer.from(authTagHex, "hex");
     // Reject truncated tags; GCM otherwise accepts tags as short as 4 bytes.
-    if (authTag.length !== GCM_AUTH_TAG_BYTES) return "";
-    const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", key, iv, {
+    if (iv.length !== GCM_IV_BYTES || authTag.length !== GCM_AUTH_TAG_BYTES) return "";
+    const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", resolveVaultKey(masterKey), iv, {
       authTagLength: GCM_AUTH_TAG_BYTES,
     });
     decipher.setAuthTag(authTag);

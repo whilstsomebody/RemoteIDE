@@ -265,4 +265,57 @@ describe("Security hardening regressions", () => {
     expect(out).not.toContain("abcdefghijklmnopqrstuvwxyz");
     expect(out).toContain("const tokens = countTokens(text);");
   });
+
+  it("rejects non-HTTP schemes and embedded-IPv4 metadata addresses", async () => {
+    const { isSsrfDangerousTarget, isSsrfBlockedAddress } = await import("./utils/security.js");
+    expect(isSsrfDangerousTarget("HTTP://169.254.169.254/").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("file:///etc/passwd").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("gopher://example.com/").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://[::169.254.169.254]/").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://[64:ff9b::169.254.169.254]/").blocked).toBe(true);
+    expect(isSsrfBlockedAddress("metadata.google.internal.").blocked).toBe(true);
+    expect(isSsrfBlockedAddress("::1").blocked).toBe(false);
+    expect(isSsrfDangerousTarget("example.com:8080/path").blocked).toBe(false);
+  });
+
+  it("never downgrades encryption or decrypts malformed ciphertexts", async () => {
+    const { encryptSecret, decryptSecret, sha256Hex } = await import("./utils/crypto.js");
+    const enc = encryptSecret("api-key", "master-key");
+    expect(decryptSecret(`${enc}:extra`, "master-key")).toBe("");
+    expect(decryptSecret("enc_gcm_v1:abc", "master-key")).toBe("");
+    expect(decryptSecret(`enc_plain_v1:${Buffer.from("legacy").toString("base64")}`)).toBe("legacy");
+    expect(await sha256Hex("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+
+    const prevEnv = process.env.NODE_ENV;
+    const prevKey = process.env.ENCRYPTION_KEY;
+    const prevSession = process.env.SESSION_SECRET;
+    try {
+      process.env.NODE_ENV = "production";
+      delete process.env.ENCRYPTION_KEY;
+      delete process.env.SESSION_SECRET;
+      expect(() => encryptSecret("api-key")).toThrow(/ENCRYPTION_KEY/);
+    } finally {
+      process.env.NODE_ENV = prevEnv;
+      if (prevKey !== undefined) process.env.ENCRYPTION_KEY = prevKey;
+      if (prevSession !== undefined) process.env.SESSION_SECRET = prevSession;
+    }
+  });
+
+  it("generates RFC 4122 v4 UUIDs without randomUUID", async () => {
+    const { generateUuid, isValidUuid } = await import("./utils/id.js");
+    const original = globalThis.crypto.randomUUID;
+    try {
+      Object.defineProperty(globalThis.crypto, "randomUUID", { value: undefined, configurable: true });
+      const ids = new Set(Array.from({ length: 50 }, () => generateUuid()));
+      expect(ids.size).toBe(50);
+      for (const id of ids) {
+        expect(id).toMatch(/^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/);
+      }
+    } finally {
+      Object.defineProperty(globalThis.crypto, "randomUUID", { value: original, configurable: true });
+    }
+    expect(isValidUuid("01890a5d-ac96-774b-bcce-b302099a8057")).toBe(true);
+  });
 });
