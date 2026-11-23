@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Activity,
@@ -36,7 +37,7 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
   const fetchDevOps = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${agentUrl}/api/v1/devops/overview`);
+      const res = await gatewayFetch(`${agentUrl}/api/v1/devops/overview`);
       if (res.ok) {
         const body = await res.json();
         setOverview(body.data);
@@ -55,7 +56,7 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
   const handleTestSsh = async (id: string) => {
     setTestingSshId(id);
     try {
-      await fetch(`${agentUrl}/api/v1/devops/ssh/${id}/test`, { method: "POST" });
+      await gatewayFetch(`${agentUrl}/api/v1/devops/ssh/${id}/test`, { method: "POST" });
       await fetchDevOps();
     } catch {
       // Ignored
@@ -68,7 +69,7 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
     e.preventDefault();
     if (!sshName || !sshHost || !sshUser) return;
     try {
-      await fetch(`${agentUrl}/api/v1/devops/ssh`, {
+      await gatewayFetch(`${agentUrl}/api/v1/devops/ssh`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ name: sshName, host: sshHost, username: sshUser }),
@@ -85,7 +86,7 @@ export const DevopsPanel: React.FC<DevopsPanelProps> = ({ agentUrl }) => {
 
   const handlePm2Action = async (id: number, action: "restart" | "stop") => {
     try {
-      await fetch(`${agentUrl}/api/v1/devops/pm2/${id}/${action}`, { method: "POST" });
+      await gatewayFetch(`${agentUrl}/api/v1/devops/pm2/${id}/${action}`, { method: "POST" });
       await fetchDevOps();
     } catch {
       // Error

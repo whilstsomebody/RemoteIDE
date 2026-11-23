@@ -2,7 +2,7 @@
 
 import { gatewayFetch } from "../../lib/api/client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import { Send, Copy, Check, Plus, Trash2, Clock, Zap } from "lucide-react";
 import {
   HttpMethod,
@@ -48,6 +48,10 @@ export const ApiClientPanel: React.FC<ApiClientPanelProps> = ({ gatewayUrl = "" 
     Array<{ time: string; type: "sent" | "received" | "status"; text: string }>
   >([]);
   const [activeWs, setActiveWs] = useState<WebSocket | null>(null);
+
+  useEffect(() => {
+    return () => activeWs?.close();
+  }, [activeWs]);
 
   const handleSend = async () => {
     setIsLoading(true);

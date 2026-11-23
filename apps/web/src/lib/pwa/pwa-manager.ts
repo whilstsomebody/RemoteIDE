@@ -34,30 +34,16 @@ export function usePwa(): PwaState {
       setIsStandalone(Boolean(isStandaloneMode));
     }
 
-    // 3. Register Service Worker
-    if (typeof window !== "undefined" && "serviceWorker" in navigator) {
-      window.addEventListener("load", () => {
-        navigator.serviceWorker
-          .register("/sw.js")
-          .then((registration) => {
-            // Service worker registered
-            registration.onupdatefound = () => {
-              const installingWorker = registration.installing;
-              if (installingWorker) {
-                installingWorker.onstatechange = () => {
-                  if (installingWorker.state === "installed") {
-                    if (navigator.serviceWorker.controller) {
-                      // New content is available
-                    }
-                  }
-                };
-              }
-            };
-          })
-          .catch((err) => {
-            console.debug("Service worker registration skipped or failed:", err);
-          });
+    const registerServiceWorker = () => {
+      navigator.serviceWorker.register("/sw.js").catch((err) => {
+        console.debug("Service worker registration skipped or failed:", err);
       });
+    };
+    const canRegisterServiceWorker = typeof window !== "undefined" && "serviceWorker" in navigator;
+    if (canRegisterServiceWorker) {
+      // The effect can run after the load event has already fired, in which case a load listener never runs.
+      if (document.readyState === "complete") registerServiceWorker();
+      else window.addEventListener("load", registerServiceWorker, { once: true });
     }
 
     const handleBeforeInstallPrompt = (e: Event) => {
@@ -81,6 +67,7 @@ export function usePwa(): PwaState {
     window.addEventListener("offline", handleOffline);
 
     return () => {
+      if (canRegisterServiceWorker) window.removeEventListener("load", registerServiceWorker);
       window.removeEventListener("beforeinstallprompt", handleBeforeInstallPrompt);
       window.removeEventListener("appinstalled", handleAppInstalled);
       window.removeEventListener("online", handleOnline);

@@ -11,17 +11,29 @@ export async function gatewayFetch(input: RequestInfo | URL, init: RequestInit =
   const headers = new Headers(input instanceof Request ? input.headers : undefined);
   new Headers(init.headers).forEach((value, key) => headers.set(key, value));
   const url = new URL(input instanceof Request ? input.url : String(input), GATEWAY_URL);
+  // Relative paths are resolved against the gateway so the request goes to the same origin the token is scoped to.
+  const target = input instanceof Request ? input : url;
   if (url.origin === new URL(GATEWAY_URL).origin) {
     const token = typeof localStorage !== "undefined" ? localStorage.getItem("remote_ide_token") : null;
     if (token && !headers.has("Authorization")) headers.set("Authorization", `Bearer ${token}`);
-    return fetch(input, { ...init, headers, credentials: "include" });
+    return fetch(target, { ...init, headers, credentials: "include" });
   }
-  return fetch(input, { ...init, headers });
+  return fetch(target, { ...init, headers });
+}
+
+function isGatewayWebSocketHost(url: URL): boolean {
+  const hosts = new Set([new URL(GATEWAY_URL).host]);
+  try {
+    hosts.add(new URL(GATEWAY_WS_URL).host);
+  } catch {
+    // Malformed override; fall back to the HTTP gateway host only.
+  }
+  return hosts.has(url.host);
 }
 
 export function authenticatedWebSocketUrl(url: string): string {
   const result = new URL(url);
   const token = typeof localStorage !== "undefined" ? localStorage.getItem("remote_ide_token") : null;
-  if (token) result.searchParams.set("token", token);
+  if (token && isGatewayWebSocketHost(result)) result.searchParams.set("token", token);
   return result.toString();
 }

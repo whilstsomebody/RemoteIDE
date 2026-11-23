@@ -15,3 +15,12 @@ it("authenticates gateway requests without leaking credentials to other origins"
   expect(fetchMock.mock.calls[1]![1].headers.has("authorization")).toBe(false);
   expect(new URL(authenticatedWebSocketUrl("ws://localhost:4000/api/v1/ws")).searchParams.get("token")).toBe("session-secret");
 });
+it("sends relative paths to the gateway origin and scopes websocket tokens to the gateway host", async () => {
+  vi.stubGlobal("localStorage", { getItem: () => "session-secret" });
+  const fetchMock = vi.fn().mockResolvedValue(new Response("{}"));
+  vi.stubGlobal("fetch", fetchMock);
+  await gatewayFetch("/api/v1/catchup/ack", { method: "POST" });
+  expect(String(fetchMock.mock.calls[0]![0])).toBe(`${GATEWAY_URL}/api/v1/catchup/ack`);
+  expect(fetchMock.mock.calls[0]![1].headers.get("authorization")).toBe("Bearer session-secret");
+  expect(new URL(authenticatedWebSocketUrl("wss://unrelated.example/socket")).searchParams.has("token")).toBe(false);
+});

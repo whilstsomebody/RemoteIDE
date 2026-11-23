@@ -1,3 +1,4 @@
+import { gatewayFetch } from "../api/client";
 import { Extension } from "@codemirror/state";
 import { EditorView, hoverTooltip } from "@codemirror/view";
 import { autocompletion, CompletionContext, CompletionResult } from "@codemirror/autocomplete";
@@ -34,7 +35,7 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
   const syncListener = EditorView.updateListener.of((update) => {
     if (!hasOpened) {
       hasOpened = true;
-      fetch(`${baseUrl}/api/v1/lsp/open`, {
+      gatewayFetch(`${baseUrl}/api/v1/lsp/open`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -49,7 +50,7 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
 
     if (update.docChanged) {
       const content = update.state.doc.toString();
-      fetch(`${baseUrl}/api/v1/lsp/change`, {
+      gatewayFetch(`${baseUrl}/api/v1/lsp/change`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -73,7 +74,7 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     const character = context.pos - line.from; // 0-based
 
     try {
-      const res = await fetch(`${baseUrl}/api/v1/lsp/completion`, {
+      const res = await gatewayFetch(`${baseUrl}/api/v1/lsp/completion`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -128,7 +129,7 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
     const character = pos - line.from;
 
     try {
-      const res = await fetch(`${baseUrl}/api/v1/lsp/hover`, {
+      const res = await gatewayFetch(`${baseUrl}/api/v1/lsp/hover`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -174,7 +175,7 @@ export function buildLspExtensions(config: LspExtensionConfig): Extension[] {
   const linterExt = linter(
     async (view) => {
       try {
-        const res = await fetch(
+        const res = await gatewayFetch(
           `${baseUrl}/api/v1/lsp/diagnostics?workspaceId=${encodeURIComponent(
             workspaceId
           )}&path=${encodeURIComponent(filePath)}`
@@ -229,7 +230,7 @@ export async function executeGoToDefinition(
 ): Promise<{ path: string; line: number; col: number } | null> {
   const baseUrl = gatewayUrl.replace(/\/+$/, "");
   try {
-    const res = await fetch(`${baseUrl}/api/v1/lsp/definition`, {
+    const res = await gatewayFetch(`${baseUrl}/api/v1/lsp/definition`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
@@ -270,7 +271,7 @@ export async function executeRename(
 > | null> {
   const baseUrl = gatewayUrl.replace(/\/+$/, "");
   try {
-    const res = await fetch(`${baseUrl}/api/v1/lsp/rename`, {
+    const res = await gatewayFetch(`${baseUrl}/api/v1/lsp/rename`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({

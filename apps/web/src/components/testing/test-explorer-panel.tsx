@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect } from "react";
 import {
   Play,
@@ -41,7 +42,7 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
 
   const discoverTests = async () => {
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/tests/discover?workspacePath=${encodeURIComponent(workspacePath)}`
       );
       if (res.ok) {
@@ -60,7 +61,7 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
 
   const fetchLastRun = async () => {
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/tests/last-run?workspaceId=${encodeURIComponent(workspaceId)}`
       );
       if (res.ok) {
@@ -85,7 +86,7 @@ export const TestExplorerPanel: React.FC<TestExplorerPanelProps> = ({
   ) => {
     setIsRunning(true);
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/tests/run?workspacePath=${encodeURIComponent(workspacePath)}`,
         {
           method: "POST",

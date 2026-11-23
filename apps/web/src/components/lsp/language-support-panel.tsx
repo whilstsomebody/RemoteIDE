@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect } from "react";
 import { Code2, RefreshCw, Server, Cpu, Info } from "lucide-react";
 import { cn, Badge } from "@remote-ide/ui";
@@ -27,7 +28,7 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
   const fetchServers = async () => {
     setIsLoading(true);
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/lsp/servers?workspacePath=${encodeURIComponent(workspacePath)}`
       );
       if (res.ok) {
@@ -56,7 +57,7 @@ export const LanguageSupportPanel: React.FC<LanguageSupportPanelProps> = ({
     setRestartingId(serverId);
     setMessage(null);
     try {
-      const res = await fetch(`${baseUrl}/api/v1/lsp/servers/${serverId}/restart`, {
+      const res = await gatewayFetch(`${baseUrl}/api/v1/lsp/servers/${serverId}/restart`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ workspaceId }),

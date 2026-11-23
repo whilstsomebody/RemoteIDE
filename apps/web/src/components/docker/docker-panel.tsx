@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect, useCallback } from "react";
 import { Boxes, Play, Square, RotateCw, FileText, AlertCircle, RefreshCw, X } from "lucide-react";
 import { cn } from "@remote-ide/ui";
@@ -35,32 +36,32 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
   const fetchDockerData = useCallback(async () => {
     try {
       setLoading(true);
-      const res = await fetch(`${agentUrl}/api/v1/docker/overview`);
+      const res = await gatewayFetch(`${agentUrl}/api/v1/docker/overview`);
       if (res.ok) {
         const body = await res.json();
         setOverview(body.data);
       }
 
       if (activeTab === "containers") {
-        const resC = await fetch(`${agentUrl}/api/v1/docker/containers?all=true`);
+        const resC = await gatewayFetch(`${agentUrl}/api/v1/docker/containers?all=true`);
         if (resC.ok) {
           const bodyC = await resC.json();
           setContainers(bodyC.data || []);
         }
       } else if (activeTab === "images") {
-        const resI = await fetch(`${agentUrl}/api/v1/docker/images`);
+        const resI = await gatewayFetch(`${agentUrl}/api/v1/docker/images`);
         if (resI.ok) {
           const bodyI = await resI.json();
           setImages(bodyI.data || []);
         }
       } else if (activeTab === "volumes") {
-        const resV = await fetch(`${agentUrl}/api/v1/docker/volumes`);
+        const resV = await gatewayFetch(`${agentUrl}/api/v1/docker/volumes`);
         if (resV.ok) {
           const bodyV = await resV.json();
           setVolumes(bodyV.data || []);
         }
       } else if (activeTab === "compose") {
-        const resP = await fetch(`${agentUrl}/api/v1/docker/compose`);
+        const resP = await gatewayFetch(`${agentUrl}/api/v1/docker/compose`);
         if (resP.ok) {
           const bodyP = await resP.json();
           setComposeProjects(bodyP.data || []);
@@ -83,7 +84,7 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
   ) => {
     setActionInProgress(`${containerId}:${action}`);
     try {
-      await fetch(`${agentUrl}/api/v1/docker/containers/${containerId}/${action}`, {
+      await gatewayFetch(`${agentUrl}/api/v1/docker/containers/${containerId}/${action}`, {
         method: "POST",
       });
       await fetchDockerData();
@@ -96,7 +97,7 @@ export const DockerPanel: React.FC<DockerPanelProps> = ({ agentUrl }) => {
 
   const handleViewLogs = async (container: DockerContainer) => {
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${agentUrl}/api/v1/docker/containers/${container.id}/logs?tail=300&timestamps=true`
       );
       if (res.ok) {

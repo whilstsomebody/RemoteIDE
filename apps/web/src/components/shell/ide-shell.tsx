@@ -514,11 +514,13 @@ export const IdeShell: React.FC = () => {
     const connectWs = () => {
       if (isDisposed) return;
       try {
-        const wsUrl = `${authenticatedWebSocketUrl(GATEWAY_WS_URL)}&deviceId=${encodeURIComponent(deviceId)}`;
-        ws = new WebSocket(wsUrl);
+        const wsUrl = new URL(authenticatedWebSocketUrl(GATEWAY_WS_URL));
+        wsUrl.searchParams.set("deviceId", deviceId);
+        ws = new WebSocket(wsUrl.toString());
         wsRef.current = ws;
 
         ws.onopen = () => {
+          if (isDisposed) return;
           wsRef.current = ws;
           setConnectionStatus("connected");
           addLog("Connected to distributed event synchronization relay", "info", "Sync");
@@ -570,10 +572,13 @@ export const IdeShell: React.FC = () => {
         };
 
         ws.onerror = () => {
+          if (isDisposed) return;
           setConnectionStatus("error");
         };
 
         ws.onclose = (event) => {
+          // A socket closed by effect cleanup must not clobber the replacement socket's ref/status.
+          if (isDisposed) return;
           wsRef.current = null;
           setConnectionStatus("disconnected");
           if (event.code === 4401) {
@@ -1365,7 +1370,7 @@ export const IdeShell: React.FC = () => {
   const handleConsumeHandoff = useCallback(
     async (handoffId: string) => {
       try {
-        const res = await gatewayFetch(`${GATEWAY_HTTP_URL}/api/v1/handoff/${handoffId}/consume`, {
+        const res = await gatewayFetch(`${GATEWAY_HTTP_URL}/api/v1/handoff/${encodeURIComponent(handoffId)}/consume`, {
           method: "POST",
           credentials: "include",
         });

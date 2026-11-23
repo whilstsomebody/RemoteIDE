@@ -124,7 +124,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
       const token = body.data?.sessionToken;
       if (token) {
         localStorage.setItem("remote_ide_token", token);
-        document.cookie = `remoteide_session=${token}; path=/; max-age=2592000; SameSite=Strict`;
+        document.cookie = `remoteide_session=${token}; path=/; max-age=2592000; SameSite=Strict${window.location.protocol === "https:" ? "; Secure" : ""}`;
       }
 
       setSuccessMsg(
@@ -169,7 +169,7 @@ export const OwnerAuthModal: React.FC<OwnerAuthModalProps> = ({
       const token = body.data?.sessionToken;
       if (token) {
         localStorage.setItem("remote_ide_token", token);
-        document.cookie = `remoteide_session=${token}; path=/; max-age=2592000; SameSite=Strict`;
+        document.cookie = `remoteide_session=${token}; path=/; max-age=2592000; SameSite=Strict${window.location.protocol === "https:" ? "; Secure" : ""}`;
       }
 
       setSuccessMsg("Successfully signed in as Owner.");

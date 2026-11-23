@@ -1,9 +1,23 @@
 import { describe, it, expect } from "vitest";
-import { parseMarkdown } from "../src/components/viewers/markdown-viewer";
+import { parseMarkdown, sanitizeMarkdownHref } from "../src/components/viewers/markdown-viewer";
 import { parseCsv } from "../src/components/viewers/csv-viewer";
 import { formatHexDump } from "../src/components/viewers/binary-viewer";
 
 describe("Special Viewers Data Parsers", () => {
+  describe("sanitizeMarkdownHref", () => {
+    it("allows relative and http(s)/mailto links but blocks script-capable schemes", () => {
+      expect(sanitizeMarkdownHref("https://example.com/a")).toBe("https://example.com/a");
+      expect(sanitizeMarkdownHref("docs/README.md")).toBe("docs/README.md");
+      expect(sanitizeMarkdownHref("#section")).toBe("#section");
+      expect(sanitizeMarkdownHref("mailto:a@b.c")).toBe("mailto:a@b.c");
+      expect(sanitizeMarkdownHref("javascript:alert(1)")).toBeNull();
+      expect(sanitizeMarkdownHref(" JaVaScRiPt:alert(1)")).toBeNull();
+      expect(sanitizeMarkdownHref("java\tscript:alert(1)")).toBeNull();
+      expect(sanitizeMarkdownHref("data:text/html,<script>alert(1)</script>")).toBeNull();
+      expect(sanitizeMarkdownHref("vbscript:msgbox")).toBeNull();
+    });
+  });
+
   describe("parseMarkdown", () => {
     it("parses headings of multiple levels", () => {
       const md = `# Title\n\n## Subtitle\n\n### Section`;

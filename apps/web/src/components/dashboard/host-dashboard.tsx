@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect, useCallback } from "react";
 import {
   Cpu,
@@ -34,9 +35,9 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
     try {
       setLoading(true);
       const [resM, resH, resA] = await Promise.all([
-        fetch(`${agentUrl}/api/v1/host/metrics`),
-        fetch(`${agentUrl}/api/v1/host/metrics/history`),
-        fetch(`${agentUrl}/api/v1/host/alerts`),
+        gatewayFetch(`${agentUrl}/api/v1/host/metrics`),
+        gatewayFetch(`${agentUrl}/api/v1/host/metrics/history`),
+        gatewayFetch(`${agentUrl}/api/v1/host/alerts`),
       ]);
 
       if (resM.ok) {
@@ -68,7 +69,7 @@ export const HostDashboard: React.FC<HostDashboardProps> = ({ agentUrl }) => {
 
   const handleAcknowledgeAlert = async (id: string) => {
     try {
-      await fetch(`${agentUrl}/api/v1/host/alerts/${id}/ack`, { method: "POST" });
+      await gatewayFetch(`${agentUrl}/api/v1/host/alerts/${id}/ack`, { method: "POST" });
       setAlerts((prev) => prev.filter((a) => a.id !== id));
     } catch {
       // Ignored

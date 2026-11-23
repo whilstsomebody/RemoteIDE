@@ -27,6 +27,10 @@ function ShareRedeemContent() {
     const tokenParam = searchParams.get("token");
     if (tokenParam) {
       setToken(tokenParam);
+      // Keep the bearer share token out of browser history, sync and Referer headers.
+      const url = new URL(window.location.href);
+      url.searchParams.delete("token");
+      window.history.replaceState(window.history.state, "", url.toString());
     }
 
     if (typeof window !== "undefined") {

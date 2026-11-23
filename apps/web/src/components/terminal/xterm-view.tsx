@@ -54,11 +54,18 @@ export const XtermView: React.FC<XtermViewProps> = ({
       token ? `?token=${encodeURIComponent(token)}` : ""
     }`;
 
+    const previous = wsRef.current;
+    if (previous) {
+      wsRef.current = null;
+      previous.close();
+    }
+
     try {
       const ws = new WebSocket(wsUrl);
       wsRef.current = ws;
 
       ws.onopen = () => {
+        if (wsRef.current !== ws) return;
         setConnectionState("connected");
         if (fitAddonRef.current && termRef.current) {
           fitAddonRef.current.fit();
@@ -68,6 +75,7 @@ export const XtermView: React.FC<XtermViewProps> = ({
       };
 
       ws.onmessage = (event) => {
+        if (wsRef.current !== ws) return;
         try {
           const msg = JSON.parse(event.data);
           if (msg.type === "output" && typeof msg.data === "string") {
@@ -86,11 +94,13 @@ export const XtermView: React.FC<XtermViewProps> = ({
       };
 
       ws.onerror = () => {
+        if (wsRef.current !== ws) return;
         setConnectionState("error");
         setErrorMessage("Connection error communicating with remote terminal stream.");
       };
 
       ws.onclose = (event) => {
+        if (wsRef.current !== ws) return;
         setConnectionState("disconnected");
         if (event.code === 4403) {
           setErrorMessage(

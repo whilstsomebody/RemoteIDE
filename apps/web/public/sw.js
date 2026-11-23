@@ -37,6 +37,7 @@ self.addEventListener("fetch", (event) => {
 
   // Never cache API requests, cross-origin responses (e.g. a separately hosted gateway), or authenticated state
   if (
+    url.origin !== self.location.origin ||
     url.pathname.startsWith("/api/") ||
     url.pathname.startsWith("/socket.io/") ||
     event.request.headers.has("Authorization") ||

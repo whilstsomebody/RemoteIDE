@@ -171,6 +171,21 @@ const RenderBlock: React.FC<{ block: ParsedBlock }> = ({ block }) => {
   }
 };
 
+const SAFE_LINK_PROTOCOLS = new Set(["http:", "https:", "mailto:"]);
+
+/** Returns the href only if it is relative or uses an allow-listed scheme (blocks javascript:, data:, vbscript:, ...). */
+export function sanitizeMarkdownHref(rawUrl: string): string | null {
+  const url = rawUrl.trim();
+  if (!url) return null;
+  // Browsers ignore embedded whitespace/control chars when parsing schemes ("java\tscript:").
+  const normalized = Array.from(url)
+    .filter((ch) => ch.charCodeAt(0) > 0x20 && ch.charCodeAt(0) !== 0x7f)
+    .join("");
+  const schemeMatch = /^([a-z][a-z0-9+.-]*):/i.exec(normalized);
+  if (!schemeMatch) return url;
+  return SAFE_LINK_PROTOCOLS.has(`${schemeMatch[1]!.toLowerCase()}:`) ? url : null;
+}
+
 function renderInline(text: string): React.ReactNode[] {
   const parts: React.ReactNode[] = [];
   const regex = /(`[^`]+`|\*\*[^*]+\*\*|\*[^*]+\*|\[[^\]]+\]\([^)]+\)|~~[^~]+~~)/g;
@@ -213,7 +228,12 @@ function renderInline(text: string): React.ReactNode[] {
     } else if (token.startsWith("[") && token.includes("](")) {
       const endLabel = token.indexOf("]");
       const label = token.slice(1, endLabel);
-      const url = token.slice(endLabel + 2, -1);
+      const url = sanitizeMarkdownHref(token.slice(endLabel + 2, -1));
+      if (!url) {
+        parts.push(label);
+        lastIdx = regex.lastIndex;
+        continue;
+      }
       parts.push(
         <a
           key={match.index}

@@ -32,7 +32,7 @@ export const PreviewTab: React.FC<PreviewTabProps> = ({ gatewayUrl = "", initial
   };
 
   const handleOpenExternal = () => {
-    window.open(fullPreviewUrl, "_blank");
+    window.open(fullPreviewUrl, "_blank", "noopener,noreferrer");
   };
 
   const getContainerWidth = () => {

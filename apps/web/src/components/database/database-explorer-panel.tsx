@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect, useCallback } from "react";
 import { Database, Table as TableIcon, Play, Plus, Key, Layers, Code } from "lucide-react";
 import { cn } from "@remote-ide/ui";
@@ -39,7 +40,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
 
   const fetchProfiles = useCallback(async () => {
     try {
-      const res = await fetch(`${agentUrl}/api/v1/database/profiles`);
+      const res = await gatewayFetch(`${agentUrl}/api/v1/database/profiles`);
       if (res.ok) {
         const body = await res.json();
         const list: DatabaseProfile[] = body.data || [];
@@ -61,7 +62,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
   const fetchTables = useCallback(async () => {
     if (!selectedProfileId) return;
     try {
-      const res = await fetch(`${agentUrl}/api/v1/database/profiles/${selectedProfileId}/tables`);
+      const res = await gatewayFetch(`${agentUrl}/api/v1/database/profiles/${selectedProfileId}/tables`);
       if (res.ok) {
         const body = await res.json();
         setTables(body.data || []);
@@ -79,7 +80,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     async (tableName: string, page = 1) => {
       if (!selectedProfileId) return;
       try {
-        const res = await fetch(
+        const res = await gatewayFetch(
           `${agentUrl}/api/v1/database/profiles/${selectedProfileId}/tables/${encodeURIComponent(
             tableName
           )}/data?page=${page}&pageSize=25`
@@ -105,7 +106,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
   const handleTestConnection = async () => {
     if (!selectedProfileId) return;
     try {
-      const res = await fetch(`${agentUrl}/api/v1/database/profiles/${selectedProfileId}/test`, {
+      const res = await gatewayFetch(`${agentUrl}/api/v1/database/profiles/${selectedProfileId}/test`, {
         method: "POST",
       });
       if (res.ok) {
@@ -121,7 +122,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     if (!selectedProfileId || !sqlQuery.trim()) return;
     setIsExecutingSql(true);
     try {
-      const res = await fetch(`${agentUrl}/api/v1/database/query`, {
+      const res = await gatewayFetch(`${agentUrl}/api/v1/database/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -161,7 +162,7 @@ export const DatabaseExplorerPanel: React.FC<DatabaseExplorerPanelProps> = ({ ag
     e.preventDefault();
     if (!newName || !newDatabase) return;
     try {
-      await fetch(`${agentUrl}/api/v1/database/profiles`, {
+      await gatewayFetch(`${agentUrl}/api/v1/database/profiles`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

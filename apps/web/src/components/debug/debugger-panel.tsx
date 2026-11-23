@@ -1,5 +1,6 @@
 "use client";
 
+import { gatewayFetch } from "../../lib/api/client";
 import React, { useState, useEffect } from "react";
 import {
   Bug,
@@ -65,7 +66,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
 
   const fetchSessions = async () => {
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/debug/sessions?workspaceId=${encodeURIComponent(workspaceId)}`
       );
       if (res.ok) {
@@ -101,7 +102,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
 
     const fetchStackAndScopes = async () => {
       try {
-        const stackRes = await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/stack-trace`);
+        const stackRes = await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/stack-trace`);
         if (stackRes.ok) {
           const json = await stackRes.json();
           const frames: StackFrame[] = json.data || [];
@@ -115,7 +116,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           }
         }
 
-        const scopesRes = await fetch(
+        const scopesRes = await gatewayFetch(
           `${baseUrl}/api/v1/debug/${activeSession.id}/scopes?frameId=0`
         );
         if (scopesRes.ok) {
@@ -143,7 +144,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
   const fetchVariables = async (refId: number) => {
     if (!activeSession) return;
     try {
-      const res = await fetch(
+      const res = await gatewayFetch(
         `${baseUrl}/api/v1/debug/${activeSession.id}/variables?variablesReference=${refId}`
       );
       if (res.ok) {
@@ -160,7 +161,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     for (let i = 0; i < watchExprs.length; i++) {
       const w = watchExprs[i]!;
       try {
-        const res = await fetch(`${baseUrl}/api/v1/debug/evaluate`, {
+        const res = await gatewayFetch(`${baseUrl}/api/v1/debug/evaluate`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -196,7 +197,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
       }
 
       if (debugTarget === "attach") {
-        const res = await fetch(`${baseUrl}/api/v1/debug/attach`, {
+        const res = await gatewayFetch(`${baseUrl}/api/v1/debug/attach`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -212,7 +213,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
           await fetchSessions();
         }
       } else {
-        const res = await fetch(`${baseUrl}/api/v1/debug/launch`, {
+        const res = await gatewayFetch(`${baseUrl}/api/v1/debug/launch`, {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
@@ -235,7 +236,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
               .map((b) => ({ line: b.line }));
 
             if (targetBps.length > 0) {
-              await fetch(`${baseUrl}/api/v1/debug/breakpoints`, {
+              await gatewayFetch(`${baseUrl}/api/v1/debug/breakpoints`, {
                 method: "POST",
                 headers: { "Content-Type": "application/json" },
                 body: JSON.stringify({
@@ -260,37 +261,37 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
 
   const handleContinue = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/continue`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/continue`, { method: "POST" });
     await fetchSessions();
   };
 
   const handlePause = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/pause`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/pause`, { method: "POST" });
     await fetchSessions();
   };
 
   const handleStepOver = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-over`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-over`, { method: "POST" });
     await fetchSessions();
   };
 
   const handleStepIn = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-in`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-in`, { method: "POST" });
     await fetchSessions();
   };
 
   const handleStepOut = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-out`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/step-out`, { method: "POST" });
     await fetchSessions();
   };
 
   const handleStop = async () => {
     if (!activeSession) return;
-    await fetch(`${baseUrl}/api/v1/debug/${activeSession.id}/stop`, { method: "POST" });
+    await gatewayFetch(`${baseUrl}/api/v1/debug/${activeSession.id}/stop`, { method: "POST" });
     setActiveSession(null);
     await fetchSessions();
   };
@@ -305,7 +306,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     setNewBpLine("");
 
     if (activeSession) {
-      await fetch(`${baseUrl}/api/v1/debug/breakpoints`, {
+      await gatewayFetch(`${baseUrl}/api/v1/debug/breakpoints`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
@@ -329,7 +330,7 @@ export const DebuggerPanel: React.FC<DebuggerPanelProps> = ({
     setConsoleLogs((prev) => [...prev, { id: String(Date.now()), type: "input", text: expr }]);
 
     try {
-      const res = await fetch(`${baseUrl}/api/v1/debug/evaluate`, {
+      const res = await gatewayFetch(`${baseUrl}/api/v1/debug/evaluate`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({

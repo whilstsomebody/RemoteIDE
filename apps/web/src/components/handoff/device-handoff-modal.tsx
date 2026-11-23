@@ -101,7 +101,7 @@ export const DeviceHandoffModal: React.FC<DeviceHandoffModalProps> = ({
       }
 
       const handoffId = data.data.id;
-      const url = `${window.location.origin}/?handoff=${handoffId}`;
+      const url = `${window.location.origin}/?handoff=${encodeURIComponent(handoffId)}`;
       setStagedHandoff({ id: handoffId, url });
     } catch (err: any) {
       setError(err.message || "Failed to create handoff snapshot");
