@@ -50,8 +50,8 @@ console.log("CALCULATION_RESULT:", result);
     if (!loopbackAllowed) {
       // In sandboxed environments where outbound loopback TCP connect returns EPERM,
       // simulate the V8 inspector protocol responses to verify the full DAP lifecycle.
-      vi.spyOn(dap as any, "connectToInspector").mockImplementation(
-        async (record: any, _port: number, stopOnEntry: boolean) => {
+      (vi.spyOn(dap as any, "connectToInspector") as any).mockImplementation(
+        async (record: any, _port: any, stopOnEntry: any) => {
           record.ws = {
             readyState: 1, // WebSocket.OPEN
             send: (payloadStr: string) => {
