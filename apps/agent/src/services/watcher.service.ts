@@ -3,6 +3,9 @@ import path from "node:path";
 import { LocalJournalService } from "./local-journal.service.js";
 import { Workspace } from "@remote-ide/shared";
 
+// Matches the sibling temp files FilesystemService.writeFile creates for atomic saves.
+const ATOMIC_WRITE_TEMP_FILE = /^\..+\.tmp\.[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+
 export type WatcherCallback = (event: {
   workspaceId: string;
   eventType: "create" | "update" | "delete";
@@ -56,6 +59,10 @@ export class WatcherService {
 
     for (const folder of workspace.folders) {
       if (!fs.existsSync(folder.path)) continue;
+      // Report paths the way FilesystemService names them (folder-prefixed in multi-root
+      // workspaces) so internal-save suppression and journal entries line up.
+      const toWorkspacePath = (relativePath: string) =>
+        workspace.folders.length > 1 ? path.join(folder.name, relativePath) : relativePath;
 
       let snapshot = this.scanFolder(folder.path);
       let polling = false;
@@ -66,7 +73,8 @@ export class WatcherService {
           const next = this.scanFolder(folder.path);
           for (const relativePath of new Set([...snapshot.keys(), ...next.keys()])) {
             if (snapshot.get(relativePath) !== next.get(relativePath)) {
-              this.handleFileChange(workspace.id, folder.path, relativePath);
+              if (ATOMIC_WRITE_TEMP_FILE.test(path.basename(relativePath))) continue;
+              this.handleFileChange(workspace.id, path.join(folder.path, relativePath), toWorkspacePath(relativePath));
             }
           }
           snapshot = next;
@@ -83,8 +91,10 @@ export class WatcherService {
           if (segments.some((seg) => this.ignoredPatterns.has(seg))) {
             return;
           }
+          if (ATOMIC_WRITE_TEMP_FILE.test(path.basename(filename))) return;
 
-          const relativePath = path.normalize(filename);
+          const folderRelativePath = path.normalize(filename);
+          const relativePath = toWorkspacePath(folderRelativePath);
           const debounceKey = `${workspace.id}:${relativePath}`;
 
           const existingTimer = this.debounceTimers.get(debounceKey);
@@ -94,7 +104,7 @@ export class WatcherService {
 
           const timer = setTimeout(() => {
             this.debounceTimers.delete(debounceKey);
-            this.handleFileChange(workspace.id, folder.path, relativePath);
+            this.handleFileChange(workspace.id, path.join(folder.path, folderRelativePath), relativePath);
           }, 150);
 
           this.debounceTimers.set(debounceKey, timer);
@@ -147,13 +157,12 @@ export class WatcherService {
     }
   }
 
-  private handleFileChange(workspaceId: string, folderRoot: string, relativePath: string): void {
-    // Suppress internal save loop
+  private handleFileChange(workspaceId: string, fullPath: string, relativePath: string): void {
+    // Saves made through RemoteIDE are already journaled; skip the watcher echo.
     if (this.isInternalSave(workspaceId, relativePath)) {
       return;
     }
 
-    const fullPath = path.join(folderRoot, relativePath);
     const exists = fs.existsSync(fullPath);
 
     let eventType: "create" | "update" | "delete" = "update";

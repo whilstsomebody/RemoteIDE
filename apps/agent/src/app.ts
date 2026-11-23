@@ -84,6 +84,25 @@ import { SyncClientService } from "./services/sync-client.service.js";
 import { TerminalWsServer } from "./services/terminal-ws.service.js";
 import { ITunnelTransport, RelayTunnelTransport } from "./services/tunnel-transport.js";
 
+const LOCAL_UI_ORIGINS = [
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+  "http://localhost:4000",
+  "http://127.0.0.1:4000",
+];
+const LOOPBACK_HOSTNAMES = new Set(["localhost", "127.0.0.1", "[::1]"]);
+
+/**
+ * The local API has no authentication of its own, so it only accepts requests that
+ * name a loopback Host (defeats DNS rebinding) and, when a browser sends an Origin,
+ * one of the local UI origins (defeats CSRF and cross-site WebSocket hijacking).
+ */
+export function isTrustedLocalRequest(host: string | undefined, origin: string | undefined): boolean {
+  const hostname = (host ?? "").toLowerCase().replace(/:\d+$/, "");
+  if (!LOOPBACK_HOSTNAMES.has(hostname)) return false;
+  return origin === undefined || LOCAL_UI_ORIGINS.includes(origin);
+}
+
 export interface AgentAppOptions extends FastifyServerOptions {
   journalPath?: string;
   dataDir?: string;
@@ -168,14 +187,17 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
       .send(createErrorResponse(ErrorCode.INTERNAL_SERVER_ERROR, message));
   });
 
+  app.addHook("onRequest", async (request, reply) => {
+    if (!isTrustedLocalRequest(request.headers.host, request.headers.origin)) {
+      return reply
+        .status(403)
+        .send(createErrorResponse(ErrorCode.FORBIDDEN, "Request host or origin is not allowed"));
+    }
+  });
+
   await app.register(sensible);
   await app.register(cors, {
-    origin: [
-      "http://localhost:3000",
-      "http://127.0.0.1:3000",
-      "http://localhost:4000",
-      "http://127.0.0.1:4000",
-    ],
+    origin: LOCAL_UI_ORIGINS,
     methods: ["GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"],
   });
 
@@ -214,8 +236,9 @@ export async function buildAgentApp(opts: AgentAppOptions = {}): Promise<AgentCo
     await collabService.flushAll();
   });
 
-  // Terminal WebSocket server for direct local connections
-  const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService);
+  const terminalWsServer = new TerminalWsServer(app.server, defaultTerminalService, (request) =>
+    isTrustedLocalRequest(request.headers.host, request.headers.origin)
+  );
   terminalWsServer.init();
 
   let tunnelTransport: ITunnelTransport | undefined;

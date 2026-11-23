@@ -1,4 +1,5 @@
 import * as pty from "node-pty";
+import { createRequire } from "node:module";
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
@@ -11,6 +12,8 @@ import {
   generateId,
   logger,
 } from "@remote-ide/shared";
+
+const require = createRequire(import.meta.url);
 
 interface PtySessionRecord {
   session: TerminalSession;
@@ -143,7 +146,11 @@ export class TerminalService {
    * It is strictly restricted to Owner authorization at the gateway and agent levels.
    */
   public async createTerminal(dto: CreateTerminalDto, ownerId: string): Promise<TerminalSession> {
-    if (this.sessions.size >= this.maxConcurrentSessions) {
+    // Exited sessions are kept briefly for replay and must not count against the limit.
+    const runningSessions = Array.from(this.sessions.values()).filter(
+      (r) => r.session.status === "running"
+    ).length;
+    if (runningSessions >= this.maxConcurrentSessions) {
       throw new AppError(
         ErrorCode.RESOURCE_EXHAUSTED,
         `Maximum concurrent terminal session limit reached (${this.maxConcurrentSessions}).`
@@ -251,7 +258,8 @@ export class TerminalService {
       logger.info({ sessionId, exitCode }, "Terminal PTY process exited");
       session.status = "exited";
       session.exitCode = exitCode;
-      this.clearIdleTimer(record);
+      // Keep the exited session for replay until the idle timeout, then release it.
+      this.resetIdleTimer(record);
     });
 
     this.resetIdleTimer(record);

@@ -97,4 +97,13 @@ describe("WorkspaceService", () => {
       restricted.close();
     }
   });
+
+  it("refuses to register the filesystem root or the home directory", () => {
+    expect(() => workspaceService.registerWorkspace("Root", [path.parse(tmpDir).root])).toThrow(
+      "cannot be registered"
+    );
+    expect(() => workspaceService.registerWorkspace("Home", [os.homedir()])).toThrow(
+      "cannot be registered"
+    );
+  });
 });

@@ -1,4 +1,4 @@
-import { Server as HttpServer } from "node:http";
+import { Server as HttpServer, IncomingMessage } from "node:http";
 import { WebSocketServer, WebSocket } from "ws";
 import { parse as parseUrl } from "node:url";
 import { logger, TerminalWsMessage } from "@remote-ide/shared";
@@ -9,7 +9,8 @@ export class TerminalWsServer {
 
   constructor(
     private readonly server: HttpServer,
-    private readonly terminalService: TerminalService
+    private readonly terminalService: TerminalService,
+    private readonly isUpgradeAllowed: (request: IncomingMessage) => boolean = () => true
   ) {}
 
   public init(): void {
@@ -24,6 +25,14 @@ export class TerminalWsServer {
 
       if (!sessionId) {
         // Not a terminal stream upgrade request; let other handlers process it
+        return;
+      }
+
+      // WebSocket upgrades are not subject to CORS, so check Host/Origin explicitly to
+      // stop arbitrary web pages from attaching to a local shell.
+      if (!this.isUpgradeAllowed(request)) {
+        socket.write("HTTP/1.1 403 Forbidden\r\n\r\n");
+        socket.destroy();
         return;
       }
 
@@ -72,11 +81,21 @@ export class TerminalWsServer {
       }
 
       ws.on("message", (raw: Buffer | string) => {
+        const text = raw.toString("utf-8");
+        let msg: TerminalWsMessage | null = null;
         try {
-          const text = raw.toString("utf-8");
-          const msg = JSON.parse(text) as TerminalWsMessage;
+          const parsed: unknown = JSON.parse(text);
+          if (parsed && typeof parsed === "object") msg = parsed as TerminalWsMessage;
+        } catch {
+          // Not JSON: treated as raw keystrokes below.
+        }
 
-          if (msg.type === "input" && typeof msg.data === "string") {
+        // Handler errors must not fall through to the raw-keystroke path, or a failed
+        // control frame would be typed into the shell as literal JSON.
+        try {
+          if (!msg) {
+            if (text) this.terminalService.writeTerminal(sessionId, text);
+          } else if (msg.type === "input" && typeof msg.data === "string") {
             this.terminalService.writeTerminal(sessionId, msg.data);
           } else if (
             msg.type === "resize" &&
@@ -87,16 +106,8 @@ export class TerminalWsServer {
           } else if (msg.type === "ping") {
             ws.send(JSON.stringify({ type: "pong" }));
           }
-        } catch {
-          // If message is plain string keystrokes rather than JSON
-          const str = raw.toString("utf-8");
-          if (str) {
-            try {
-              this.terminalService.writeTerminal(sessionId, str);
-            } catch {
-              // Ignore write error on closed process
-            }
-          }
+        } catch (err) {
+          logger.warn({ err, sessionId }, "Failed to handle terminal stream message");
         }
       });
 

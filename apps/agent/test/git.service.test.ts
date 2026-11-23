@@ -108,4 +108,30 @@ describe("Phase 5 - Host Agent Git Service", () => {
     await expect(service.push(tmpDir, "--all")).rejects.toThrow("command options");
   });
 
+
+  it("treats checkout targets as refs and rejects push refspecs", async () => {
+    fs.writeFileSync(path.join(tmpDir, "notes"), "committed\n");
+    await service.stage(tmpDir, ["notes"]);
+    await service.commit(tmpDir, "add notes");
+    fs.writeFileSync(path.join(tmpDir, "notes"), "uncommitted work\n");
+
+    await expect(service.checkout(tmpDir, "notes")).rejects.toThrow(AppError);
+    expect(fs.readFileSync(path.join(tmpDir, "notes"), "utf-8")).toBe("uncommitted work\n");
+
+    await expect(service.push(tmpDir, "origin", "+main")).rejects.toThrow("refspecs");
+    await expect(service.push(tmpDir, "origin", ":main")).rejects.toThrow("refspecs");
+  });
+
+  it("parses branch names containing dots with an upstream", async () => {
+    fs.writeFileSync(path.join(tmpDir, "a.txt"), "a\n");
+    await service.stage(tmpDir, ["a.txt"]);
+    await service.commit(tmpDir, "init");
+    execFileSync("git", ["checkout", "-b", "release-1.0"], { cwd: tmpDir });
+    execFileSync("git", ["config", "branch.release-1.0.remote", "."], { cwd: tmpDir });
+    execFileSync("git", ["config", "branch.release-1.0.merge", "refs/heads/main"], { cwd: tmpDir });
+
+    const status = await service.getStatus(tmpDir);
+    expect(status.branch).toBe("release-1.0");
+    expect(status.tracking).toBe("main");
+  });
 });

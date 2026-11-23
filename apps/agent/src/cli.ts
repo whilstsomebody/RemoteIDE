@@ -2,7 +2,8 @@
 import fs from "node:fs";
 import path from "node:path";
 import os from "node:os";
-import { execSync, spawn } from "node:child_process";
+import { fileURLToPath } from "node:url";
+import { execFileSync, execSync, spawn } from "node:child_process";
 
 const CONFIG_DIR = path.join(os.homedir(), ".remoteide");
 const LOG_DIR = path.join(CONFIG_DIR, "logs");
@@ -29,7 +30,8 @@ const SYSTEMD_USER_DIR = path.join(os.homedir(), ".config/systemd/user");
 const SYSTEMD_SERVICE = path.join(SYSTEMD_USER_DIR, "remoteide-agent.service");
 
 function getAgentScriptPath(): string {
-  const currentDir = path.resolve(__dirname, "..");
+  // ESM has no __dirname; derive the package root from this module's URL.
+  const currentDir = path.resolve(path.dirname(fileURLToPath(import.meta.url)), "..");
   const distServer = path.join(currentDir, "dist/server.js");
   if (fs.existsSync(distServer)) return distServer;
   const srcServer = path.join(currentDir, "src/server.ts");
@@ -94,8 +96,12 @@ export async function runCli(args: string[]): Promise<void> {
         fs.writeFileSync(LAUNCHD_PLIST, plistContent);
         console.log(`[RemoteIDE] Wrote launchd plist to ${LAUNCHD_PLIST}`);
         try {
-          execSync(`launchctl unload "${LAUNCHD_PLIST}" 2>/dev/null || true`);
-          execSync(`launchctl load "${LAUNCHD_PLIST}"`);
+          try {
+            execFileSync("launchctl", ["unload", LAUNCHD_PLIST], { stdio: "ignore" });
+          } catch {
+            // Not loaded yet.
+          }
+          execFileSync("launchctl", ["load", LAUNCHD_PLIST]);
           console.log("[RemoteIDE] Service registered and loaded with launchd.");
         } catch (e: any) {
           console.warn("[RemoteIDE] Could not auto-load with launchctl:", e.message);
@@ -257,7 +263,11 @@ WantedBy=default.target
       console.log("[RemoteIDE] Uninstalling background service...");
       if (platform === "darwin" && fs.existsSync(LAUNCHD_PLIST)) {
         try {
-          execSync(`launchctl unload "${LAUNCHD_PLIST}" 2>/dev/null || true`);
+          try {
+            execFileSync("launchctl", ["unload", LAUNCHD_PLIST], { stdio: "ignore" });
+          } catch {
+            // Not loaded.
+          }
           fs.rmSync(LAUNCHD_PLIST, { force: true });
           console.log("[RemoteIDE] Removed launchd plist.");
         } catch {}

@@ -128,4 +128,20 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(journalBody.success).toBe(true);
     expect(journalBody.data.length).toBeGreaterThanOrEqual(2);
   });
+
+  it("proxies preview sub-paths to the forwarded loopback port", async () => {
+    const http = await import("node:http");
+    const upstream = http.createServer((req, res) => res.end(`upstream:${req.url}`));
+    await new Promise<void>((resolve) => upstream.listen(0, "127.0.0.1", resolve));
+    const port = (upstream.address() as { port: number }).port;
+    try {
+      context.portForwardingService.forwardPort({ port, label: "test", protocol: "http" });
+      const res = await app.inject({ method: "GET", url: `/api/v1/preview/${port}/assets/app.js?v=1` });
+      expect(res.statusCode).toBe(200);
+      expect(res.body).toBe("upstream:/assets/app.js?v=1");
+    } finally {
+      context.portForwardingService.unforwardPort(port);
+      await new Promise((resolve) => upstream.close(resolve));
+    }
+  });
 });

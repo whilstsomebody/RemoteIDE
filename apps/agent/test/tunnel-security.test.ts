@@ -39,3 +39,18 @@ it("filters workspace metadata and rejects host-wide tools for scoped sessions",
   }
   expect((await dispatch({ method: "POST", path: "/api/v1/workspaces/register", body: { paths: ["/"] }, authContext: auth() })).statusCode).toBe(403);
 });
+it("authorizes the canonical path so dot segments cannot reach owner-only routes", async () => {
+  const response = await dispatch({
+    method: "POST",
+    path: `/api/v1/workspaces/${allowed}/../../terminals`,
+    body: {},
+    authContext: auth(),
+  });
+  expect(response.statusCode).toBe(403);
+  expect(response.body.error.message).toContain("restricted to owner");
+});
+it("rejects local API requests with a non-loopback Host or foreign Origin", async () => {
+  expect((await context.app.inject({ method: "GET", url: "/api/v1/health", headers: { host: "attacker.example:4001" } })).statusCode).toBe(403);
+  expect((await context.app.inject({ method: "GET", url: "/api/v1/health", headers: { origin: "https://attacker.example" } })).statusCode).toBe(403);
+  expect((await context.app.inject({ method: "GET", url: "/api/v1/health", headers: { host: "127.0.0.1:4001", origin: "http://localhost:3000" } })).statusCode).toBe(200);
+});

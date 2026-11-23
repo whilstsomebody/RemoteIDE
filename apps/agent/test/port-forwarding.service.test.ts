@@ -49,4 +49,12 @@ describe("Phase 5 - Port Forwarding & Preview Service", () => {
     service.unforwardPort(5173);
     expect(service.isPortApproved(5173)).toBe(false);
   });
+
+  it("refuses preview subpaths that would retarget the request to another host", async () => {
+    service.forwardPort({ port: 5174, label: "Vite", protocol: "http" });
+    await expect(
+      service.proxyHttpRequest(5174, "@169.254.169.254/latest/meta-data", "GET", {})
+    ).rejects.toThrow("forwarded loopback port");
+    service.unforwardPort(5174);
+  });
 });

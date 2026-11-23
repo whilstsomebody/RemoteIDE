@@ -184,8 +184,8 @@ export class RelayTunnelTransport implements ITunnelTransport {
               }
             }
           }
-        } catch (err) {
-          // Bad frame
+        } catch {
+          // Malformed frame; ignore it rather than tearing down the tunnel.
         }
       });
 
@@ -261,12 +261,20 @@ export class RelayTunnelTransport implements ITunnelTransport {
       if (!auth) {
         return { correlationId: req.correlationId, statusCode: 401, body: { success: false, error: { code: ErrorCode.UNAUTHORIZED, message: "Tunnel authorization context required" } } };
       }
-      const segments = routeSegments(req.path);
+      // Authorize against the same canonical URL that inject() will dispatch: it resolves
+      // dot segments, so "/api/v1/workspaces/<id>/../../terminals" would otherwise be
+      // checked as a workspace route but executed as the owner-only terminal route.
+      const canonicalUrl = new URL(
+        req.path.startsWith("//") ? `http://localhost${req.path}` : req.path,
+        "http://localhost"
+      );
+      const dispatchPath = canonicalUrl.pathname + canonicalUrl.search;
+      const segments = routeSegments(dispatchPath);
       if (segments[2] === "workspaces" && (segments[3] === "register" || (segments.length === 4 && req.method === "DELETE")) && auth.role !== UserRole.OWNER) {
         return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Only the owner can manage host workspaces" } } };
       }
       if (auth) {
-        const required = requiredRequestPermission(req.method, req.path, req.body);
+        const required = requiredRequestPermission(req.method, dispatchPath, req.body);
         if (required === Permission.TERMINAL_ACCESS && auth.role !== UserRole.OWNER) {
           return { correlationId: req.correlationId, statusCode: 403, body: { success: false, error: { code: ErrorCode.FORBIDDEN, message: "Terminal access is restricted to owner" } } };
         }
@@ -310,12 +318,22 @@ export class RelayTunnelTransport implements ITunnelTransport {
         }
       }
 
-      // 3. Dispatch locally through the Fastify app
+      // The body is re-serialized, so the client's framing headers no longer apply, and the
+      // local API only accepts loopback Host/Origin values (DNS-rebinding guard).
+      const headers: Record<string, string> = {};
+      for (const [k, v] of Object.entries(req.headers || {})) {
+        if (!["host", "origin", "content-length", "transfer-encoding", "connection", "x-owner-id"].includes(k.toLowerCase())) {
+          headers[k] = v;
+        }
+      }
+      headers.host = "localhost";
+      headers["x-owner-id"] = auth.userId;
+
       const response = await this.opts.app.inject({
         method: req.method as any,
-        url: req.path,
+        url: dispatchPath,
         query: req.query,
-        headers: req.headers,
+        headers,
         payload: req.body as any,
       });
 
@@ -334,17 +352,17 @@ export class RelayTunnelTransport implements ITunnelTransport {
           envelope.data = null;
         }
       }
-      const headers: Record<string, string> = {};
+      const responseHeaders: Record<string, string> = {};
       for (const [k, v] of Object.entries(response.headers)) {
         if (v !== undefined && !["content-length", "transfer-encoding", "connection"].includes(k)) {
-          headers[k] = Array.isArray(v) ? v.join(", ") : String(v);
+          responseHeaders[k] = Array.isArray(v) ? v.join(", ") : String(v);
         }
       }
 
       return {
         correlationId: req.correlationId,
         statusCode: response.statusCode,
-        headers,
+        headers: responseHeaders,
         body: segments[2] === "preview" ? response.rawPayload.toString("base64") : parsedBody,
         ...(segments[2] === "preview" ? { bodyEncoding: "base64" as const } : {}),
       };

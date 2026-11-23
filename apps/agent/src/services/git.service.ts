@@ -22,15 +22,23 @@ export class GitService {
   constructor(private readonly allowedPaths: string[] = []) {}
 
   public validateRepoPath(repoPath: string): string {
-    const resolved = path.resolve(repoPath);
-    if (!fs.existsSync(resolved)) {
-      throw new AppError(ErrorCode.NOT_FOUND, `Repository path does not exist: ${resolved}`);
+    const requested = path.resolve(repoPath);
+    if (!fs.existsSync(requested)) {
+      throw new AppError(ErrorCode.NOT_FOUND, `Repository path does not exist: ${requested}`);
     }
+    // Compare canonical paths so a symlink inside an allowed root cannot point outside it.
+    const resolved = fs.realpathSync(requested);
 
     if (this.allowedPaths.length > 0) {
-      const isAllowed = this.allowedPaths.some(
-        (allowed) => resolved === allowed || resolved.startsWith(allowed + path.sep)
-      );
+      const isAllowed = this.allowedPaths.some((allowedPath) => {
+        let allowed: string;
+        try {
+          allowed = fs.realpathSync(path.resolve(allowedPath));
+        } catch {
+          return false;
+        }
+        return resolved === allowed || resolved.startsWith(allowed + path.sep);
+      });
       if (!isAllowed) {
         throw new AppError(
           ErrorCode.FORBIDDEN,
@@ -48,9 +56,15 @@ export class GitService {
     }
   }
 
-  /**
-   * Run git command using structured arguments only.
-   */
+  // A push/pull branch is a refspec: "+ref" forces the update and "src:dst" / ":dst" can
+  // overwrite or delete arbitrary remote refs, bypassing the force/destructive checks.
+  private validateBranchName(value: string): void {
+    this.validateOperand(value);
+    if (value.startsWith("+") || value.includes(":")) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "Git branch names must not be refspecs");
+    }
+  }
+
   private async runGit(
     repoPath: string,
     args: string[]
@@ -105,7 +119,8 @@ export class GitService {
           continue;
         }
 
-        const branchMatch = header.match(/^([^\s.]+)(?:\.\.\.([^\s]+))?(?:\s+\[(.*)\])?$/);
+        // Branch names may contain "." but never "...", which separates the upstream.
+        const branchMatch = header.match(/^(\S+?)(?:\.\.\.(\S+))?(?:\s+\[(.*)\])?$/);
         if (branchMatch && branchMatch[1]) {
           branch = branchMatch[1];
           tracking = branchMatch[2];
@@ -305,9 +320,10 @@ export class GitService {
   }
 
   public async getHistory(repoPath: string, maxCount = 50): Promise<GitCommit[]> {
+    const count = Number.isFinite(maxCount) && maxCount > 0 ? Math.min(Math.floor(maxCount), 100) : 50;
     const { stdout } = await this.runGit(repoPath, [
       "log",
-      `-n${Math.min(maxCount, 100)}`,
+      `-n${count}`,
       "--pretty=format:%H%x00%h%x00%an%x00%ae%x00%aI%x00%s",
     ]);
 
@@ -357,7 +373,9 @@ export class GitService {
     this.validateOperand(branch);
     const args = ["checkout"];
     if (createNew) args.push("-b");
-    args.push(branch);
+    // The trailing "--" forces `branch` to be read as a ref; without it a name matching a
+    // file path would silently discard that file's uncommitted changes.
+    args.push(branch, "--");
     await this.runGit(repoPath, args);
   }
 
@@ -385,7 +403,7 @@ export class GitService {
 
   public async pull(repoPath: string, remote = "origin", branch?: string): Promise<void> {
     this.validateOperand(remote);
-    if (branch) this.validateOperand(branch);
+    if (branch) this.validateBranchName(branch);
     const args = ["pull", "--", remote];
     if (branch) args.push(branch);
     await this.runGit(repoPath, args);
@@ -403,7 +421,7 @@ export class GitService {
     }
 
     this.validateOperand(remote);
-    if (branch) this.validateOperand(branch);
+    if (branch) this.validateBranchName(branch);
     const args = ["push"];
     if (force) args.push("--force");
     args.push("--", remote);

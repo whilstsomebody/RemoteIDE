@@ -14,10 +14,32 @@ import {
   logger,
 } from "@remote-ide/shared";
 
+const MAX_LOG_CHARS_PER_JOB = 2_000_000;
+const USE_PROCESS_GROUPS = process.platform !== "win32";
+
+function quotePosixShellArg(arg: string): string {
+  return `'${arg.replace(/'/g, "'\\''")}'`;
+}
+
+// Jobs run through a shell, so signal the whole process group: signalling only the shell
+// would leave `a && b` or `npm run x` grandchildren running after cancel/timeout.
+function signalJobProcess(child: ChildProcess, signal: NodeJS.Signals): void {
+  if (USE_PROCESS_GROUPS && child.pid) {
+    try {
+      process.kill(-child.pid, signal);
+      return;
+    } catch {
+      // Group already gone; fall back to the direct child.
+    }
+  }
+  child.kill(signal);
+}
+
 interface JobRecord {
   job: JobDefinition;
   process?: ChildProcess;
   logs: JobLogEntry[];
+  logChars: number;
   maxLogEntries: number;
   timeoutTimer?: NodeJS.Timeout;
   logListeners: Set<(entry: JobLogEntry) => void>;
@@ -107,6 +129,7 @@ export class JobManagerService {
     const record: JobRecord = {
       job,
       logs: [],
+      logChars: 0,
       maxLogEntries: this.maxLogEntriesPerJob,
       logListeners: new Set(),
     };
@@ -156,10 +179,16 @@ export class JobManagerService {
     this.addLog(record, "system", `Starting process in ${job.cwd}...`);
 
     try {
-      // Spawn child process with shell wrapper to support command execution
-      const child = spawn(job.command, job.args, {
+      // `command` is a shell command line by design, but `args` are discrete values: quote
+      // them so they cannot inject shell syntax (Node joins shell args unescaped).
+      const commandLine =
+        USE_PROCESS_GROUPS && job.args.length > 0
+          ? [job.command, ...job.args.map(quotePosixShellArg)].join(" ")
+          : job.command;
+      const child = spawn(commandLine, USE_PROCESS_GROUPS ? [] : job.args, {
         cwd: job.cwd,
         shell: true,
+        detached: USE_PROCESS_GROUPS,
         env: {
           ...process.env,
           REMOTE_IDE_JOB_ID: job.id,
@@ -187,7 +216,7 @@ export class JobManagerService {
               "system",
               `Job execution timed out after ${job.timeoutMs}ms. Terminating...`
             );
-            this.cancelJob(job.id, "Execution timeout exceeded");
+            void this.cancelJob(job.id, "Execution timeout exceeded");
           }
         }, job.timeoutMs);
       }
@@ -257,10 +286,14 @@ export class JobManagerService {
     };
 
     record.logs.push(entry);
+    record.logChars += data.length;
 
-    // Bound memory size
-    if (record.logs.length > record.maxLogEntries) {
-      record.logs.splice(0, record.logs.length - record.maxLogEntries);
+    // Entries are raw output chunks, so bound total size as well as entry count.
+    while (
+      record.logs.length > 1 &&
+      (record.logs.length > record.maxLogEntries || record.logChars > MAX_LOG_CHARS_PER_JOB)
+    ) {
+      record.logChars -= record.logs.shift()!.data.length;
     }
 
     for (const listener of record.logListeners) {
@@ -286,11 +319,17 @@ export class JobManagerService {
 
     if (record.job.status === "running" && record.process) {
       this.finishJob(record, "cancelled", null, reason);
+      const child = record.process;
       try {
-        record.process.kill("SIGTERM");
+        signalJobProcess(child, "SIGTERM");
         setTimeout(() => {
-          if (record.process && record.process.exitCode === null && record.process.signalCode === null) {
-            record.process.kill("SIGKILL");
+          // The shell may already be gone while grandchildren in its group are not.
+          if (USE_PROCESS_GROUPS || (child.exitCode === null && child.signalCode === null)) {
+            try {
+              signalJobProcess(child, "SIGKILL");
+            } catch {
+              // Already exited.
+            }
           }
         }, 500);
       } catch (err) {

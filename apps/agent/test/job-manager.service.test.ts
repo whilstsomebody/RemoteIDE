@@ -149,4 +149,17 @@ describe("Phase 4 - Host Agent Background Job Manager", () => {
 
     expect(service.getJob(job2.id).status).toBe("completed");
   });
+
+  it.skipIf(process.platform === "win32")("passes args to the shell as literal values", async () => {
+    service = new JobManagerService();
+    const job = await service.createJob(
+      { name: "Quoted", command: "echo", args: ["$(echo INJECTED)", "it's"], timeoutMs: 30000 },
+      "owner-1"
+    );
+    for (let i = 0; i < 100 && service.getJob(job.id).status === "running"; i++) {
+      await new Promise((resolve) => setTimeout(resolve, 50));
+    }
+    const stdout = service.getJobLogs(job.id).filter((l) => l.stream === "stdout").map((l) => l.data).join("");
+    expect(stdout.trim()).toBe("$(echo INJECTED) it's");
+  });
 });

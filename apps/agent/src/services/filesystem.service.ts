@@ -294,6 +294,10 @@ export class FilesystemService {
     if (stat.isDirectory()) {
       throw new AppError(ErrorCode.BAD_REQUEST, `Cannot read directory as file: ${relativePath}`);
     }
+    // FIFOs and device files would block the agent's event loop in readFileSync.
+    if (!stat.isFile()) {
+      throw new AppError(ErrorCode.BAD_REQUEST, `Not a regular file: ${relativePath}`);
+    }
 
     if (stat.size > this.maxFileSizeBytes) {
       throw new AppError(
@@ -572,7 +576,8 @@ export class FilesystemService {
     }
   ): SearchFilesResponse {
     const workspace = this.workspaceService.getWorkspace(workspaceId);
-    const maxResults = options.maxResults ?? 50;
+    const requestedMax = options.maxResults ?? 50;
+    const maxResults = Number.isFinite(requestedMax) && requestedMax > 0 ? Math.min(requestedMax, 1000) : 50;
     const type = options.type ?? "filename";
     const results: SearchResultItem[] = [];
 

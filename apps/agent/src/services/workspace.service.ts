@@ -1,5 +1,6 @@
 import { createRequire } from "node:module";
 import fs from "node:fs";
+import os from "node:os";
 import path from "node:path";
 import { AppError, ErrorCode, generateId, Workspace, WorkspaceFolder } from "@remote-ide/shared";
 
@@ -69,8 +70,21 @@ export class WorkspaceService {
       }
 
       const realCanonicalPath = fs.realpathSync(resolvedPath);
+      // Registering the filesystem root or the whole home directory would expose
+      // credentials (~/.ssh, cloud configs) and every other project to file APIs.
+      if (realCanonicalPath === path.parse(realCanonicalPath).root || realCanonicalPath === this.canonicalHome()) {
+        throw new AppError(
+          ErrorCode.PATH_NOT_ALLOWED,
+          "The filesystem root or home directory cannot be registered as a workspace"
+        );
+      }
       if (this.allowedRoots.length && !this.allowedRoots.some((root) => {
-        const canonical = fs.realpathSync(path.resolve(root));
+        let canonical: string;
+        try {
+          canonical = fs.realpathSync(path.resolve(root));
+        } catch {
+          return false;
+        }
         return realCanonicalPath === canonical || realCanonicalPath.startsWith(`${canonical}${path.sep}`);
       })) {
         throw new AppError(ErrorCode.PATH_NOT_ALLOWED, "Workspace is outside configured project roots");
@@ -109,6 +123,14 @@ export class WorkspaceService {
       updatedAt: now,
       isActive: shouldBeActive === 1,
     };
+  }
+
+  private canonicalHome(): string | undefined {
+    try {
+      return fs.realpathSync(os.homedir());
+    } catch {
+      return undefined;
+    }
   }
 
   public listWorkspaces(): Workspace[] {

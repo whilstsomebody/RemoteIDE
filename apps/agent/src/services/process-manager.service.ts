@@ -21,6 +21,7 @@ interface ProcessRecord {
   process: ManagedProcess;
   child?: ChildProcess;
   logs: Array<{ timestamp: string; stream: "stdout" | "stderr"; text: string }>;
+  logChars: number;
   logListeners: Set<
     (entry: { timestamp: string; stream: "stdout" | "stderr"; text: string }) => void
   >;
@@ -29,6 +30,8 @@ interface ProcessRecord {
 export class ProcessManagerService {
   private processes = new Map<string, ProcessRecord>();
   private readonly MAX_LOG_LINES = 2000;
+  // Entries are raw stdout chunks (up to 64KB each), so a line cap alone does not bound memory.
+  private readonly MAX_LOG_CHARS = 2_000_000;
 
   constructor(private readonly allowedPaths: string[] = []) {}
 
@@ -123,6 +126,7 @@ export class ProcessManagerService {
       process: managed,
       env: rawEnv,
       logs: [],
+      logChars: 0,
       logListeners: new Set(),
     };
     this.processes.set(id, record);
@@ -157,8 +161,12 @@ export class ProcessManagerService {
           text,
         };
         record.logs.push(entry);
-        if (record.logs.length > this.MAX_LOG_LINES) {
-          record.logs.splice(0, record.logs.length - this.MAX_LOG_LINES);
+        record.logChars += text.length;
+        while (
+          record.logs.length > 1 &&
+          (record.logs.length > this.MAX_LOG_LINES || record.logChars > this.MAX_LOG_CHARS)
+        ) {
+          record.logChars -= record.logs.shift()!.text.length;
         }
         for (const listener of record.logListeners) {
           try {
@@ -197,11 +205,9 @@ export class ProcessManagerService {
       proc.status = "crashed";
       proc.stoppedAt = new Date().toISOString();
       const message = err instanceof Error ? err.message : "Failed to spawn process";
-      record.logs.push({
-        timestamp: new Date().toISOString(),
-        stream: "stderr",
-        text: `Spawn failed: ${message}\n`,
-      });
+      const text = `Spawn failed: ${message}\n`;
+      record.logs.push({ timestamp: new Date().toISOString(), stream: "stderr", text });
+      record.logChars += text.length;
     }
   }
 

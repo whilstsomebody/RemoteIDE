@@ -156,7 +156,17 @@ export class PortForwardingService {
       );
     }
 
-    const targetUrl = new URL(`http://127.0.0.1:${port}${subpath}`);
+    let targetUrl: URL;
+    try {
+      targetUrl = new URL(`http://127.0.0.1:${port}${subpath}`);
+    } catch {
+      throw new AppError(ErrorCode.BAD_REQUEST, "Invalid preview path");
+    }
+    // The subpath is attacker-controlled: "@evil.com/x" would otherwise turn the
+    // loopback prefix into userinfo and retarget the request to another host.
+    if (targetUrl.hostname !== "127.0.0.1" || targetUrl.port !== String(port) || targetUrl.username) {
+      throw new AppError(ErrorCode.FORBIDDEN, "Preview requests may only target the forwarded loopback port");
+    }
 
     return new Promise((resolve, reject) => {
       const cleanHeaders = { ...headers };
