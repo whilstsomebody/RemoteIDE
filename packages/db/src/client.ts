@@ -31,6 +31,12 @@ export function createDatabaseClient(config?: DatabaseConfig): {
     connectionTimeoutMillis: config?.connectionTimeoutMillis ?? 5000,
   });
 
+  // pg emits "error" on the pool when an idle client's connection drops (e.g. Postgres
+  // restart); without a listener that event crashes the process.
+  pool.on("error", (err) => {
+    console.error("[db] Idle PostgreSQL client error:", err.message);
+  });
+
   const db = drizzle(pool, { schema });
 
   async function checkHealth(): Promise<{ healthy: boolean; latencyMs: number; error?: string }> {

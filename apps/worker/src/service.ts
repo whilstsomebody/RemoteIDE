@@ -176,8 +176,16 @@ export class WorkerService {
         await this.consumer.run({
           eachMessage: async ({ message }) => {
             if (!message.value) return;
+            let event: DurableEvent<any>;
             try {
-              const event = JSON.parse(message.value.toString()) as DurableEvent<any>;
+              event = JSON.parse(message.value.toString()) as DurableEvent<any>;
+            } catch (err) {
+              // A malformed record can never succeed; rethrowing would retry it forever and
+              // stall the partition, so skip it.
+              this.logger.error({ err }, "Skipping malformed Kafka message");
+              return;
+            }
+            try {
               await this.processEvent(event);
             } catch (err) {
               this.logger.error({ err }, "Kafka event processing failed; leave offset uncommitted");
