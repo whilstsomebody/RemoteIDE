@@ -1,6 +1,6 @@
 # Multi-stage production build for RemoteIDE Background Worker
-FROM node:20-alpine AS base
-RUN corepack enable && corepack prepare pnpm@latest --activate
+FROM node:24-alpine AS base
+RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 WORKDIR /app
 
 FROM base AS builder
@@ -13,10 +13,10 @@ RUN pnpm --filter @remote-ide/shared build
 RUN pnpm --filter @remote-ide/db build
 RUN pnpm --filter @remote-ide/worker build
 
-FROM node:20-alpine AS runner
+FROM node:24-alpine AS runner
 WORKDIR /app
 ENV NODE_ENV=production
-RUN corepack enable && corepack prepare pnpm@latest --activate
+RUN corepack enable && corepack prepare pnpm@12.18.0 --activate
 
 COPY --from=builder /app/package.json /app/pnpm-lock.yaml /app/pnpm-workspace.yaml ./
 COPY --from=builder /app/packages/shared/dist ./packages/shared/dist
