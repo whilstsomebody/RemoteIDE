@@ -1,7 +1,43 @@
+import dns from "node:dns";
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
-import { AppError, ErrorCode, ExecuteApiRequestDto, ApiClientResponse, isSsrfDangerousTarget } from "@remote-ide/shared";
+import {
+  AppError,
+  ErrorCode,
+  ExecuteApiRequestDto,
+  ApiClientResponse,
+  isSsrfDangerousTarget,
+  isSsrfBlockedAddress,
+} from "@remote-ide/shared";
+
+const MAX_RESPONSE_BYTES = 10 * 1024 * 1024;
+
+/**
+ * DNS lookup that rejects resolved addresses on the SSRF blocklist, so a public
+ * hostname (or a DNS-rebinding record) cannot point the request at cloud metadata.
+ */
+const ssrfSafeLookup: typeof dns.lookup = ((
+  hostname: string,
+  options: dns.LookupOptions,
+  callback: (err: NodeJS.ErrnoException | null, address: string | dns.LookupAddress[], family?: number) => void
+) => {
+  dns.lookup(hostname, { ...options, all: true }, (err, addresses) => {
+    if (err) return callback(err, options.all ? [] : "", undefined);
+    const blocked = addresses.find((a) => isSsrfBlockedAddress(a.address).blocked);
+    if (blocked) {
+      const denied: NodeJS.ErrnoException = new Error(
+        `Access to forbidden endpoint: ${hostname} resolves to blocked address ${blocked.address}`
+      );
+      denied.code = "ESSRFBLOCKED";
+      return callback(denied, options.all ? [] : "", undefined);
+    }
+    if (options.all) return callback(null, addresses);
+    const first = addresses[0];
+    if (!first) return callback(new Error(`No addresses found for ${hostname}`), "", undefined);
+    callback(null, first.address, first.family);
+  });
+}) as typeof dns.lookup;
 
 export class ApiClientService {
   public interpolate(text: string, variables: Record<string, string> = {}): string {
@@ -115,10 +151,21 @@ export class ApiClientService {
           method: dto.method,
           headers,
           timeout: dto.timeoutMs || 30000,
+          lookup: ssrfSafeLookup,
         },
         (res) => {
           const chunks: Buffer[] = [];
-          res.on("data", (chunk) => chunks.push(chunk));
+          let received = 0;
+          res.on("data", (chunk: Buffer) => {
+            received += chunk.length;
+            if (received > MAX_RESPONSE_BYTES) {
+              req.destroy(
+                new Error(`Response body exceeded ${MAX_RESPONSE_BYTES / (1024 * 1024)}MB limit`)
+              );
+              return;
+            }
+            chunks.push(chunk);
+          });
           res.on("end", () => {
             const durationMs = Date.now() - startTime;
             const resBuffer = Buffer.concat(chunks);
@@ -164,7 +211,11 @@ export class ApiClientService {
         );
       });
 
-      req.on("error", (err) => {
+      req.on("error", (err: NodeJS.ErrnoException) => {
+        if (err.code === "ESSRFBLOCKED") {
+          reject(new AppError(ErrorCode.FORBIDDEN, err.message));
+          return;
+        }
         const durationMs = Date.now() - startTime;
         resolve({
           status: 0,
@@ -191,17 +242,15 @@ export class ApiClientService {
     headers: Record<string, string>,
     body: Buffer | null
   ): string {
-    const parts = [`curl -X ${method} "${url}"`];
+    // Single-quote every value: double quotes would let $(...) or backticks in a URL or
+    // header run when the exported command is pasted into a shell.
+    const quote = (value: string) => `'${value.replace(/'/g, "'\\''")}'`;
+    const parts = [`curl -X ${method} ${quote(url)}`];
     for (const [k, v] of Object.entries(headers)) {
-      if (k.toLowerCase() === "authorization") {
-        // Safe placeholder for cURL copy if sensitive
-        parts.push(`-H "${k}: ${v}"`);
-      } else {
-        parts.push(`-H "${k}: ${v}"`);
-      }
+      parts.push(`-H ${quote(`${k}: ${v}`)}`);
     }
     if (body) {
-      parts.push(`-d '${body.toString("utf-8").replace(/'/g, "'\\''")}'`);
+      parts.push(`-d ${quote(body.toString("utf-8"))}`);
     }
     return parts.join(" \\\n  ");
   }

@@ -207,13 +207,16 @@ export class CollabDocManagerService {
       });
     }
 
-    if (session.participants.size === 0) {
-      session.inactivityTimer = setTimeout(() => {
-        void this.cleanupSession(workspaceId, relativePath);
-      }, this.inactivityTtlMs);
-    }
+    this.scheduleInactivityCleanup(session);
 
     return { participantCount: session.participants.size };
+  }
+
+  private scheduleInactivityCleanup(session: CollabSessionRecord): void {
+    if (session.participants.size > 0 || session.inactivityTimer) return;
+    session.inactivityTimer = setTimeout(() => {
+      void this.cleanupSession(session.workspaceId, session.relativePath);
+    }, this.inactivityTtlMs);
   }
 
   /**
@@ -226,14 +229,17 @@ export class CollabDocManagerService {
     updateBase64: string,
     user: { id: string; role: CollabRole }
   ): { applied: boolean; content: string } {
-    if (user.role === "viewer") {
+    const session = this.getSession(workspaceId, relativePath);
+    // The registered participant role wins over the caller-claimed one, so a participant
+    // demoted to viewer via assignRole() cannot keep writing by claiming "editor".
+    const registeredRole = session?.participants.get(user.id)?.role;
+    if (user.role === "viewer" || registeredRole === "viewer") {
       throw new AppError(
         ErrorCode.FORBIDDEN,
         "Viewers are not permitted to submit document modifications"
       );
     }
 
-    const session = this.getSession(workspaceId, relativePath);
     if (!session) {
       throw new AppError(ErrorCode.BAD_REQUEST, "No active collaborative session for file");
     }
@@ -565,6 +571,7 @@ export class CollabDocManagerService {
       relativePath,
       targetUserId,
     });
+    this.scheduleInactivityCleanup(session);
   }
 
   public addComment(

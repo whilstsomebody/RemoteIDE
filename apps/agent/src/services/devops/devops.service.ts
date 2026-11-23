@@ -14,6 +14,8 @@ import {
 } from "@remote-ide/shared";
 
 const execAsync = promisify(exec);
+// Leading "-" is rejected so a name cannot be parsed as a pm2 CLI flag.
+const PM2_TARGET_PATTERN = /^[a-zA-Z0-9_.][a-zA-Z0-9_.-]*$/;
 
 export class DevOpsService {
   private sshProfiles = new Map<string, SshProfile>();
@@ -80,7 +82,7 @@ export class DevOpsService {
   }
 
   public async restartPm2(nameOrId: string): Promise<void> {
-    if (!/^[a-zA-Z0-9_.-]+$/.test(nameOrId)) {
+    if (!PM2_TARGET_PATTERN.test(nameOrId)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid PM2 process name or ID");
     }
     try {
@@ -94,7 +96,7 @@ export class DevOpsService {
   }
 
   public async stopPm2(nameOrId: string): Promise<void> {
-    if (!/^[a-zA-Z0-9_.-]+$/.test(nameOrId)) {
+    if (!PM2_TARGET_PATTERN.test(nameOrId)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, "Invalid PM2 process name or ID");
     }
     try {

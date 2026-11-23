@@ -11,7 +11,11 @@ import {
   TestLogEntry,
   CoverageSummary,
   generateId,
+  AppError,
+  ErrorCode,
 } from "@remote-ide/shared";
+
+const MAX_CAPTURED_OUTPUT_BYTES = 5 * 1024 * 1024;
 
 export class TestRunnerService {
   private lastRunResults = new Map<string, TestRunResult>(); // workspaceId -> TestRunResult
@@ -68,14 +72,14 @@ export class TestRunnerService {
 
       const lines = content.split("\n");
       // Match it("...", ...), it.skip("...", ...), test("...", ...), def test_...()
-      const testRegex = /(?:it|test)(?:\.(?:only|skip))?\s*\(\s*["'`batch](.*?)["'`]/;
+      const testRegex = /\b(?:it|test)(?:\.(?:only|skip))?\s*\(\s*(["'`])(.*?)\1/;
       const pyTestRegex = /def\s+(test_\w+)\s*\(/;
 
       for (let i = 0; i < lines.length; i++) {
         const line = lines[i]!;
         const jsMatch = line.match(testRegex);
-        if (jsMatch && jsMatch[1]) {
-          const testName = jsMatch[1];
+        if (jsMatch && jsMatch[2]) {
+          const testName = jsMatch[2];
           tests.push({
             id: generateId("test"),
             name: testName,
@@ -121,9 +125,22 @@ export class TestRunnerService {
     const startedAt = new Date().toISOString();
     const startTime = Date.now();
 
+    for (const value of [filePath, testName]) {
+      if (value && value.startsWith("-")) {
+        throw new AppError(
+          ErrorCode.VALIDATION_ERROR,
+          "Test file paths and names must not start with '-' (would be parsed as CLI flags)"
+        );
+      }
+    }
+
     const logs: TestLogEntry[] = [];
+    let capturedBytes = 0;
 
     const appendLog = (stream: "stdout" | "stderr", data: string) => {
+      // Bound memory and response size for runaway test output.
+      if (capturedBytes >= MAX_CAPTURED_OUTPUT_BYTES) return;
+      capturedBytes += data.length;
       const entry: TestLogEntry = {
         stream,
         data,
@@ -139,8 +156,9 @@ export class TestRunnerService {
     if (failedOnly && this.lastRunResults.has(workspaceId)) {
       const prev = this.lastRunResults.get(workspaceId)!;
       if (prev.failures.length > 0) {
-        // Target previous failure files
-        const failureFiles = Array.from(new Set(prev.failures.map((f) => f.filePath)));
+        const failureFiles = Array.from(new Set(prev.failures.map((f) => f.filePath))).filter(
+          (f) => !f.startsWith("-")
+        );
         if (failureFiles.length > 0) {
           args = ["vitest", "run", ...failureFiles];
         }
@@ -170,13 +188,13 @@ export class TestRunnerService {
 
       child.stdout.on("data", (chunk: Buffer) => {
         const text = chunk.toString();
-        rawOutput += text;
+        if (rawOutput.length < MAX_CAPTURED_OUTPUT_BYTES) rawOutput += text;
         appendLog("stdout", text);
       });
 
       child.stderr.on("data", (chunk: Buffer) => {
         const text = chunk.toString();
-        rawOutput += text;
+        if (rawOutput.length < MAX_CAPTURED_OUTPUT_BYTES) rawOutput += text;
         appendLog("stderr", text);
       });
 

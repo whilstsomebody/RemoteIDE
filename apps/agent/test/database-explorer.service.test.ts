@@ -3,6 +3,7 @@ import { DatabaseExplorerService } from "../src/services/database/database-explo
 import fs from "node:fs";
 import os from "node:os";
 import path from "node:path";
+import { createRequire } from "node:module";
 import { AppError } from "@remote-ide/shared";
 
 describe("Phase 9 — Database Explorer Service", () => {
@@ -86,6 +87,51 @@ describe("Phase 9 — Database Explorer Service", () => {
         AppError
       );
     }
+  });
+
+  it("rejects state-changing PRAGMAs but allows introspection PRAGMAs", async () => {
+    const defaultProfile = service.listProfiles().find((p) => p.isDefault)!;
+
+    for (const query of [
+      "PRAGMA query_only = OFF",
+      "PRAGMA user_version = 7",
+      "PRAGMA journal_mode(DELETE)",
+      "PRAGMA main.writable_schema = ON",
+    ]) {
+      await expect(service.runQuery({ profileId: defaultProfile.id, query })).rejects.toThrow(
+        AppError
+      );
+    }
+
+    const info = await service.runQuery({
+      profileId: defaultProfile.id,
+      query: "PRAGMA table_info(users)",
+    });
+    expect(info.error).toBeUndefined();
+    expect(info.rowCount).toBeGreaterThan(0);
+  });
+
+  it("opens file-backed SQLite databases read-only", async () => {
+    const dbPath = path.join(tmpDir, "app.db");
+    const { DatabaseSync } = createRequire(import.meta.url)("node:sqlite");
+    const seed = new DatabaseSync(dbPath);
+    seed.exec("CREATE TABLE items (id INTEGER); INSERT INTO items VALUES (1);");
+    seed.close();
+
+    const profile = service.createProfile({ name: "file", type: "sqlite", database: dbPath });
+    const rows = await service.runQuery({ profileId: profile.id, query: "SELECT * FROM items" });
+    expect(rows.rowCount).toBe(1);
+
+    // Defense in depth beneath the keyword filter: the connection itself refuses writes.
+    const conn = (service as any).sqliteConnections.get(profile.id);
+    expect(() => conn.exec("INSERT INTO items VALUES (2)")).toThrow(/readonly/);
+  });
+
+  it("clamps invalid pagination parameters", async () => {
+    const defaultProfile = service.listProfiles().find((p) => p.isDefault)!;
+    const data = await service.getTableData(defaultProfile.id, "users", Number.NaN, 100000);
+    expect(data.page).toBe(1);
+    expect(data.pageSize).toBe(500);
   });
 
   it("throws NOT_FOUND when querying a non-existent database profile", async () => {

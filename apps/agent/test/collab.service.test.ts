@@ -448,4 +448,36 @@ describe("Phase 11 — Collaborative Editing & Yjs CRDT Persistence", () => {
     collabService.kick(workspaceId, filePath, "owner", "user-2");
     expect(collabService.getSession(workspaceId, filePath)!.participants.has("user-2")).toBe(false);
   });
+
+  it("blocks writes from a participant demoted to viewer even if the caller claims editor", async () => {
+    const filePath = "demoted.ts";
+    fsService.writeFile(workspaceId, filePath, "const a = 1;");
+    await collabService.join(workspaceId, filePath, { id: "owner-1", name: "O", role: "owner" });
+    await collabService.join(workspaceId, filePath, { id: "ed-1", name: "E", role: "editor" });
+    collabService.assignRole(workspaceId, filePath, "owner", "ed-1", "viewer");
+
+    const doc = new Y.Doc();
+    Y.applyUpdate(doc, Y.encodeStateAsUpdate(collabService.getSession(workspaceId, filePath)!.doc));
+    let update: Uint8Array | undefined;
+    doc.on("update", (u: Uint8Array) => (update = u));
+    doc.getText("contents").insert(0, "// edit\n");
+
+    expect(() =>
+      collabService.applyClientUpdate(
+        workspaceId,
+        filePath,
+        Buffer.from(update!).toString("base64"),
+        { id: "ed-1", role: "editor" }
+      )
+    ).toThrow(AppError);
+  });
+
+  it("cleans up the session after the last participant is kicked", async () => {
+    const filePath = "kicked.ts";
+    fsService.writeFile(workspaceId, filePath, "x");
+    await collabService.join(workspaceId, filePath, { id: "u-1", name: "U", role: "editor" });
+    collabService.kick(workspaceId, filePath, "owner", "u-1");
+    await new Promise((r) => setTimeout(r, 200));
+    expect(collabService.getSession(workspaceId, filePath)).toBeUndefined();
+  });
 });

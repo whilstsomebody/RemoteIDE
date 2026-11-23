@@ -4,18 +4,40 @@ import path from "node:path";
 
 const require = createRequire(import.meta.url);
 const { DatabaseSync } = require("node:sqlite") as {
-  DatabaseSync: new (path: string) => {
+  DatabaseSync: new (path: string, options?: { readOnly?: boolean }) => {
     exec: (sql: string) => void;
     prepare: (sql: string) => {
       run: (...args: unknown[]) => void;
       all: (...args: unknown[]) => unknown[];
       get: (...args: unknown[]) => unknown;
+      iterate: (...args: unknown[]) => IterableIterator<unknown>;
     };
     close: () => void;
   };
 };
 
 type SqliteDb = InstanceType<typeof DatabaseSync>;
+
+// PRAGMAs that only introspect schema/state; any other PRAGMA in call form, and any
+// PRAGMA assignment, can change database or connection state (e.g. query_only, journal_mode).
+const READ_ONLY_PRAGMAS = new Set([
+  "table_info",
+  "table_xinfo",
+  "table_list",
+  "index_list",
+  "index_info",
+  "index_xinfo",
+  "foreign_key_list",
+  "foreign_key_check",
+  "integrity_check",
+  "quick_check",
+  "database_list",
+  "collation_list",
+  "compile_options",
+  "function_list",
+  "module_list",
+  "pragma_list",
+]);
 
 import {
   DatabaseProfile,
@@ -84,6 +106,8 @@ export class DatabaseExplorerService {
           ('Implement Docker Integration', 'in_progress', 2, 2),
           ('Test Database Explorer', 'pending', 1, 3);
       `);
+      // In-memory DBs cannot be opened read-only, so lock the connection after seeding.
+      db.exec("PRAGMA query_only = ON");
       this.sqliteConnections.set(profileId, db);
     } catch (err) {
       logger.error({ err }, "Error creating demo SQLite database");
@@ -268,6 +292,9 @@ export class DatabaseExplorerService {
 
     this.validateIdentifier(tableName);
     const safeTable = tableName.replace(/"/g, '""');
+    // Route passes parseInt() results, which may be NaN or arbitrarily large.
+    page = Number.isFinite(page) ? Math.max(1, Math.floor(page)) : 1;
+    pageSize = Number.isFinite(pageSize) ? Math.min(500, Math.max(1, Math.floor(pageSize))) : 50;
 
     if (profile.type === "sqlite") {
       const db = this.getOrCreateSqlite(profile);
@@ -313,11 +340,15 @@ export class DatabaseExplorerService {
       const db = this.getOrCreateSqlite(profile);
       try {
         const stmt = db.prepare(dto.query);
-        const rows = stmt.all() as Record<string, unknown>[];
+        const maxRows = Math.min(dto.maxRows || 100, 500);
+        // Iterate instead of all() so a huge result set is never fully materialized.
+        const limitedRows: Record<string, unknown>[] = [];
+        for (const row of stmt.iterate()) {
+          if (limitedRows.length >= maxRows) break;
+          limitedRows.push(row as Record<string, unknown>);
+        }
         const executionTimeMs = Date.now() - start;
 
-        const maxRows = Math.min(dto.maxRows || 100, 500);
-        const limitedRows = rows.slice(0, maxRows);
         const columns = limitedRows.length > 0 ? Object.keys(limitedRows[0]!) : [];
 
         return {
@@ -370,7 +401,17 @@ export class DatabaseExplorerService {
       );
     }
 
-    // Check for destructive write keywords anywhere in statements
+    if (firstWord === "PRAGMA") {
+      const pragma = trimmed.match(/^PRAGMA\s+(?:[A-Za-z_]\w*\s*\.\s*)?([A-Za-z_]\w*)\s*(\()?/i);
+      const name = pragma?.[1]?.toLowerCase();
+      if (!name || trimmed.includes("=") || (pragma?.[2] && !READ_ONLY_PRAGMAS.has(name))) {
+        throw new AppError(
+          ErrorCode.FORBIDDEN,
+          "Read-only mode: only introspection PRAGMA queries are permitted"
+        );
+      }
+    }
+
     const destructive =
       /\b(INSERT|UPDATE|DELETE|DROP|ALTER|CREATE|TRUNCATE|GRANT|REVOKE|ATTACH|DETACH|VACUUM|REPLACE)\b/i;
     if (destructive.test(trimmed)) {
@@ -395,7 +436,8 @@ export class DatabaseExplorerService {
       }
     }
 
-    db = new DatabaseSync(dbPath);
+    db = dbPath === ":memory:" ? new DatabaseSync(dbPath) : new DatabaseSync(dbPath, { readOnly: true });
+    if (dbPath === ":memory:") db.exec("PRAGMA query_only = ON");
     this.sqliteConnections.set(profile.id, db);
     return db;
   }

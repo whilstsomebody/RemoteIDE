@@ -1,4 +1,4 @@
-import { exec } from "node:child_process";
+import { exec, execFile } from "node:child_process";
 import { promisify } from "node:util";
 import {
   DockerOverview,
@@ -15,6 +15,7 @@ import {
 } from "@remote-ide/shared";
 
 const execAsync = promisify(exec);
+const execFileAsync = promisify(execFile);
 
 export class DockerService {
   private isDockerAvailable = false;
@@ -196,7 +197,7 @@ export class DockerService {
     await this.ensureDockerAvailable();
     this.validateIdentifier(containerId);
     try {
-      await execAsync(`docker start ${containerId}`, { timeout: 10000 });
+      await execFileAsync("docker", ["start", containerId], { timeout: 10000 });
     } catch (err) {
       throw new AppError(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -209,7 +210,7 @@ export class DockerService {
     await this.ensureDockerAvailable();
     this.validateIdentifier(containerId);
     try {
-      await execAsync(`docker stop -t 5 ${containerId}`, { timeout: 12000 });
+      await execFileAsync("docker", ["stop", "-t", "5", containerId], { timeout: 12000 });
     } catch (err) {
       throw new AppError(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -222,7 +223,7 @@ export class DockerService {
     await this.ensureDockerAvailable();
     this.validateIdentifier(containerId);
     try {
-      await execAsync(`docker restart -t 5 ${containerId}`, { timeout: 15000 });
+      await execFileAsync("docker", ["restart", "-t", "5", containerId], { timeout: 15000 });
     } catch (err) {
       throw new AppError(
         ErrorCode.INTERNAL_SERVER_ERROR,
@@ -234,15 +235,15 @@ export class DockerService {
   public async getContainerLogs(dto: DockerLogsDto): Promise<string> {
     await this.ensureDockerAvailable();
     this.validateIdentifier(dto.containerId);
-    const tailFlag = `--tail ${dto.tail || 200}`;
-    const timeFlag = dto.timestamps ? "-t" : "";
-    const sinceFlag = dto.since ? `--since "${dto.since}"` : "";
+    // execFile (no shell): `since` is free-form client input and was previously
+    // interpolated into a shell string, allowing command injection.
+    const args = ["logs", "--tail", String(dto.tail || 200)];
+    if (dto.timestamps) args.push("-t");
+    if (dto.since) args.push(`--since=${dto.since}`);
+    args.push(dto.containerId);
 
     try {
-      const { stdout, stderr } = await execAsync(
-        `docker logs ${tailFlag} ${timeFlag} ${sinceFlag} ${dto.containerId}`,
-        { timeout: 8000 }
-      );
+      const { stdout, stderr } = await execFileAsync("docker", args, { timeout: 8000 });
       return stdout + (stderr ? `\n${stderr}` : "");
     } catch (err) {
       throw new AppError(
@@ -259,8 +260,9 @@ export class DockerService {
     this.validateIdentifier(containerId);
 
     try {
-      const { stdout } = await execAsync(
-        `docker stats --no-stream --format '{{json .}}' ${containerId}`,
+      const { stdout } = await execFileAsync(
+        "docker",
+        ["stats", "--no-stream", "--format", "{{json .}}", containerId],
         { timeout: 5000 }
       );
       const raw = JSON.parse(stdout.trim());
@@ -383,17 +385,18 @@ export class DockerService {
     await this.ensureDockerAvailable();
     this.validateIdentifier(dto.containerId);
 
-    const safeCmd = dto.command.map((arg) => `'${arg.replace(/'/g, "'\\''")}'`).join(" ");
     try {
-      const { stdout, stderr } = await execAsync(`docker exec ${dto.containerId} ${safeCmd}`, {
-        timeout: 15000,
-      });
+      const { stdout, stderr } = await execFileAsync(
+        "docker",
+        ["exec", dto.containerId, ...dto.command],
+        { timeout: 15000 }
+      );
       return { stdout, stderr, exitCode: 0 };
     } catch (err: any) {
       return {
         stdout: err.stdout || "",
         stderr: err.stderr || err.message,
-        exitCode: err.code || 1,
+        exitCode: typeof err.code === "number" ? err.code : 1,
       };
     }
   }
@@ -409,7 +412,8 @@ export class DockerService {
   }
 
   private validateIdentifier(id: string): void {
-    if (!/^[a-zA-Z0-9_.-]+$/.test(id)) {
+    // Must not start with "-" or it would be parsed as a docker CLI flag.
+    if (!/^[a-zA-Z0-9_.][a-zA-Z0-9_.-]*$/.test(id)) {
       throw new AppError(ErrorCode.VALIDATION_ERROR, `Invalid docker container identifier`);
     }
   }

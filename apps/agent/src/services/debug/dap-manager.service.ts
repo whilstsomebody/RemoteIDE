@@ -163,8 +163,14 @@ export class DapManagerService {
       this.emitEvent(record, "terminated", { error: err.message });
     });
 
-    // Connect to V8 inspector
-    await this.connectToInspector(record, port, stopOnEntry);
+    try {
+      await this.connectToInspector(record, port, stopOnEntry);
+    } catch (err) {
+      // Don't leak a paused `--inspect-brk` debuggee when the inspector never attaches.
+      await this.stop(sessionId);
+      session.status = DebugSessionStatus.FAILED;
+      throw err;
+    }
 
     return session;
   }
@@ -197,7 +203,13 @@ export class DapManagerService {
     };
 
     this.sessions.set(sessionId, record);
-    await this.connectToInspector(record, port, false);
+    try {
+      await this.connectToInspector(record, port, false);
+    } catch (err) {
+      await this.stop(sessionId);
+      session.status = DebugSessionStatus.FAILED;
+      throw err;
+    }
     return session;
   }
 
@@ -228,9 +240,15 @@ export class DapManagerService {
     record.ws = ws;
 
     await new Promise<void>((resolve, reject) => {
-      ws.once("open", () => resolve());
-      ws.once("error", (err) => reject(err));
-      setTimeout(() => reject(new Error("Inspector WebSocket connection timeout")), 5000);
+      const timer = setTimeout(() => reject(new Error("Inspector WebSocket connection timeout")), 5000);
+      ws.once("open", () => {
+        clearTimeout(timer);
+        resolve();
+      });
+      ws.once("error", (err) => {
+        clearTimeout(timer);
+        reject(err);
+      });
     });
 
     ws.on("message", (raw: WebSocket.Data) => {
@@ -244,6 +262,11 @@ export class DapManagerService {
 
     ws.on("close", () => {
       record.session.status = DebugSessionStatus.TERMINATED;
+      // Otherwise in-flight sendV8() callers would wait forever.
+      for (const pending of record.v8Pending.values()) {
+        pending.reject(new Error("Inspector WebSocket closed"));
+      }
+      record.v8Pending.clear();
       this.emitEvent(record, "terminated", {});
     });
 

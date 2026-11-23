@@ -48,6 +48,22 @@ describe("Math operations", () => {
     expect(suites[0]!.tests[1]!.name).toBe("multiplies numbers correctly");
   });
 
+  it("ignores non-test calls and rejects CLI-flag-like file paths and names", async () => {
+    fs.writeFileSync(
+      path.join(tmpDir, "helpers.test.ts"),
+      `submit(cb, "not a test");\nwait(after, 'x');\nit("real test", () => {});\n`
+    );
+    const suite = runner.discoverTests(tmpDir).find((s) => s.name === "helpers.test.ts")!;
+    expect(suite.tests.map((t) => t.name)).toEqual(["real test"]);
+
+    await expect(
+      runner.runTests(
+        { workspaceId: "ws", scope: "file", filePath: "--config=/tmp/evil.ts", failedOnly: false },
+        tmpDir
+      )
+    ).rejects.toThrow(/must not start with/);
+  });
+
   it("handles test execution failure and captures stack trace with location", async () => {
     const failingFile = path.join(tmpDir, "fail.test.ts");
     fs.writeFileSync(
