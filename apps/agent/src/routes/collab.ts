@@ -1,11 +1,38 @@
-import { FastifyPluginAsync } from "fastify";
+import { FastifyPluginAsync, FastifyRequest } from "fastify";
 import {
   CollabDocManagerService,
 } from "../services/collab/collab-doc-manager.service.js";
 import {
   createSuccessResponse,
   CollabRole,
+  UserRole,
 } from "@remote-ide/shared";
+
+const COLLAB_ROLE_RANK: Record<CollabRole, number> = { viewer: 0, editor: 1, owner: 2 };
+
+// Tunneled requests carry the gateway session role in x-remoteide-role (set by the tunnel
+// transport from the authenticated context); direct loopback callers are the host owner.
+function sessionCollabRole(req: FastifyRequest): CollabRole {
+  const header = req.headers["x-remoteide-role"];
+  if (header === undefined) return "owner";
+  if (header === UserRole.OWNER) return "owner";
+  if (header === UserRole.VIEWER) return "viewer";
+  if (
+    header === UserRole.OPERATOR ||
+    header === UserRole.DEVELOPER ||
+    header === UserRole.EDITOR
+  ) {
+    return "editor";
+  }
+  return "viewer";
+}
+
+// Body-supplied roles are client assertions, so never let them exceed the session's role.
+function effectiveRole(req: FastifyRequest, requested: CollabRole | undefined): CollabRole {
+  const sessionRole = sessionCollabRole(req);
+  if (!requested || !(requested in COLLAB_ROLE_RANK)) return sessionRole;
+  return COLLAB_ROLE_RANK[requested] <= COLLAB_ROLE_RANK[sessionRole] ? requested : sessionRole;
+}
 
 export interface CollabRoutesOptions {
   collabService: CollabDocManagerService;
@@ -59,7 +86,7 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     const result = await collabService.join(workspaceId, relativePath, {
       id: userId,
       name: name || "Collaborator",
-      role,
+      role: effectiveRole(req, role),
       deviceId,
     });
 
@@ -106,7 +133,7 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
       workspaceId,
       relativePath,
       update,
-      { id: userId, role }
+      { id: userId, role: effectiveRole(req, role) }
     );
 
     return reply.send(createSuccessResponse(result));
@@ -156,7 +183,7 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     const participant = collabService.assignRole(
       workspaceId,
       relativePath,
-      assignerRole,
+      effectiveRole(req, assignerRole),
       targetUserId,
       newRole
     );
@@ -171,7 +198,7 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     const { workspaceId } = req.params;
     const { path: relativePath, kickerRole, targetUserId } = req.body;
 
-    collabService.kick(workspaceId, relativePath, kickerRole, targetUserId);
+    collabService.kick(workspaceId, relativePath, effectiveRole(req, kickerRole), targetUserId);
     return reply.send(createSuccessResponse({ success: true }));
   });
 
@@ -255,7 +282,12 @@ export const collabRoutes: FastifyPluginAsync<CollabRoutesOptions> = async (
     const { workspaceId, proposalId } = req.params;
     const { path: relativePath, userRole } = req.body;
 
-    const result = collabService.applyProposal(workspaceId, relativePath, proposalId, userRole);
+    const result = collabService.applyProposal(
+      workspaceId,
+      relativePath,
+      proposalId,
+      effectiveRole(req, userRole)
+    );
     return reply.send(createSuccessResponse(result));
   });
 };

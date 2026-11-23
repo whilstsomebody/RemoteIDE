@@ -322,12 +322,13 @@ export class RelayTunnelTransport implements ITunnelTransport {
       // local API only accepts loopback Host/Origin values (DNS-rebinding guard).
       const headers: Record<string, string> = {};
       for (const [k, v] of Object.entries(req.headers || {})) {
-        if (!["host", "origin", "content-length", "transfer-encoding", "connection", "x-owner-id"].includes(k.toLowerCase())) {
+        if (!["host", "origin", "content-length", "transfer-encoding", "connection", "x-owner-id", "x-remoteide-role"].includes(k.toLowerCase())) {
           headers[k] = v;
         }
       }
       headers.host = "localhost";
       headers["x-owner-id"] = auth.userId;
+      headers["x-remoteide-role"] = auth.role;
 
       const response = await this.opts.app.inject({
         method: req.method as any,

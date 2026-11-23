@@ -129,6 +129,43 @@ describe("Agent HTTP API Routes Integration", () => {
     expect(journalBody.data.length).toBeGreaterThanOrEqual(2);
   });
 
+  it("caps client-asserted collab roles at the tunneled session role", async () => {
+    const collabDir = path.join(tmpDir, "collab-project");
+    fs.mkdirSync(collabDir);
+    fs.writeFileSync(path.join(collabDir, "notes.md"), "hello");
+    const regRes = await app.inject({
+      method: "POST",
+      url: "/api/v1/workspaces/register",
+      payload: { name: "Collab Project", paths: [collabDir] },
+    });
+    const workspaceId = JSON.parse(regRes.body).data.id;
+
+    const viewerJoin = await app.inject({
+      method: "POST",
+      url: `/api/v1/workspaces/${workspaceId}/collab/join`,
+      headers: { "x-remoteide-role": "viewer" },
+      payload: { path: "notes.md", userId: "guest", role: "owner" },
+    });
+    expect(viewerJoin.statusCode).toBe(200);
+    expect(JSON.parse(viewerJoin.body).data.participant.role).toBe("viewer");
+
+    const developerJoin = await app.inject({
+      method: "POST",
+      url: `/api/v1/workspaces/${workspaceId}/collab/join`,
+      headers: { "x-remoteide-role": "developer" },
+      payload: { path: "notes.md", userId: "dev", role: "owner" },
+    });
+    expect(JSON.parse(developerJoin.body).data.participant.role).toBe("editor");
+
+    const kickRes = await app.inject({
+      method: "POST",
+      url: `/api/v1/workspaces/${workspaceId}/collab/kick`,
+      headers: { "x-remoteide-role": "developer" },
+      payload: { path: "notes.md", kickerRole: "owner", targetUserId: "guest" },
+    });
+    expect(kickRes.statusCode).toBeGreaterThanOrEqual(400);
+  });
+
   it("proxies preview sub-paths to the forwarded loopback port", async () => {
     const http = await import("node:http");
     const upstream = http.createServer((req, res) => res.end(`upstream:${req.url}`));
