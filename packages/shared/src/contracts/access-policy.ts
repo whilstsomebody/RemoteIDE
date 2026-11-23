@@ -2,7 +2,11 @@ import { Permission } from "./capabilities.js";
 
 /** Decode route segments independently; query values never select a capability. */
 export function routeSegments(url: string): string[] {
-  return url.split("?")[0]!.split("/").filter(Boolean).map(decodeURIComponent);
+  // Normalize with WHATWG URL semantics (dot segments, %2e, backslashes) so the segments
+  // match the route Fastify actually dispatches; e.g. "/api/v1/host/../terminals" must be
+  // classified as a terminal request, not a host-metrics one.
+  const pathname = new URL(url, "http://localhost").pathname;
+  return pathname.split("/").filter(Boolean).map(decodeURIComponent);
 }
 
 export function requiredRequestPermission(method: string, url: string, body?: unknown): Permission {

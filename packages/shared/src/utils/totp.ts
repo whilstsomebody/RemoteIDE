@@ -138,8 +138,12 @@ export function verifyAndConsumeBackupCode(
   inputCode: string,
   hashedCodes: string[]
 ): { valid: boolean; remainingHashedCodes: string[] } {
-  const targetHash = hashBackupCode(inputCode);
-  const index = hashedCodes.findIndex((h) => crypto.timingSafeEqual(Buffer.from(h), Buffer.from(targetHash)));
+  const target = Buffer.from(hashBackupCode(inputCode));
+  // timingSafeEqual throws on length mismatch, so guard malformed stored hashes.
+  const index = hashedCodes.findIndex((h) => {
+    const candidate = Buffer.from(h);
+    return candidate.length === target.length && crypto.timingSafeEqual(candidate, target);
+  });
 
   if (index !== -1) {
     const remaining = [...hashedCodes];

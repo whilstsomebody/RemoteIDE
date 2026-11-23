@@ -204,3 +204,65 @@ describe("@remote-ide/shared", () => {
     });
   });
 });
+
+describe("Security hardening regressions", () => {
+  it("classifies dot-segment paths by the route they normalize to", async () => {
+    const { requiredRequestPermission } = await import("./contracts/access-policy.js");
+    expect(requiredRequestPermission("POST", "/api/v1/host/../terminals")).toBe(
+      Permission.TERMINAL_ACCESS
+    );
+    expect(requiredRequestPermission("POST", "/api/v1/host/%2e%2e/terminals")).toBe(
+      Permission.TERMINAL_ACCESS
+    );
+    expect(requiredRequestPermission("POST", "/api/v1/host/..\\terminals")).toBe(
+      Permission.TERMINAL_ACCESS
+    );
+    expect(requiredRequestPermission("GET", "/api/v1/host/metrics?x=../terminals")).toBe(
+      Permission.HOST_METRICS_READ
+    );
+  });
+
+  it("blocks SSRF via infra ports, IPv4-mapped IPv6 and trailing-dot hosts", async () => {
+    const { isSsrfDangerousTarget, isSsrfBlockedAddress } = await import("./utils/security.js");
+    expect(isSsrfDangerousTarget("http://127.0.0.1:6379/").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://localhost:2375/version").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://[::ffff:169.254.169.254]/").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://metadata.google.internal./").blocked).toBe(true);
+    expect(isSsrfDangerousTarget("http://2852039166/").blocked).toBe(true);
+    expect(isSsrfBlockedAddress("::ffff:a9fe:a9fe").blocked).toBe(true);
+    expect(isSsrfBlockedAddress("93.184.216.34").blocked).toBe(false);
+  });
+
+  it("encrypts secrets with AES-256-GCM and hashes with real SHA-256", async () => {
+    const { encryptSecret, decryptSecret, sha256Sync } = await import("./utils/crypto.js");
+    const enc = encryptSecret("totp-secret", "master-key");
+    expect(enc.startsWith("enc_gcm_v1:")).toBe(true);
+    expect(decryptSecret(enc, "master-key")).toBe("totp-secret");
+    expect(decryptSecret(enc, "wrong-key")).toBe("");
+
+    const [prefix, iv, tag, data] = enc.split(":");
+    expect(decryptSecret(`${prefix}:${iv}:${tag!.slice(0, 8)}:${data}`, "master-key")).toBe("");
+
+    expect(sha256Sync("abc")).toBe(
+      "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad"
+    );
+  });
+
+  it("redacts prefixed env secrets and modern sk- keys", async () => {
+    const { redactSecrets } = await import("./contracts/ai.js");
+    const out = redactSecrets(
+      [
+        "DB_PASSWORD=hunter2hunter2",
+        "AWS_SECRET_ACCESS_KEY=wJalrXUtnFEMIK7MDENG",
+        '"client_secret": "abcdef123456"',
+        "ANTHROPIC=sk-ant-api03-abcdefghijklmnopqrstuvwxyz",
+        "const tokens = countTokens(text);",
+      ].join("\n")
+    );
+    expect(out).not.toContain("hunter2hunter2");
+    expect(out).not.toContain("wJalrXUtnFEMIK7MDENG");
+    expect(out).not.toContain("abcdef123456");
+    expect(out).not.toContain("abcdefghijklmnopqrstuvwxyz");
+    expect(out).toContain("const tokens = countTokens(text);");
+  });
+});

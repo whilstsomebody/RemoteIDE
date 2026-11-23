@@ -2,6 +2,11 @@
  * Cryptographic utility functions for secure random tokens and SHA-256 hashes.
  * Works across both modern browser environments and Node.js runtimes.
  */
+// Static import: this package is ESM, where `require` is undefined. Browser bundles map
+// "crypto" to an empty module, so Node-only calls below throw and hit their fallbacks.
+import nodeCrypto from "crypto";
+
+const GCM_AUTH_TAG_BYTES = 16;
 
 export function generateSecureRandomToken(byteLength = 32): string {
   if (typeof globalThis.crypto?.getRandomValues === "function") {
@@ -14,13 +19,7 @@ export function generateSecureRandomToken(byteLength = 32): string {
     return btoa(binary).replace(/\+/g, "-").replace(/\//g, "_").replace(/=+$/, "");
   }
 
-  // Fallback for Node environments where crypto might be imported
-  const chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789-_";
-  let token = "";
-  for (let i = 0; i < byteLength * 1.33; i++) {
-    token += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return token;
+  return nodeCrypto.randomBytes(byteLength).toString("base64url");
 }
 
 /**
@@ -56,8 +55,6 @@ export async function sha256Hex(input: string): Promise<string> {
  */
 export function sha256Sync(input: string): string {
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodeCrypto = require("crypto");
     return nodeCrypto.createHash("sha256").update(input).digest("hex");
   } catch {
     // In browser, this synchronous fallback generates a pseudo-hash
@@ -82,8 +79,6 @@ export function sha256Sync(input: string): string {
 export function encryptSecret(plainText: string, masterKey?: string): string {
   if (!plainText) return "";
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodeCrypto = require("crypto");
     const rawKey =
       masterKey ||
       process.env.ENCRYPTION_KEY ||
@@ -115,8 +110,6 @@ export function decryptSecret(cipherText: string, masterKey?: string): string {
     return cipherText;
   }
   try {
-    // eslint-disable-next-line @typescript-eslint/no-require-imports
-    const nodeCrypto = require("crypto");
     const parts = cipherText.split(":");
     if (parts.length !== 4) return cipherText;
     const ivHex = parts[1];
@@ -131,7 +124,11 @@ export function decryptSecret(cipherText: string, masterKey?: string): string {
     const key = nodeCrypto.createHash("sha256").update(rawKey).digest();
     const iv = Buffer.from(ivHex, "hex");
     const authTag = Buffer.from(authTagHex, "hex");
-    const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", key, iv);
+    // Reject truncated tags; GCM otherwise accepts tags as short as 4 bytes.
+    if (authTag.length !== GCM_AUTH_TAG_BYTES) return "";
+    const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", key, iv, {
+      authTagLength: GCM_AUTH_TAG_BYTES,
+    });
     decipher.setAuthTag(authTag);
     let decrypted = decipher.update(encryptedHex, "hex", "utf8");
     decrypted += decipher.final("utf8");

@@ -149,9 +149,10 @@ export function redactSecrets(input: string): string {
 
   // 3. GitHub personal access tokens
   result = result.replace(/gh[pousr]_[a-zA-Z0-9]{36,}/g, "[REDACTED_GITHUB_TOKEN]");
+  result = result.replace(/github_pat_[a-zA-Z0-9_]{22,}/g, "[REDACTED_GITHUB_TOKEN]");
 
-  // 4. OpenAI / Anthropic / Generic secret keys (sk-...)
-  result = result.replace(/sk-[a-zA-Z0-9]{20,}/g, "sk-[REDACTED_API_KEY]");
+  // 4. OpenAI / Anthropic / Generic secret keys (sk-..., sk-proj-..., sk-ant-...)
+  result = result.replace(/sk-[a-zA-Z0-9_-]{20,}/g, "sk-[REDACTED_API_KEY]");
 
   // 5. PEM Private Keys
   result = result.replace(
@@ -162,7 +163,7 @@ export function redactSecrets(input: string): string {
   // 6. Generic key/value password/secret assignments, including prefixed env-style keys
   //    (DB_PASSWORD=, GITHUB_TOKEN=) and quoted JSON keys ("password": "...").
   result = result.replace(
-    /\b((?:password|passwd|api_key|apikey|secret|token|auth_token|client_secret)\s*[:=]\s*["']?)([^"'\s\r\n]{6,})(["']?)/gi,
+    /\b((?:[a-z0-9]+_)*(?:password|passwd|api_key|apikey|secret|token|auth_token|client_secret)(?:_[a-z0-9]+)*["']?\s*[:=]\s*["']?)([^"'\s\r\n]{6,})(["']?)/gi,
     "$1[REDACTED]$3"
   );
 
