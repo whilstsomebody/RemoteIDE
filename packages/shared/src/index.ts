@@ -33,6 +33,9 @@ export * from "./contracts/ai.js";
 export * from "./utils/id.js";
 export * from "./utils/logger.js";
 export * from "./utils/crypto.js";
+export * from "./utils/security.js";
+export * from "./utils/totp.js";
+export * from "./utils/circuit-breaker.js";
 
 // Config
 export * from "./config/env.js";

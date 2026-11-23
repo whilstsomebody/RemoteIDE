@@ -6,6 +6,7 @@ import {
   ForwardedPort,
   DetectedPort,
   ForwardPortDto,
+  BLOCKED_INTERNAL_INFRA_PORTS,
   logger,
 } from "@remote-ide/shared";
 
@@ -95,8 +96,7 @@ export class PortForwardingService {
     }
 
     // SSRF Guard: Block access to protected internal service ports
-    const BLOCKED_INTERNAL_PORTS = [5432, 6379, 27017, 3306, 9200];
-    if (BLOCKED_INTERNAL_PORTS.includes(port)) {
+    if (BLOCKED_INTERNAL_INFRA_PORTS.has(port)) {
       throw new AppError(
         ErrorCode.FORBIDDEN,
         `Port ${port} is reserved for internal infrastructure and cannot be forwarded for preview.`

@@ -97,4 +97,4 @@ pnpm test
 pnpm typecheck
 ```
 
-For full setup documentation, see [docs/SETUP.md](docs/SETUP.md) and [docs/architecture/ARCHITECTURE.md](docs/architecture/ARCHITECTURE.md).
+For full setup documentation, see [docs/quickstart.md](docs/quickstart.md), [docs/installation.md](docs/installation.md), and [docs/architecture.md](docs/architecture.md).

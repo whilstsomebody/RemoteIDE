@@ -1,11 +1,19 @@
 import { GatewayStateStore, gatewayStateStore } from "./state-store.js";
-import fs from "node:fs";
-import path from "node:path";
-import os from "node:os";
+import * as fs from "node:fs";
+import * as path from "node:path";
+import * as os from "node:os";
+import * as process from "node:process";
 import {
   UserRole,
   Permission,
   ROLE_PERMISSIONS,
+  generateTotpSecret,
+  verifyTotpCode,
+  generateBackupCodes,
+  hashBackupCode,
+  verifyAndConsumeBackupCode,
+  encryptSecret,
+  decryptSecret,
   RemoteSession,
   AuditEventType,
   createId,
@@ -27,6 +35,9 @@ export interface StoredUser {
   isOwner: boolean;
   createdAt: string;
   lastLoginAt?: string;
+  mfaEnabled?: boolean;
+  mfaSecret?: string;
+  mfaBackupCodes?: string[];
 }
 
 export interface StoredSession {
@@ -54,6 +65,11 @@ export class AuthService {
   private sessions = new Map<string, StoredSession>(); // sessionId -> StoredSession
   private tokenHashToSessionId = new Map<string, string>(); // tokenHash -> sessionId
   private failedAttempts = new Map<string, { count: number; lockedUntil: number }>();
+  private pendingMfaSetup = new Map<string, { secret: string; backupCodes: string[]; expiresAt: number }>();
+  private pendingMfaTickets = new Map<
+    string,
+    { userId: string; expiresAt: number; deviceName?: string; ipAddress: string; userAgent?: string }
+  >();
   private localSetupToken: string;
   private onSessionRevoked?: (sessionId: string) => void;
 
@@ -90,7 +106,7 @@ export class AuthService {
   }
 
   private initializeLocalSetupToken(): string {
-    const custom = process.env.LOCAL_SETUP_TOKEN;
+    const custom = process.env.SETUP_TOKEN || process.env.LOCAL_SETUP_TOKEN;
     if (custom) return custom;
 
     const tokenDir = path.join(os.homedir(), ".remoteide");
@@ -254,6 +270,22 @@ export class AuthService {
 
     // Success -> Clear rate limit
     this.failedAttempts.delete(rateLimitKey);
+
+    if (user.mfaEnabled) {
+      const mfaTicket = `mfa_${generateSecureRandomToken(16)}`;
+      this.pendingMfaTickets.set(mfaTicket, {
+        userId: user.id,
+        expiresAt: Date.now() + 5 * 60 * 1000,
+        deviceName: params.deviceName,
+        ipAddress: params.ipAddress,
+        userAgent: params.userAgent,
+      });
+      return {
+        mfaRequired: true,
+        mfaTicket,
+      } as any;
+    }
+
     user.lastLoginAt = new Date().toISOString();
 
     auditService.record(AuditEventType.LOGIN_SUCCESS, user.id, {
@@ -399,6 +431,128 @@ export class AuthService {
         this.revokeSession(stored.id, "system");
       }
     }
+  }
+
+  public getUserById(userId: string): StoredUser | undefined {
+    for (const user of this.users.values()) {
+      if (user.id === userId) return user;
+    }
+    return undefined;
+  }
+
+  public setupMfa(userId: string): { secret: string; otpauthUrl: string; backupCodes: string[] } {
+    const user = this.getUserById(userId);
+    if (!user) throw new AppError(ErrorCode.NOT_FOUND, "User not found", { statusCode: 404 });
+
+    const secret = generateTotpSecret();
+    const backupCodes = generateBackupCodes(8);
+    this.pendingMfaSetup.set(userId, {
+      secret,
+      backupCodes,
+      expiresAt: Date.now() + 15 * 60 * 1000,
+    });
+
+    const otpauthUrl = `otpauth://totp/RemoteIDE:${encodeURIComponent(user.email)}?secret=${secret}&issuer=RemoteIDE`;
+    return { secret, otpauthUrl, backupCodes };
+  }
+
+  public verifyAndEnableMfa(userId: string, code: string): { enabled: boolean; backupCodes: string[] } {
+    const pending = this.pendingMfaSetup.get(userId);
+    if (!pending || pending.expiresAt < Date.now()) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "MFA setup expired or not initiated. Please start setup again.");
+    }
+
+    const isValid = verifyTotpCode(code, pending.secret);
+    if (!isValid) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, "Invalid verification code. Please check your authenticator app.");
+    }
+
+    const user = this.getUserById(userId);
+    if (!user) throw new AppError(ErrorCode.NOT_FOUND, "User not found");
+
+    user.mfaEnabled = true;
+    user.mfaSecret = encryptSecret(pending.secret);
+    user.mfaBackupCodes = pending.backupCodes.map(hashBackupCode);
+    this.pendingMfaSetup.delete(userId);
+    this.persist();
+
+    return { enabled: true, backupCodes: pending.backupCodes };
+  }
+
+  public disableMfa(userId: string, codeOrBackup: string): boolean {
+    const user = this.getUserById(userId);
+    if (!user || !user.mfaEnabled || !user.mfaSecret) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "MFA is not enabled for this user.");
+    }
+
+    const decryptedSecret = decryptSecret(user.mfaSecret);
+    const isTotpValid = verifyTotpCode(codeOrBackup, decryptedSecret);
+    let isBackupValid = false;
+    if (!isTotpValid && user.mfaBackupCodes) {
+      const backupResult = verifyAndConsumeBackupCode(codeOrBackup, user.mfaBackupCodes);
+      isBackupValid = backupResult.valid;
+    }
+
+    if (!isTotpValid && !isBackupValid) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, "Invalid code. Cannot disable MFA without verification.");
+    }
+
+    user.mfaEnabled = false;
+    user.mfaSecret = undefined;
+    user.mfaBackupCodes = undefined;
+    this.persist();
+    return true;
+  }
+
+  public authenticateMfa(
+    mfaTicket: string,
+    code: string
+  ): { user: StoredUser; session: RemoteSession; sessionToken: string } {
+    const ticket = this.pendingMfaTickets.get(mfaTicket);
+    if (!ticket || ticket.expiresAt < Date.now()) {
+      this.pendingMfaTickets.delete(mfaTicket);
+      throw new AppError(ErrorCode.UNAUTHORIZED, "MFA authentication session expired. Please log in again.");
+    }
+
+    const user = this.getUserById(ticket.userId);
+    if (!user || !user.mfaEnabled || !user.mfaSecret) {
+      throw new AppError(ErrorCode.BAD_REQUEST, "MFA is not configured for this account.");
+    }
+
+    const decryptedSecret = decryptSecret(user.mfaSecret);
+    const isTotpValid = verifyTotpCode(code, decryptedSecret);
+    let isBackupValid = false;
+
+    if (!isTotpValid && user.mfaBackupCodes) {
+      const backupResult = verifyAndConsumeBackupCode(code, user.mfaBackupCodes);
+      if (backupResult.valid) {
+        isBackupValid = true;
+        user.mfaBackupCodes = backupResult.remainingHashedCodes;
+        this.persist();
+      }
+    }
+
+    if (!isTotpValid && !isBackupValid) {
+      throw new AppError(ErrorCode.UNAUTHORIZED, "Invalid MFA code or backup recovery code.");
+    }
+
+    this.pendingMfaTickets.delete(mfaTicket);
+    user.lastLoginAt = new Date().toISOString();
+
+    const { session, sessionToken } = this.createSessionInternal({
+      userId: user.id,
+      hostId: "local-host-agent",
+      role: user.role,
+      capabilities: ROLE_PERMISSIONS[user.role],
+      allowedWorkspaceIds: [],
+      deviceName: ticket.deviceName || "Web Browser",
+      ipAddress: ticket.ipAddress,
+      userAgent: ticket.userAgent || "",
+      isOwner: user.isOwner,
+      durationSeconds: 7 * 24 * 3600,
+    });
+
+    return { user, session, sessionToken };
   }
 
   private toRemoteSession(s: StoredSession): RemoteSession {

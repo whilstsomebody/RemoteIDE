@@ -1,7 +1,7 @@
 import http from "node:http";
 import https from "node:https";
 import { URL } from "node:url";
-import { AppError, ErrorCode, ExecuteApiRequestDto, ApiClientResponse } from "@remote-ide/shared";
+import { AppError, ErrorCode, ExecuteApiRequestDto, ApiClientResponse, isSsrfDangerousTarget } from "@remote-ide/shared";
 
 export class ApiClientService {
   /**
@@ -32,14 +32,10 @@ export class ApiClientService {
       throw new AppError(ErrorCode.BAD_REQUEST, `Invalid URL: ${rawUrl}`);
     }
 
-    // SSRF Guard: Block Cloud Metadata IPs
-    const hostname = parsedUrl.hostname.toLowerCase();
-    if (
-      hostname === "169.254.169.254" ||
-      hostname === "metadata.google.internal" ||
-      hostname === "instance-data"
-    ) {
-      throw new AppError(ErrorCode.FORBIDDEN, "Access to cloud metadata endpoints is prohibited.");
+    // SSRF Guard: Comprehensive Metadata, Link-Local, and Multicast Blocking
+    const ssrfCheck = isSsrfDangerousTarget(parsedUrl.toString());
+    if (ssrfCheck.blocked) {
+      throw new AppError(ErrorCode.FORBIDDEN, `Access to forbidden endpoint: ${ssrfCheck.reason}`);
     }
 
     // 2. Append Query Parameters

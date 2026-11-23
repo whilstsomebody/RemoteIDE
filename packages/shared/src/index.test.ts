@@ -126,4 +126,81 @@ describe("@remote-ide/shared", () => {
       expect(parsed.NODE_ENV).toBe("development");
     });
   });
+
+  describe("Security, TOTP, and Circuit Breaker", () => {
+    it("detects and blocks SSRF dangerous targets", async () => {
+      const { isSsrfDangerousTarget } = await import("./utils/security.js");
+      expect(isSsrfDangerousTarget("http://169.254.169.254/latest/meta-data").blocked).toBe(true);
+      expect(isSsrfDangerousTarget("http://metadata.google.internal/computeMetadata/v1").blocked).toBe(true);
+      expect(isSsrfDangerousTarget("http://100.100.100.200/latest/meta-data").blocked).toBe(true);
+      expect(isSsrfDangerousTarget("http://169.254.10.20/api").blocked).toBe(true);
+      expect(isSsrfDangerousTarget("http://224.0.0.1/").blocked).toBe(true);
+      expect(isSsrfDangerousTarget("http://localhost:3000/").blocked).toBe(false);
+      expect(isSsrfDangerousTarget("https://api.github.com/").blocked).toBe(false);
+    });
+
+    it("generates and verifies RFC 6238 TOTP codes and backup codes", async () => {
+      const {
+        generateTotpSecret,
+        generateTotpCode,
+        verifyTotpCode,
+        generateBackupCodes,
+        hashBackupCode,
+        verifyAndConsumeBackupCode,
+      } = await import("./utils/totp.js");
+
+      const secret = generateTotpSecret();
+      expect(secret.length).toBeGreaterThan(16);
+
+      const code = generateTotpCode(secret);
+      expect(code).toMatch(/^\d{6}$/);
+
+      const isValid = verifyTotpCode(code, secret);
+      expect(isValid).toBe(true);
+
+      const isInvalid = verifyTotpCode("000000", secret);
+      expect(isInvalid).toBe(false);
+
+      const backupCodes = generateBackupCodes(4);
+      expect(backupCodes.length).toBe(4);
+      const hashed = backupCodes.map(hashBackupCode);
+
+      const consumed = verifyAndConsumeBackupCode(backupCodes[0]!, hashed);
+      expect(consumed.valid).toBe(true);
+      expect(consumed.remainingHashedCodes.length).toBe(3);
+
+      const doubleConsumed = verifyAndConsumeBackupCode(backupCodes[0]!, consumed.remainingHashedCodes);
+      expect(doubleConsumed.valid).toBe(false);
+    });
+
+    it("trips circuit breaker on repeated failures and recovers", async () => {
+      const { CircuitBreaker } = await import("./utils/circuit-breaker.js");
+      const cb = new CircuitBreaker({ failureThreshold: 3, recoveryTimeoutMs: 50, halfOpenSuccessThreshold: 1 });
+
+      expect(cb.getState()).toBe("CLOSED");
+
+      const failAction = async () => {
+        throw new Error("Downstream failure");
+      };
+
+      await expect(cb.execute(failAction)).rejects.toThrow("Downstream failure");
+      await expect(cb.execute(failAction)).rejects.toThrow("Downstream failure");
+      expect(cb.getState()).toBe("CLOSED");
+
+      await expect(cb.execute(failAction)).rejects.toThrow("Downstream failure");
+      expect(cb.getState()).toBe("OPEN");
+
+      // Should fail fast with 503
+      await expect(cb.execute(failAction)).rejects.toThrow("Circuit breaker");
+
+      // Wait for recovery timeout
+      await new Promise((r) => setTimeout(r, 60));
+      expect(cb.getState()).toBe("HALF_OPEN");
+
+      // Successful call resets to CLOSED
+      const res = await cb.execute(async () => "recovered");
+      expect(res).toBe("recovered");
+      expect(cb.getState()).toBe("CLOSED");
+    });
+  });
 });

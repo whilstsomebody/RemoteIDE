@@ -1,0 +1,165 @@
+services:
+  # Ingress & TLS Termination Proxy
+  caddy:
+    image: caddy:2.8-alpine
+    container_name: remoteide-ingress
+    restart: unless-stopped
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - ./caddy/Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    depends_on:
+      gateway:
+        condition: service_healthy
+      web:
+        condition: service_started
+    networks:
+      - remoteide_net
+
+  # API Gateway
+  gateway:
+    build:
+      context: ..
+      dockerfile: apps/gateway/Dockerfile
+    container_name: remoteide-gateway
+    restart: unless-stopped
+    environment:
+      PORT: 4000
+      NODE_ENV: production
+      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:-remoteide_prod_secret}@postgres:5432/remoteide_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+      JWT_SECRET: ${JWT_SECRET:-generate_secure_random_production_secret_32b}
+      LOG_LEVEL: ${LOG_LEVEL:-info}
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/health/liveness || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 3
+    networks:
+      - remoteide_net
+
+  # Next.js Web Frontend
+  web:
+    build:
+      context: ..
+      dockerfile: apps/web/Dockerfile
+    container_name: remoteide-web
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      NEXT_PUBLIC_GATEWAY_URL: ${NEXT_PUBLIC_GATEWAY_URL:-http://localhost}
+    depends_on:
+      - gateway
+    networks:
+      - remoteide_net
+
+  # Background Worker
+  worker:
+    build:
+      context: ..
+      dockerfile: apps/worker/Dockerfile
+    container_name: remoteide-worker
+    restart: unless-stopped
+    environment:
+      NODE_ENV: production
+      DATABASE_URL: postgres://remoteide:${POSTGRES_PASSWORD:-remoteide_prod_secret}@postgres:5432/remoteide_db
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      KAFKA_BROKERS: kafka:9092
+    depends_on:
+      postgres:
+        condition: service_healthy
+      kafka:
+        condition: service_healthy
+    networks:
+      - remoteide_net
+
+  # Internal PostgreSQL Database (NOT exposed to public internet)
+  postgres:
+    image: postgres:16-alpine
+    container_name: remoteide-postgres
+    restart: unless-stopped
+    environment:
+      POSTGRES_USER: remoteide
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-remoteide_prod_secret}
+      POSTGRES_DB: remoteide_db
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U remoteide -d remoteide_db"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remoteide_net
+
+  # Internal Redis Cache (NOT exposed to public internet)
+  redis:
+    image: redis:7-alpine
+    container_name: remoteide-redis
+    restart: unless-stopped
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 5
+    networks:
+      - remoteide_net
+
+  # Internal Kafka Broker (NOT exposed to public internet)
+  kafka:
+    image: apache/kafka:3.8.0
+    container_name: remoteide-kafka
+    restart: unless-stopped
+    environment:
+      KAFKA_NODE_ID: 1
+      KAFKA_PROCESS_ROLES: "broker,controller"
+      KAFKA_LISTENERS: "PLAINTEXT://0.0.0.0:9092,CONTROLLER://0.0.0.0:9093"
+      KAFKA_ADVERTISED_LISTENERS: "PLAINTEXT://kafka:9092"
+      KAFKA_CONTROLLER_LISTENER_NAMES: "CONTROLLER"
+      KAFKA_LISTENER_SECURITY_PROTOCOL_MAP: "CONTROLLER:PLAINTEXT,PLAINTEXT:PLAINTEXT"
+      KAFKA_CONTROLLER_QUORUM_VOTERS: "1@kafka:9093"
+      KAFKA_OFFSETS_TOPIC_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_REPLICATION_FACTOR: 1
+      KAFKA_TRANSACTION_STATE_LOG_MIN_ISR: 1
+      KAFKA_GROUP_INITIAL_REBALANCE_DELAY_MS: 0
+      KAFKA_LOG_DIRS: "/var/lib/kafka/data"
+      CLUSTER_ID: "4L622nShTUiT8YCdRODqAw"
+    volumes:
+      - kafka_data:/var/lib/kafka/data
+    healthcheck:
+      test:
+        [
+          "CMD-SHELL",
+          "/opt/kafka/bin/kafka-topics.sh --bootstrap-server localhost:9092 --list || exit 1",
+        ]
+      interval: 10s
+      timeout: 10s
+      retries: 5
+    networks:
+      - remoteide_net
+
+networks:
+  remoteide_net:
+    driver: bridge
+
+volumes:
+  caddy_data:
+  caddy_config:
+  postgres_data:
+  redis_data:
+  kafka_data:

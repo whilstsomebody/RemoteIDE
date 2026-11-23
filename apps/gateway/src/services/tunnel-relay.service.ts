@@ -7,6 +7,7 @@ import {
   AppError,
   ErrorCode,
   createId,
+  CircuitBreaker,
 } from "@remote-ide/shared";
 import { auditService } from "./audit.service.js";
 
@@ -33,6 +34,21 @@ export class TunnelRelayService {
   private clientSessions = new Map<string, { allowedWorkspaceIds: string[]; role: string; expiresAt?: string }>();
   private broadcastIds = new Set<string>();
   private terminalSessionListeners = new Map<string, Set<(msg: unknown) => void>>();
+  private circuitBreakers = new Map<string, CircuitBreaker>();
+
+  private getCircuitBreaker(hostId: string): CircuitBreaker {
+    let cb = this.circuitBreakers.get(hostId);
+    if (!cb) {
+      cb = new CircuitBreaker({
+        name: `HostAgent-${hostId}`,
+        failureThreshold: 5,
+        recoveryTimeoutMs: 10000,
+        halfOpenSuccessThreshold: 2,
+      });
+      this.circuitBreakers.set(hostId, cb);
+    }
+    return cb;
+  }
 
   public registerAgentSocket(
     hostId: string,
@@ -194,47 +210,50 @@ export class TunnelRelayService {
     reqPayload: Omit<TunnelHttpRequestPayload, "correlationId">,
     timeoutMs = 15000
   ): Promise<TunnelHttpResponsePayload> {
-    const agent = this.getConnectedAgent(hostId);
-    if (!agent || agent.socket.readyState !== WebSocket.OPEN) {
-      throw new AppError(
-        ErrorCode.SERVICE_UNAVAILABLE,
-        `Host agent "${hostId}" is currently offline or unreachable over reverse tunnel. Ensure host agent daemon is running.`,
-        { statusCode: 503 }
-      );
-    }
-
-    const correlationId = createId("rpc");
-    const fullPayload: TunnelHttpRequestPayload = {
-      ...reqPayload,
-      correlationId,
-    };
-
-    return new Promise((resolve, reject) => {
-      const timer = setTimeout(() => {
-        this.pendingRpcs.delete(correlationId);
-        reject(
-          new AppError(
-            ErrorCode.GATEWAY_TIMEOUT,
-            `Host agent request timed out after ${timeoutMs}ms`,
-            { statusCode: 504 }
-          )
+    const breaker = this.getCircuitBreaker(hostId);
+    return breaker.execute(() => {
+      const agent = this.getConnectedAgent(hostId);
+      if (!agent || agent.socket.readyState !== WebSocket.OPEN) {
+        throw new AppError(
+          ErrorCode.SERVICE_UNAVAILABLE,
+          `Host agent "${hostId}" is currently offline or unreachable over reverse tunnel. Ensure host agent daemon is running.`,
+          { statusCode: 503 }
         );
-      }, timeoutMs);
+      }
 
-      this.pendingRpcs.set(correlationId, {
+      const correlationId = createId("rpc");
+      const fullPayload: TunnelHttpRequestPayload = {
+        ...reqPayload,
         correlationId,
-        socket: agent.socket,
-        resolve,
-        reject,
-        timer,
-      });
+      };
 
-      agent.socket.send(
-        JSON.stringify({
-          type: TunnelMessageType.TUNNEL_REQUEST,
-          payload: fullPayload,
-        })
-      );
+      return new Promise<TunnelHttpResponsePayload>((resolve, reject) => {
+        const timer = setTimeout(() => {
+          this.pendingRpcs.delete(correlationId);
+          reject(
+            new AppError(
+              ErrorCode.GATEWAY_TIMEOUT,
+              `Host agent request timed out after ${timeoutMs}ms`,
+              { statusCode: 504 }
+            )
+          );
+        }, timeoutMs);
+
+        this.pendingRpcs.set(correlationId, {
+          correlationId,
+          socket: agent.socket,
+          resolve,
+          reject,
+          timer,
+        });
+
+        agent.socket.send(
+          JSON.stringify({
+            type: TunnelMessageType.TUNNEL_REQUEST,
+            payload: fullPayload,
+          })
+        );
+      });
     });
   }
 

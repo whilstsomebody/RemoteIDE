@@ -340,4 +340,110 @@ export const authRoutes: FastifyPluginAsync = async (fastify) => {
     const records = auditService.getRecent(100);
     return reply.send(createSuccessEnvelope(records));
   });
+
+  // 7. MFA Setup
+  fastify.post("/api/v1/auth/mfa/setup", async (req, reply) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    const session = token ? authService.getSessionByToken(token) : null;
+    if (!session) {
+      return reply.status(401).send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Authentication required"));
+    }
+
+    try {
+      const result = authService.setupMfa(session.userId);
+      return reply.send(createSuccessEnvelope(result));
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send(createErrorEnvelope(err.code, err.message, { details: err.details }));
+      }
+      return reply.status(500).send(createErrorEnvelope(ErrorCode.INTERNAL_SERVER_ERROR, (err as Error).message));
+    }
+  });
+
+  // 8. MFA Verify and Enable
+  fastify.post<{ Body: { code?: string } }>("/api/v1/auth/mfa/verify", async (req, reply) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    const session = token ? authService.getSessionByToken(token) : null;
+    if (!session) {
+      return reply.status(401).send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Authentication required"));
+    }
+
+    const code = req.body?.code;
+    if (!code) {
+      return reply.status(400).send(createErrorEnvelope(ErrorCode.VALIDATION_ERROR, "Verification code is required"));
+    }
+
+    try {
+      const result = authService.verifyAndEnableMfa(session.userId, code);
+      return reply.send(createSuccessEnvelope(result));
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send(createErrorEnvelope(err.code, err.message, { details: err.details }));
+      }
+      return reply.status(500).send(createErrorEnvelope(ErrorCode.INTERNAL_SERVER_ERROR, (err as Error).message));
+    }
+  });
+
+  // 9. MFA Disable
+  fastify.post<{ Body: { code?: string } }>("/api/v1/auth/mfa/disable", async (req, reply) => {
+    const authHeader = req.headers.authorization;
+    const token = authHeader?.replace(/^Bearer\s+/i, "");
+    const session = token ? authService.getSessionByToken(token) : null;
+    if (!session) {
+      return reply.status(401).send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Authentication required"));
+    }
+
+    const code = req.body?.code;
+    if (!code) {
+      return reply.status(400).send(createErrorEnvelope(ErrorCode.VALIDATION_ERROR, "Code is required to disable MFA"));
+    }
+
+    try {
+      const result = authService.disableMfa(session.userId, code);
+      return reply.send(createSuccessEnvelope({ disabled: result }));
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send(createErrorEnvelope(err.code, err.message, { details: err.details }));
+      }
+      return reply.status(500).send(createErrorEnvelope(ErrorCode.INTERNAL_SERVER_ERROR, (err as Error).message));
+    }
+  });
+
+  // 10. MFA Authenticate (Second factor during login)
+  fastify.post<{ Body: { mfaTicket?: string; code?: string } }>("/api/v1/auth/mfa/authenticate", async (req, reply) => {
+    const { mfaTicket, code } = req.body || {};
+    if (!mfaTicket || !code) {
+      return reply.status(400).send(createErrorEnvelope(ErrorCode.VALIDATION_ERROR, "mfaTicket and code are required"));
+    }
+
+    try {
+      const result = authService.authenticateMfa(mfaTicket, code);
+
+      reply.header(
+        "Set-Cookie",
+        `remoteide_session=${result.sessionToken}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${7 * 24 * 3600}`
+      );
+
+      return reply.send(
+        createSuccessEnvelope({
+          user: {
+            id: result.user.id,
+            email: result.user.email,
+            displayName: result.user.displayName,
+            role: result.user.role,
+            isOwner: result.user.isOwner,
+          },
+          session: result.session,
+          sessionToken: result.sessionToken,
+        })
+      );
+    } catch (err: unknown) {
+      if (err instanceof AppError) {
+        return reply.status(err.statusCode).send(createErrorEnvelope(err.code, err.message, { details: err.details }));
+      }
+      return reply.status(401).send(createErrorEnvelope(ErrorCode.UNAUTHORIZED, "Invalid MFA code"));
+    }
+  });
 };

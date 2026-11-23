@@ -138,6 +138,7 @@ export const ROLE_PERMISSIONS: Record<UserRole, Permission[]> = {
     Permission.GIT_OPERATION,
     Permission.GIT_READ,
     Permission.GIT_WRITE,
+    Permission.PREVIEW_ACCESS,
     Permission.LSP_ACCESS,
     Permission.TEST_EXECUTE,
     Permission.HOST_METRICS_READ,

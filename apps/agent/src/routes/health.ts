@@ -62,6 +62,10 @@ export const healthRoutes: FastifyPluginAsync<{
 
   fastify.get("/health", handleHealth);
   fastify.get("/api/v1/health", handleHealth);
+  fastify.get("/health/liveness", handleHealth);
+  fastify.get("/api/v1/health/liveness", handleHealth);
   fastify.get("/ready", handleReady);
   fastify.get("/api/v1/ready", handleReady);
+  fastify.get("/health/readiness", handleReady);
+  fastify.get("/api/v1/health/readiness", handleReady);
 };
