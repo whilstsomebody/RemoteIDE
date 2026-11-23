@@ -27,6 +27,7 @@ export * from "./contracts/devops.js";
 export * from "./contracts/database.js";
 export * from "./contracts/handoff.js";
 export * from "./contracts/collab.js";
+export * from "./contracts/ai.js";
 
 // Utils
 export * from "./utils/id.js";

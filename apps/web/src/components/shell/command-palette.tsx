@@ -12,13 +12,16 @@ import {
   FolderPlus,
   FilePlus,
   ArrowRight,
+  Sparkles,
+  Bot,
+  AlertTriangle,
 } from "lucide-react";
 import { FileNode, Workspace } from "@remote-ide/shared";
 
 export interface CommandItem {
   id: string;
   title: string;
-  category: "File" | "Editor" | "View" | "Workspace" | "Preferences";
+  category: "File" | "Editor" | "View" | "Workspace" | "Preferences" | "AI";
   shortcut?: string;
   icon: React.ComponentType<{ className?: string }>;
   action: () => void;
@@ -40,6 +43,7 @@ export interface CommandPaletteProps {
   onSelectWorkspace: (id: string) => void;
   onCreateFilePrompt: () => void;
   onCreateFolderPrompt: () => void;
+  onTriggerAiAction?: (action: string) => void;
 }
 
 export const CommandPalette: React.FC<CommandPaletteProps> = ({
@@ -58,6 +62,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
   onSelectWorkspace,
   onCreateFilePrompt,
   onCreateFolderPrompt,
+  onTriggerAiAction,
 }) => {
   const [search, setSearch] = useState("");
   const [selectedIndex, setSelectedIndex] = useState(0);
@@ -190,6 +195,41 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
         icon: ArrowRight,
         action: () => onSelectWorkspace(ws.id),
       })),
+      {
+        id: "ai-explain-code",
+        title: "Gemini: Explain Selected Code",
+        category: "AI" as const,
+        icon: Sparkles,
+        action: () => onTriggerAiAction?.("explain_code"),
+      },
+      {
+        id: "ai-suggest-fix",
+        title: "Gemini: Suggest Fix for Current Error",
+        category: "AI" as const,
+        icon: AlertTriangle,
+        action: () => onTriggerAiAction?.("suggest_fix"),
+      },
+      {
+        id: "ai-example-code",
+        title: "Gemini: Generate Example Code",
+        category: "AI" as const,
+        icon: Bot,
+        action: () => onTriggerAiAction?.("example_code"),
+      },
+      {
+        id: "ai-explain-terminal",
+        title: "Gemini: Explain Terminal Output",
+        category: "AI" as const,
+        icon: Terminal,
+        action: () => onTriggerAiAction?.("explain_terminal"),
+      },
+      {
+        id: "ai-ask-selection",
+        title: "Gemini: Ask a Question About Selected Code",
+        category: "AI" as const,
+        icon: Sparkles,
+        action: () => onTriggerAiAction?.("ask_selection"),
+      },
     ],
     [
       onSaveFile,
@@ -203,6 +243,7 @@ export const CommandPalette: React.FC<CommandPaletteProps> = ({
       onChangeFontSize,
       workspaces,
       onSelectWorkspace,
+      onTriggerAiAction,
     ]
   );
 

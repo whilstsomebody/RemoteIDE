@@ -36,7 +36,12 @@ export interface EditorExtensionConfig {
   tabSize?: number;
   readOnly?: boolean;
   onDocChange?: (newDoc: string) => void;
-  onCursorChange?: (line: number, col: number, selectionLength: number) => void;
+  onCursorChange?: (
+    line: number,
+    col: number,
+    selectionLength: number,
+    selectedText?: string
+  ) => void;
   onSave?: () => void;
   onSaveAll?: () => void;
   extraExtensions?: Extension[];
@@ -99,7 +104,9 @@ export function buildEditorExtensions(
       const line = update.state.doc.lineAt(mainSel.head);
       const col = mainSel.head - line.from + 1;
       const selectionLength = Math.abs(mainSel.to - mainSel.from);
-      config.onCursorChange(line.number, col, selectionLength);
+      const selectedText =
+        selectionLength > 0 ? update.state.sliceDoc(mainSel.from, mainSel.to) : undefined;
+      config.onCursorChange(line.number, col, selectionLength, selectedText);
     }
   });
 

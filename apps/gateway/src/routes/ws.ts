@@ -15,6 +15,7 @@ import { authService } from "../services/auth.service.js";
 import { tunnelRelayService } from "../services/tunnel-relay.service.js";
 import { catchupService } from "../services/catchup.service.js";
 import { collabRelayService } from "../services/collab-relay.service.js";
+import { aiAssistantService } from "../services/ai-assistant.service.js";
 
 export const wsRoutes: FastifyPluginAsync = async (fastify) => {
   fastify.get("/api/v1/ws", { websocket: true }, (socket, req) => {
@@ -292,6 +293,78 @@ export const wsRoutes: FastifyPluginAsync = async (fastify) => {
               } catch {
                 // Handled in service
               }
+            }
+            break;
+          }
+
+          case WsMessageType.AI_PROMPT: {
+            const p = msg.payload as any;
+            if (p && p.conversationId && p.prompt) {
+              const stream = aiAssistantService.streamPrompt(
+                p.conversationId,
+                session.userId,
+                p.prompt,
+                p.context,
+                p.model
+              );
+              (async () => {
+                for await (const evt of stream) {
+                  if (evt.type === "chunk") {
+                    socket.send(
+                      JSON.stringify(
+                        createWsMessage(
+                          WsMessageType.AI_STREAM_CHUNK,
+                          {
+                            conversationId: p.conversationId,
+                            messageId: evt.messageId,
+                            chunk: evt.text,
+                          },
+                          { correlationId: msg.id }
+                        )
+                      )
+                    );
+                  } else if (evt.type === "end") {
+                    socket.send(
+                      JSON.stringify(
+                        createWsMessage(
+                          WsMessageType.AI_STREAM_END,
+                          {
+                            conversationId: p.conversationId,
+                            messageId: evt.messageId,
+                            fullContent: evt.text,
+                          },
+                          { correlationId: msg.id }
+                        )
+                      )
+                    );
+                  } else if (evt.type === "error") {
+                    socket.send(
+                      JSON.stringify(
+                        createWsMessage(
+                          WsMessageType.AI_STREAM_ERROR,
+                          {
+                            conversationId: p.conversationId,
+                            messageId: evt.messageId,
+                            error: evt.error,
+                            code: evt.code,
+                          },
+                          { correlationId: msg.id }
+                        )
+                      )
+                    );
+                  }
+                }
+              })().catch((err) => {
+                fastify.log.error({ err }, "Unhandled error in WS AI stream");
+              });
+            }
+            break;
+          }
+
+          case WsMessageType.AI_CANCEL: {
+            const p = msg.payload as any;
+            if (p && p.messageId) {
+              aiAssistantService.abortStream(p.messageId);
             }
             break;
           }

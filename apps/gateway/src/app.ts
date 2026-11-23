@@ -14,6 +14,7 @@ import { proxyRoutes } from "./routes/proxy.js";
 import { syncRoutes } from "./routes/sync.js";
 import { catchupRoutes } from "./routes/catchup.js";
 import { handoffRoutes } from "./routes/handoff.js";
+import { aiRoutes } from "./routes/ai.js";
 import { redisService } from "./services/redis.service.js";
 import { kafkaService } from "./services/kafka.service.js";
 import { outboxService } from "./services/outbox.service.js";
@@ -98,6 +99,7 @@ export async function buildApp(opts: FastifyServerOptions = {}): Promise<Fastify
   await app.register(proxyRoutes);
   await app.register(syncRoutes);
   await app.register(catchupRoutes);
+  await app.register(aiRoutes);
 
   // Background Outbox Worker & Distributed Fan-Out
   outboxService.start(500);

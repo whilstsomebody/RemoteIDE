@@ -47,6 +47,7 @@ import {
   CollabParticipant,
   CollabConflictStatus,
   CollabRole,
+  AiMessageContext,
 } from "@remote-ide/shared";
 import * as Y from "yjs";
 import { getLanguageDefinition } from "../../lib/editor/language-registry";
@@ -112,7 +113,14 @@ export const IdeShell: React.FC = () => {
   }, []);
 
   // 3. Status Bar & Cursor Position
-  const [cursorPos, setCursorPos] = useState({ line: 1, col: 1, selLen: 0 });
+  const [cursorPos, setCursorPos] = useState<{
+    line: number;
+    col: number;
+    selLen: number;
+    selectedText?: string;
+  }>({ line: 1, col: 1, selLen: 0, selectedText: "" });
+  const [aiInitialPrompt, setAiInitialPrompt] = useState<string | undefined>(undefined);
+  const [aiInitialContext, setAiInitialContext] = useState<AiMessageContext | undefined>(undefined);
   const [autosaveStatus, setAutosaveStatus] = useState<"saving" | "saved" | "idle">("idle");
   const [hostMetrics, setHostMetrics] = useState<{
     cpuPercent: number;
@@ -124,6 +132,53 @@ export const IdeShell: React.FC = () => {
   // 4. Bottom Panel & Output Logs
   const [logs, setLogs] = useState<LogEntry[]>([]);
   const [problems, setProblems] = useState<ProblemEntry[]>([]);
+
+  const handleTriggerAiAction = useCallback(
+    (action: string) => {
+      setIsAgentOpen(true);
+      if (action === "explain_code") {
+        setAiInitialPrompt(
+          "Explain this selected code in detail, highlighting purpose, logic, and potential edge cases."
+        );
+        setAiInitialContext({
+          type: "selection",
+          filePath: primaryActiveTab || undefined,
+          startLine: cursorPos.line,
+          codeSnippet: cursorPos.selectedText || undefined,
+        });
+      } else if (action === "suggest_fix") {
+        setAiInitialPrompt("Suggest a fix for the active error or selected code snippet.");
+        setAiInitialContext({
+          type: "fix",
+          filePath: primaryActiveTab || undefined,
+          errorMessage: problems.length > 0 ? problems[0]?.message : undefined,
+          codeSnippet: cursorPos.selectedText || undefined,
+        });
+      } else if (action === "example_code") {
+        setAiInitialPrompt("Generate example code demonstrating standard patterns and usage.");
+        setAiInitialContext({
+          type: "example",
+          filePath: primaryActiveTab || undefined,
+          codeSnippet: cursorPos.selectedText || undefined,
+        });
+      } else if (action === "explain_terminal") {
+        setAiInitialPrompt("Explain this terminal output and suggest next steps.");
+        setAiInitialContext({
+          type: "terminal",
+          terminalOutput: "Terminal session logs and output",
+        });
+      } else if (action === "ask_selection") {
+        setAiInitialPrompt("How does this code work and how can it be optimized?");
+        setAiInitialContext({
+          type: "selection",
+          filePath: primaryActiveTab || undefined,
+          startLine: cursorPos.line,
+          codeSnippet: cursorPos.selectedText || undefined,
+        });
+      }
+    },
+    [cursorPos, primaryActiveTab, problems]
+  );
 
   // 5. Dialogs
   const [conflictPath, setConflictPath] = useState<string | null>(null);
@@ -1475,7 +1530,9 @@ export const IdeShell: React.FC = () => {
                       onSelectTab={(path) => setPrimaryActiveTab(path)}
                       onCloseTab={(path) => closeTab(path, "primary")}
                       onUpdateContent={updateBufferContent}
-                      onCursorChange={(line, col, selLen) => setCursorPos({ line, col, selLen })}
+                      onCursorChange={(line, col, selLen, selectedText) =>
+                        setCursorPos({ line, col, selLen, selectedText })
+                      }
                       onSaveFile={saveFile}
                       onSaveAll={saveAll}
                       showSplitButton={false}
@@ -1633,7 +1690,9 @@ export const IdeShell: React.FC = () => {
                   onSelectTab={(path) => setPrimaryActiveTab(path)}
                   onCloseTab={(path) => closeTab(path, "primary")}
                   onUpdateContent={updateBufferContent}
-                  onCursorChange={(line, col, selLen) => setCursorPos({ line, col, selLen })}
+                  onCursorChange={(line, col, selLen, selectedText) =>
+                    setCursorPos({ line, col, selLen, selectedText })
+                  }
                   onSaveFile={saveFile}
                   onSaveAll={saveAll}
                   showSplitButton={false}
@@ -1767,8 +1826,8 @@ export const IdeShell: React.FC = () => {
                 onSelectTab={(path) => setPrimaryActiveTab(path)}
                 onCloseTab={(path) => closeTab(path, "primary")}
                 onUpdateContent={updateBufferContent}
-                onCursorChange={(line, col, selLen) => {
-                  setCursorPos({ line, col, selLen });
+                onCursorChange={(line, col, selLen, selectedText) => {
+                  setCursorPos({ line, col, selLen, selectedText });
                   collabClientRef.current?.updateCursor(line, col, selLen);
                 }}
                 onSaveFile={saveFile}
@@ -1858,16 +1917,24 @@ export const IdeShell: React.FC = () => {
           />
         </div>
 
-        {/* Coding Agent Sidebar (VS Code style right panel) */}
+        {/* Gemini-Powered Read-Only AI Assistant Sidebar */}
         <AgentPanel
           isOpen={isAgentOpen}
           onClose={() => setIsAgentOpen(false)}
           width={agentWidth}
           onWidthChange={setAgentWidth}
-          activeFilePath={primaryActiveTab}
-          cursorLine={cursorPos.line}
+          workspaceId={activeWorkspace ? activeWorkspace.id : "default"}
           workspaceName={activeWorkspace ? activeWorkspace.name : "RemoteIDE"}
           hostName={hostName}
+          gatewayUrl={GATEWAY_URL}
+          token={typeof window !== "undefined" ? localStorage.getItem("remote_ide_token") || undefined : undefined}
+          activeFilePath={primaryActiveTab}
+          cursorLine={cursorPos.line}
+          selectedText={cursorPos.selectedText}
+          activeError={problems.length > 0 ? problems[0]?.message : undefined}
+          activeTerminalOutput={undefined}
+          initialPrompt={aiInitialPrompt}
+          initialContext={aiInitialContext}
         />
       </div>
 
@@ -1917,6 +1984,7 @@ export const IdeShell: React.FC = () => {
           const name = prompt("Enter new folder path:");
           if (name) void handleCreateItem("", name, "directory");
         }}
+        onTriggerAiAction={handleTriggerAiAction}
       />
 
       {/* Concurrency Conflict Dialog */}

@@ -29,7 +29,12 @@ export interface CodeEditorProps {
   wordWrap?: boolean;
   readOnly?: boolean;
   onChange?: (newDoc: string) => void;
-  onCursorChange?: (line: number, col: number, selectionLength: number) => void;
+  onCursorChange?: (
+    line: number,
+    col: number,
+    selectionLength: number,
+    selectedText?: string
+  ) => void;
   onSave?: () => void;
   onSaveAll?: () => void;
   gatewayUrl?: string;
@@ -184,8 +189,8 @@ export const CodeEditor: React.FC<CodeEditorProps> = ({
         tabSize,
         readOnly,
         onDocChange: (newDoc) => callbacksRef.current.onChange?.(newDoc),
-        onCursorChange: (line, col, selLen) =>
-          callbacksRef.current.onCursorChange?.(line, col, selLen),
+        onCursorChange: (line, col, selLen, selText) =>
+          callbacksRef.current.onCursorChange?.(line, col, selLen, selText),
         onSave: () => callbacksRef.current.onSave?.(),
         onSaveAll: () => callbacksRef.current.onSaveAll?.(),
         extraExtensions: [...lspExtensions, lspKeymaps, ...collabExtensions],

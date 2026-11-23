@@ -68,6 +68,15 @@ export enum WsMessageType {
   COLLAB_COMMENT_LIST = "collab:comment_list",
   COLLAB_PROPOSAL_ADD = "collab:proposal_add",
   COLLAB_PROPOSAL_ACTION = "collab:proposal_action",
+
+  // Gemini AI Assistant (Phase 12)
+  AI_PROMPT = "ai:prompt",
+  AI_STREAM_START = "ai:stream_start",
+  AI_STREAM_CHUNK = "ai:stream_chunk",
+  AI_STREAM_END = "ai:stream_end",
+  AI_STREAM_ERROR = "ai:stream_error",
+  AI_CANCEL = "ai:cancel",
+  AI_CONVERSATION_SYNC = "ai:conversation_sync",
 }
 
 export const WsBaseEnvelopeSchema = z.object({

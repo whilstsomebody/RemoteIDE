@@ -76,3 +76,68 @@ export function sha256Sync(input: string): string {
     return [h0, h1, h2, h3].map((h) => (h >>> 0).toString(16).padStart(8, "0")).join("");
   }
 }
+
+/**
+ * Encrypts sensitive secrets (such as user-provided API keys) using AES-256-GCM.
+ */
+export function encryptSecret(plainText: string, masterKey?: string): string {
+  if (!plainText) return "";
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodeCrypto = require("crypto");
+    const rawKey =
+      masterKey ||
+      process.env.ENCRYPTION_KEY ||
+      process.env.SESSION_SECRET ||
+      "remote-ide-default-vault-key-32b";
+    const key = nodeCrypto.createHash("sha256").update(rawKey).digest(); // exactly 32 bytes
+    const iv = nodeCrypto.randomBytes(12); // 12-byte IV standard for GCM
+    const cipher = nodeCrypto.createCipheriv("aes-256-gcm", key, iv);
+    let encrypted = cipher.update(plainText, "utf8", "hex");
+    encrypted += cipher.final("hex");
+    const authTag = cipher.getAuthTag().toString("hex");
+    return `enc_gcm_v1:${iv.toString("hex")}:${authTag}:${encrypted}`;
+  } catch {
+    // Fallback base64 encoding for testing environments without Node crypto
+    return `enc_plain_v1:${Buffer.from(plainText, "utf8").toString("base64")}`;
+  }
+}
+
+/**
+ * Decrypts sensitive secrets using AES-256-GCM.
+ */
+export function decryptSecret(cipherText: string, masterKey?: string): string {
+  if (!cipherText) return "";
+  if (cipherText.startsWith("enc_plain_v1:")) {
+    const b64 = cipherText.slice("enc_plain_v1:".length);
+    return Buffer.from(b64, "base64").toString("utf8");
+  }
+  if (!cipherText.startsWith("enc_gcm_v1:")) {
+    return cipherText;
+  }
+  try {
+    // eslint-disable-next-line @typescript-eslint/no-require-imports
+    const nodeCrypto = require("crypto");
+    const parts = cipherText.split(":");
+    if (parts.length !== 4) return cipherText;
+    const ivHex = parts[1];
+    const authTagHex = parts[2];
+    const encryptedHex = parts[3];
+    if (!ivHex || !authTagHex || !encryptedHex) return cipherText;
+    const rawKey =
+      masterKey ||
+      process.env.ENCRYPTION_KEY ||
+      process.env.SESSION_SECRET ||
+      "remote-ide-default-vault-key-32b";
+    const key = nodeCrypto.createHash("sha256").update(rawKey).digest();
+    const iv = Buffer.from(ivHex, "hex");
+    const authTag = Buffer.from(authTagHex, "hex");
+    const decipher = nodeCrypto.createDecipheriv("aes-256-gcm", key, iv);
+    decipher.setAuthTag(authTag);
+    let decrypted = decipher.update(encryptedHex, "hex", "utf8");
+    decrypted += decipher.final("utf8");
+    return decrypted;
+  } catch {
+    return "";
+  }
+}

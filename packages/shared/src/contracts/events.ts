@@ -48,6 +48,12 @@ export enum DomainEventType {
   COLLAB_EXTERNAL_CONFLICT = "remoteide.collab.external_conflict",
   COLLAB_CONFLICT_RESOLVED = "remoteide.collab.conflict_resolved",
   COLLAB_COMMENT_ADDED = "remoteide.collab.comment_added",
+
+  // Gemini AI Assistant milestones (Phase 12)
+  AI_CHAT_CREATED = "remoteide.ai.chat_created",
+  AI_MESSAGE_COMPLETED = "remoteide.ai.message_completed",
+  AI_CHAT_RENAMED = "remoteide.ai.chat_renamed",
+  AI_CHAT_DELETED = "remoteide.ai.chat_deleted",
 }
 
 export function createEventEnvelope<T>(

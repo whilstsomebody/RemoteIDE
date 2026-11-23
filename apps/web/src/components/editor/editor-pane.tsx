@@ -49,7 +49,12 @@ export interface EditorPaneProps {
   onSelectTab: (path: string) => void;
   onCloseTab: (path: string) => void;
   onUpdateContent: (path: string, content: string) => void;
-  onCursorChange?: (line: number, col: number, selLen: number) => void;
+  onCursorChange?: (
+    line: number,
+    col: number,
+    selLen: number,
+    selectedText?: string
+  ) => void;
   onSaveFile: (path: string) => void;
   onSaveAll: () => void;
   onSplitEditor?: () => void;
